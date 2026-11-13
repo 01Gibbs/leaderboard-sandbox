@@ -20,7 +20,7 @@ Pick the lowest level that decides "correct" honestly. Every level counts any pu
 | `tests` | our tests pass against the submission | nothing, when the exercise repository ships the tests a participant must make pass: `python3 grader/leaderboard.py pin-tests <key>` copies them into `grader/fixtures/<key>/` and records `tests_commit`. Otherwise, test files in `grader/fixtures/<key>/`, at the same paths as in the project (they overwrite the submission's copies) |
 | custom | anything else: calling the running app, inspecting a Dockerfile, planted-bug tests | a module `grader/checks/<key>.py` |
 
-The existing custom checks in `grader/checks/` (`rest_api.py`, `framework_upgrade.py`, `container_image.py`, `fizzbuzz.py`) are the patterns to copy, built from `grader/checks/toolkit.py` (`gradle_project`, `gradle`, `overlay`, `employee_api_checks`, and `RunningApp` with its `Jar` and `Container` adapters for calling a running app). Participant code runs only through the workspace (`ws.run`, `ws.start`), which handles the CI sandbox and clean-up.
+The existing custom checks in `grader/checks/` (`rest_api.py`, `framework_upgrade.py`, `container_image.py`, `fizzbuzz.py`) are the patterns to copy, built from `grader/checks/toolkit.py` (`gradle_project`, `gradle`, `overlay`, `employee_api_checks`, and `RunningApp` with its `Jar` and `Container` adapters for calling a running app). Participant code runs only through the workspace (`ws.run`, `ws.start`), which handles the CI sandbox and clean-up; the one exception is a container image, which `Container` runs with Docker. A test (`grader/tests/test_boundaries.py`) fails if a check starts processes any other way, or imports grader modules other than its toolkit.
 
 ## Steps
 
