@@ -405,53 +405,5 @@
         }
       }
     ]
-  },
-  {
-    "at": "2026-11-13T15:07:48+00:00",
-    "by": "01Gibbs",
-    "action": "Merged Zz Probe Dup into Zz Probe Renamed",
-    "changes": [
-      {
-        "before": {
-          "name": "Zz Probe Renamed",
-          "github_username": "None",
-          "fizzbuzz": "correct",
-          "rest_api": "",
-          "framework_upgrade": "",
-          "stretch": "",
-          "pr_stretch": "",
-          "helped": "",
-          "container_image": "",
-          "bonus": "5"
-        },
-        "after": {
-          "name": "Zz Probe Renamed",
-          "github_username": "None zz-probe-dup",
-          "fizzbuzz": "correct",
-          "rest_api": "",
-          "framework_upgrade": "",
-          "stretch": "",
-          "pr_stretch": "",
-          "helped": "2",
-          "container_image": "",
-          "bonus": "5"
-        }
-      },
-      {
-        "before": {
-          "name": "Zz Probe Dup",
-          "github_username": "zz-probe-dup",
-          "fizzbuzz": "",
-          "rest_api": "",
-          "framework_upgrade": "",
-          "stretch": "",
-          "pr_stretch": "",
-          "helped": "2",
-          "container_image": "",
-          "bonus": ""
-        },
-        "after": null
-      }
-    ]
   }
 ]
