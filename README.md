@@ -55,7 +55,7 @@ The current custom checks:
 - **Framework upgrade:** checks for Spring Boot 3.5.x, no `javax.*` imports, the removed properties gone, and `commons-text` 1.10 or newer. The original tests must pass, and the API must behave as before.
 - **Container image:** requires an approved, pinned `eclipse-temurin` 21/25 image, a multi-stage build with a JRE runtime, a non-root user and a `.dockerignore`. It then builds and runs the image and calls the API.
 
-**Adding a lesson:** add the entry to `lessons.json` with `"check": "none"`. If the exercise repository ships the tests participants must make pass, run `python3 grader/leaderboard.py pin-tests <key>` to grade with them. Custom checks are written and tested in the development repository, which keeps the grader's tests and the `add-lesson` Claude Code skill.
+**Adding a lesson with Claude:** in this repository, ask Claude Code to *"add the lesson in owner/repo to the leaderboard"*. The `add-lesson` skill (`.claude/skills/add-lesson`) walks through choosing the level, writing and testing the check, and recording existing submissions. To add one by hand, add the entry to `lessons.json` with `"check": "none"`, then raise the level later.
 
 ## For maintainers
 - **Code:** Python 3 standard library only, in `grader/`, plus `scoring.js` at the top:
@@ -68,8 +68,8 @@ The current custom checks:
   - `executor.py`: the only way participant code runs: a clean environment, timeouts, clean-up, and the CI sandbox user.
   - `checks/`: one module per check (`build`, `tests`, and one per custom check), built from `checks/toolkit.py`: Gradle, the executor, and a `RunningApp` (a jar or a container). Editing a check's module regrades only the lessons that use it; editing the toolkit regrades them all.
   - `leaderboard.py`: the single command line, the same commands the forms run.
-- **Tests:** the grader's tests live in the development repository, not in this published copy. Change the grader there and copy the result here.
+- **Tests:** `python3 -m unittest discover grader/tests`. They run in CI on every change (*Test the grader*), including the workflow simulation in `grader/tests/simulate_workflows.py`, which runs every workflow's shell steps against a scratch repository. The check tests need a JDK and network access, and the container test needs Docker; each skips itself without them.
 - **Security:** pull-request code runs only in the grading job, which has a read-only token. Within that job it runs as a separate `grader-sandbox` user that cannot write to the grader or its results, and everything it started is killed after each check. Saving results happens in a separate job. Run `leaderboard.py grade` locally only with `--no-run`, because without it the grader builds and runs code from the pull requests.
-- **Walkthrough:** `walkthrough.py` serves this folder on 127.0.0.1 and opens `walkthrough/`, showing made-up example people (generated from `lessons.json`) unless run with `--real`. The words are in `walkthrough/steps.js`; it points at the leaderboard only through `data-tour="..."` attributes in `index.html`.
-- **Preview locally:** run `python3 walkthrough.py` to see the page with made-up example people (or `--real` for the real scores); `python3 -m http.server 8000` serves the plain page.
+- **Walkthrough:** `walkthrough.py` serves this folder on 127.0.0.1 and opens `walkthrough/`, showing made-up example people (generated from `lessons.json`) unless run with `--real`. The words are in `walkthrough/steps.js`; it points at the leaderboard only through `data-tour="..."` attributes in `index.html`, and a test fails if one goes missing.
+- **Preview locally:** run `python3 walkthrough.py` to see the page with made-up example people (or `--real` for the real scores); `python3 -m http.server 8000` (or `start.bat` on Windows) serves the plain page.
 - **After merging changes to a check:** the next grading run re-grades every submission whose lesson's version changed (its check, the shared grader code, or its test files). The first run after this branch merges re-grades everything once, since older results have no per-lesson version.

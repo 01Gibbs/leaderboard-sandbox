@@ -256,7 +256,8 @@ export function steps(ctx) {
         </table>
         <p class="hint">Estimates, not measurements: nothing has been timed on a real workshop yet.</p>`,
       text: `<p>For a two-day workshop, start with <b>marked by a facilitator</b> and automate later if it is worth it.</p>
-        <p>To add one, add it to ${fileLink(ctx, 'lessons.json')}. If its repo ships the tests to make pass, <code>python3 grader/leaderboard.py pin-tests &lt;key&gt;</code> grades with them.</p>`,
+        <p>To add one, ask Claude Code in this repo to <i>“add the lesson in owner/repo to the leaderboard”</i>. Its add-lesson skill walks through it.</p>
+        <p>The grader does not read PROBLEM_STATEMENT.md today. A planned improvement would draft the checks from it (an estimated 30–45 minutes per lesson): ${fileLink(ctx, 'docs/research/adding-lessons.md', 'the research')}.</p>`,
     },
     {
       chapter: 'Workshop repos',
@@ -266,7 +267,7 @@ export function steps(ctx) {
         <div class="cards">
           <div class="card"><b>Facilitators</b><span>keep ${fileLink(ctx, 'FACILITATOR.md')} open during the workshop</span></div>
           <div class="card"><b>Project leads</b><span>one-time setup is in ${fileLink(ctx, 'README.md')}</span></div>
-          <div class="card"><b>Maintainers</b><span>grader notes are in ${fileLink(ctx, 'README.md')}</span></div>
+          <div class="card"><b>Maintainers</b><span>run <code>python3 -m unittest discover grader/tests</code></span></div>
         </div>
         <p class="hint">Close this tab and press <kbd>Ctrl</kbd>+<kbd>C</kbd> in the terminal to stop.</p>`,
       text: '<p>Run <code>python3 walkthrough.py</code> again any time.</p>',

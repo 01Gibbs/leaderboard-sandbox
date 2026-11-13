@@ -3,7 +3,7 @@
 The RULES block in scoring.js (points, status words, columns, delimiters) is the single copy. parse_csv,
 norm_header, norm_status, to_int, read_participants and points are ports of scoring.js's functions of the same
 names (read_participants always takes the lesson keys; only the page needs to guess them from the columns).
-The development repository's tests run both on the same files to prove they agree.
+grader/tests/test_rules.py runs both on the same files to prove they agree.
 """
 import json
 import re
