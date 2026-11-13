@@ -229,5 +229,38 @@
         }
       }
     ]
+  },
+  {
+    "at": "2026-11-13T15:55:34+00:00",
+    "by": "01Gibbs",
+    "action": "Gave 1 bonus point to Stuart Smith (bonus: 0 -> 1)",
+    "changes": [
+      {
+        "before": {
+          "name": "Stuart Smith",
+          "github_username": "StuartJSmith10-dev",
+          "fizzbuzz": "Correct",
+          "rest_api": "none",
+          "framework_upgrade": "submitted",
+          "stretch": "1",
+          "pr_stretch": "1",
+          "helped": "1",
+          "container_image": "",
+          "bonus": ""
+        },
+        "after": {
+          "name": "Stuart Smith",
+          "github_username": "StuartJSmith10-dev",
+          "fizzbuzz": "Correct",
+          "rest_api": "none",
+          "framework_upgrade": "submitted",
+          "stretch": "1",
+          "pr_stretch": "1",
+          "helped": "1",
+          "container_image": "",
+          "bonus": "1"
+        }
+      }
+    ]
   }
 ]
