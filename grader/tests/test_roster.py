@@ -386,6 +386,37 @@ class FileFormatTests(Sandbox):
         self.cli('add', 'Rao, Asha "AR"')
         self.assertEqual(self.row('Rao, Asha "AR"')['name'], 'Rao, Asha "AR"')
 
+    def test_saving_writes_one_spelling_for_each_value(self):
+        (self.dir / 'participants.csv').write_text(
+            'name,github_username,fizzbuzz,rest_api,manual,stretch,helped,bonus,pr_stretch\n'
+            'Stuart Smith,StuartJSmith10-dev,Correct,In Review,none,0, 2 ,-1,0\n'
+            'Bukky Adeyemi,,PASS,,,,,,\n')
+        self.cli('award', 'Bukky Adeyemi', 'helped')
+        self.assertEqual(self.csv_text().splitlines()[1:], ['Stuart Smith,StuartJSmith10-dev,correct,submitted,,,2,-1,',
+                                                            'Bukky Adeyemi,,correct,,,,1,,'])
+
+    def test_the_real_file_keeps_its_scores_when_written_in_canonical_form(self):
+        real = (GRADER.parent / 'participants.csv').read_text(encoding='utf-8')
+        (self.dir / 'participants.csv').write_text(real, encoding='utf-8')
+        (self.dir / 'lessons.json').write_text((GRADER.parent / 'lessons.json').read_text())
+        keys = self.roster().lesson_keys()
+        sheet = roster._Sheet(self.dir / 'participants.csv', keys)
+        sheet.save()
+        once = self.csv_text()
+        self.assertEqual(rules.read_participants(once, keys), rules.read_participants(real, keys))
+        roster._Sheet(self.dir / 'participants.csv', keys).save()
+        self.assertEqual(self.csv_text(), once)
+
+    def test_undo_matches_history_written_before_the_canonical_form(self):
+        self.cli('award', 'Stuart Smith', 'stretch')
+        history = json.loads((self.dir / 'grader' / 'history.json').read_text())
+        for side in ('before', 'after'):
+            history[-1]['changes'][0][side]['fizzbuzz'] = 'Correct'  # how older entries spelled it
+        (self.dir / 'grader' / 'history.json').write_text(json.dumps(history))
+        code, out, _ = self.cli('undo')
+        self.assertNotIn('changed again', out)
+        self.assertEqual(self.row('Stuart Smith')['stretch'], '1')
+
     def test_messy_whitespace_from_hand_edits_is_read(self):
         (self.dir / 'participants.csv').write_text('name,github,fizzbuzz\nStuart Smith,\tStuartJSmith10-dev ,\t correct\n')
         self.assertEqual(self.row('stuartjsmith10-dev')['fizzbuzz'], 'correct')

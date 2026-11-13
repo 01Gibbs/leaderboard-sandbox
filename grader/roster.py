@@ -61,15 +61,26 @@ class _Sheet:
         self.path = path
         self.head = [norm_header(h) for h in table[0]] if table else []
         self.head += [c for c in columns if c not in self.head]
-        self.rows = [{h: (r[i].strip() if i < len(r) else '') for i, h in enumerate(self.head)} for r in table[1:]]
+        self.rows = [{h: self.canon(h, r[i] if i < len(r) else '') for i, h in enumerate(self.head)} for r in table[1:]]
         self.loaded = {id(r): dict(r) for r in self.rows}  # to work out which cells an action changed
+
+    def canon(self, column, value):
+        """The one way each value is written: lesson cells as `correct`, `submitted` or blank, counts as a whole
+        number or blank for 0. The page reads every other spelling the same way, so this never changes a score."""
+        value = (value or '').strip()
+        if column in self.lesson_keys:
+            status = norm_status(value)
+            return '' if status == 'none' else status
+        if column in COUNTS or column in GENERATED:
+            return str(to_int(value) or '')
+        return value
 
     def save(self):
         buf = io.StringIO()
         w = csv.writer(buf, delimiter=self.delim, lineterminator='\n')
         w.writerow(self.head)
         for r in self.rows:
-            w.writerow([r.get(h, '') for h in self.head])
+            w.writerow([self.canon(h, r.get(h, '')) for h in self.head])
         self.path.write_text((BOM if self.bom else '') + buf.getvalue(), encoding='utf-8')
 
     def changes(self):
@@ -266,7 +277,7 @@ class Roster:
         for c in sorted(last['changes'], key=lambda c: c['before'] is not None and c['after'] is None):
             before, after = c['before'], c['after']
             if after is None:  # the action removed this row (a merge): put it back
-                sheet.rows.append(dict(before))
+                sheet.rows.append({h: sheet.canon(h, v) for h, v in before.items()})
                 continue
             current = sheet.locate(after)
             if current is None:
@@ -276,9 +287,11 @@ class Roster:
                 sheet.rows.remove(current)
                 continue
             for col, old in before.items():
-                if after.get(col) == old:
+                # History may be older than the canonical form, so compare values the way they are now written.
+                old, new = sheet.canon(col, old), sheet.canon(col, after.get(col, ''))
+                if new == old:
                     continue
-                if current.get(col, '') == after.get(col, ''):
+                if current.get(col, '') == new:
                     current[col] = old
                 else:
                     kept.append(f'{current["name"]}\'s {col} was changed again since, so it stays {current.get(col) or "empty"}')
@@ -313,8 +326,8 @@ class Roster:
         for row in sheet.rows:
             if logins(row):
                 earned = sum(early.get(l.lower(), 0) for l in logins(row))
-                if to_int(row.get(column)) != earned:  # "" and "0" both mean none: leave whichever is there
+                if to_int(row.get(column)) != earned:
                     changes.append(f'{row["name"]}: {column} -> {earned}')
-                    row[column] = str(earned) if earned else ''
+                    row[column] = str(earned)
         sheet.save()
         return changes, warnings
