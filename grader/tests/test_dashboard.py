@@ -29,5 +29,12 @@ class WorkshopTests(unittest.TestCase):
             self.assertNotRegex(e, r'\bWorkshop\d', e)
 
 
+class PublishedFilesTests(unittest.TestCase):
+    def test_pages_publishes_every_file_the_page_loads_and_nothing_else(self):
+        loaded = set(re.findall(r'<script src="([^":]+)"', PAGE)) | set(re.findall(r"_FILE = '([^']+)'", PAGE))
+        copy = re.search(r'cp (.+) _site/', (REPO / '.github' / 'workflows' / 'pages.yml').read_text()).group(1)
+        self.assertEqual(set(copy.split()), loaded | {'index.html'})
+
+
 if __name__ == '__main__':
     unittest.main()
