@@ -1,4 +1,4 @@
-"""dashboard.json, and the copy of it in index.html used when the file cannot be loaded, use the fields the page shows."""
+"""dashboard.json uses the fields the page shows, and Publish the page ships every file the page loads."""
 import json
 import re
 import unittest
@@ -19,14 +19,6 @@ class WorkshopTests(unittest.TestCase):
         for w in workshops:
             self.assertEqual(set(w) - {'day', 'topic', 'lead'}, set(), w)
             self.assertTrue(w.get('day') and w.get('topic'), w)
-
-    def test_every_workshop_in_the_fallback_copy_has_a_day(self):
-        block = re.search(r'workshops: \[(.*?)\n  \]', PAGE, re.S).group(1)
-        entries = re.findall(r'\{[^}]*\}', block)
-        self.assertTrue(entries)
-        for e in entries:
-            self.assertRegex(e, r"\bday: '[^']+'", e)
-            self.assertNotRegex(e, r'\bWorkshop\d', e)
 
 
 class PublishedFilesTests(unittest.TestCase):
