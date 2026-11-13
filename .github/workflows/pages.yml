@@ -1,5 +1,5 @@
-# Publishes the page. Runs on every push to main, and is called directly by the workflows that change the
-# scores, because GitHub does not start workflows for pushes those workflows make themselves.
+# Publishes the page. Runs on every push to main, including the grader's and the facilitator forms' saves,
+# which push with the LEADERBOARD_DEPLOY_KEY deploy key (pushes made with the default token start no workflows).
 # Needs Settings -> Pages -> Source: GitHub Actions.
 name: Publish the page
 

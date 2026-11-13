@@ -1,4 +1,4 @@
-# Shared by the "Facilitator: ..." workflows. Runs one leaderboard command, saves it, and republishes the page.
+# Shared by the "Facilitator: ..." workflows. Runs one leaderboard command and saves it; the push republishes the page.
 # Inputs arrive as a JSON array and go straight to Python, so nothing typed in a form is run by a shell.
 name: Facilitator action
 
@@ -8,6 +8,9 @@ on:
       args:
         required: true
         type: string
+    secrets:
+      LEADERBOARD_DEPLOY_KEY:
+        required: true
 
 defaults:
   run:
@@ -20,6 +23,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.LEADERBOARD_DEPLOY_KEY }}  # main requires a pull request; only this key may push to it
       - name: Change the leaderboard
         env:
           ARGS: ${{ inputs.args }}
@@ -29,11 +34,3 @@ jobs:
         run: |
           { echo '#### Recent actions (newest first)'; echo '```'; python3 grader/leaderboard.py history 5; echo '```'
             echo 'The public page updates a minute or two after this run finishes.'; } >> "$GITHUB_STEP_SUMMARY"
-
-  publish-page:
-    needs: change
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    uses: ./.github/workflows/pages.yml
