@@ -9,7 +9,6 @@ Pull requests come from a source: GitHub in production, an in-memory one in test
 """
 import json
 import os
-import subprocess
 import traceback
 import urllib.error
 import urllib.request
@@ -63,11 +62,7 @@ class GitHub:
         return self.api(f'/users/{login}').get('name') or login
 
     def checkout(self, repo, number, dest):
-        for args in (['init', '-q'], ['fetch', '-q', '--depth', '1', f'https://github.com/{repo}.git', f'pull/{number}/head'],
-                     ['checkout', '-q', 'FETCH_HEAD']):
-            code, out = executor.host_run(['git', *args], cwd=dest, timeout=600)
-            if code:
-                raise subprocess.CalledProcessError(code, ['git', *args], out)
+        executor.fetch(f'https://github.com/{repo}.git', f'pull/{number}/head', dest)
 
 
 def grade_submission(lesson, source, pr, adapter=None):

@@ -5,7 +5,8 @@ a generic level cannot do, such as calling the running app.
 
 Each check is check(ws, lesson) -> (passed, reasons), or raises CheckFailed with a reason the participant can
 act on. `ws` is an executor.Workspace holding the checked-out pull request at ws.path; participant code runs
-only through ws.run and ws.start. A check never trusts the participant's own tests: it runs ours, or calls
+only through ws.run and ws.start, except that the container check builds and runs the participant's image with
+Docker (see executor.host_run; tests/test_boundaries.py keeps it to that check). A check never trusts the participant's own tests: it runs ours, or calls
 the running application over HTTP.
 
 A lesson's version (lessons.Lesson.version) covers its check's module and the SHARED modules, so editing one

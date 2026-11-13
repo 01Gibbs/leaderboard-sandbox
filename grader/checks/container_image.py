@@ -2,9 +2,7 @@
 multi-stage, non-root, .dockerignore), and the image builds and serves the API. Needs Docker on the grader."""
 import re
 
-from executor import host_run
-
-from .toolkit import CheckFailed, Container, RunningApp, employee_api_checks, expect, find_project, http, tail
+from .toolkit import CheckFailed, Container, RunningApp, employee_api_checks, expect, find_project, host_run, http, tail
 
 APPROVED_TAG = re.compile(r'(21|25)([.\d_+]*)-(jre|jdk)(-[a-z0-9.]+)?')
 

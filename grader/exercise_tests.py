@@ -76,8 +76,7 @@ def _swap(new, dest, old):
 
 
 def _fetch(url, ref, dest):
-    for args in (['init', '-q'], ['fetch', '-q', '--depth', '1', url, ref], ['checkout', '-q', 'FETCH_HEAD'], ['rev-parse', 'HEAD']):
-        code, out = executor.host_run(['git', *args], cwd=dest, timeout=600)
-        if code:
-            raise PinFailed(f'Could not fetch {ref} from {url}: {out.strip()}')
-    return out.strip()
+    try:
+        return executor.fetch(url, ref, dest)
+    except RuntimeError as e:
+        raise PinFailed(f'Could not fetch {ref} from {url}: {e}') from None
