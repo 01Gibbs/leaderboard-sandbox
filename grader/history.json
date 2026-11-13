@@ -306,5 +306,38 @@
         }
       }
     ]
+  },
+  {
+    "at": "2026-11-13T16:15:30+00:00",
+    "by": "01Gibbs",
+    "action": "Renamed Zz Journey to Zz Journey Renamed",
+    "changes": [
+      {
+        "before": {
+          "name": "Zz Journey",
+          "github_username": "",
+          "fizzbuzz": "",
+          "rest_api": "",
+          "framework_upgrade": "",
+          "stretch": "",
+          "pr_stretch": "",
+          "helped": "",
+          "container_image": "",
+          "bonus": ""
+        },
+        "after": {
+          "name": "Zz Journey Renamed",
+          "github_username": "",
+          "fizzbuzz": "",
+          "rest_api": "",
+          "framework_upgrade": "",
+          "stretch": "",
+          "pr_stretch": "",
+          "helped": "",
+          "container_image": "",
+          "bonus": ""
+        }
+      }
+    ]
   }
 ]
