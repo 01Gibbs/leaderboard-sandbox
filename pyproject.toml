@@ -1,0 +1,9 @@
+# Settings for `ruff check grader walkthrough.py` (Test the grader runs it; so does .githooks/pre-commit).
+# The grader itself needs only Python's standard library; ruff is a development tool.
+[tool.ruff]
+target-version = "py312"
+line-length = 130
+
+[tool.ruff.lint]
+select = ["F", "B", "E9"]  # mistakes, not style: unused or undefined names, likely bugs, syntax errors
+ignore = ["B905"]          # zip() without strict=

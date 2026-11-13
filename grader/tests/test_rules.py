@@ -4,7 +4,6 @@ Run: python3 -m unittest discover grader/tests
 The parity tests run the page's own scoring.js in Node.js (tests/page.py); they skip when Node is not installed.
 """
 import json
-import re
 import subprocess
 import sys
 import unittest

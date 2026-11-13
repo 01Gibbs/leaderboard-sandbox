@@ -28,6 +28,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0; the parity tests run scoring.js
         with:
           node-version: '22'
+      - name: Lint (pyproject.toml)
+        run: pipx run ruff==0.14.0 check grader walkthrough.py
       - name: Run the fast tests
         env:
           GRADER_FAST: '1'

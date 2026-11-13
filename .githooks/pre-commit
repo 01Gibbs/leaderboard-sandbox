@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Lints and runs the fast tests before each commit (about 40 seconds). Turn it on once per clone:
+#   git config core.hooksPath .githooks
+# Skip it for one commit with --no-verify; Test the grader still runs everything on the pull request.
+set -euo pipefail
+if command -v uvx >/dev/null; then
+  uvx ruff@0.14.0 check grader walkthrough.py
+elif command -v pipx >/dev/null; then
+  pipx run ruff==0.14.0 check grader walkthrough.py
+else
+  echo 'pre-commit: install uv or pipx to lint with ruff; skipping lint' >&2
+fi
+GRADER_FAST=1 python3 -m unittest discover grader/tests

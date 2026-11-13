@@ -206,7 +206,7 @@ class GradleCheckTests(unittest.TestCase):
 class FizzBuzzSetupTests(unittest.TestCase):
     def test_every_planted_bug_still_applies_to_the_reference_fizzbuzz(self):
         reference = (lessons.FIXTURES / 'fizzbuzz' / 'FizzBuzz.java').read_text()
-        for label, old, new in fizzbuzz.MUTANTS:
+        for label, old, _new in fizzbuzz.MUTANTS:
             self.assertEqual(reference.count(old), 1, f'planted bug "{label}": "{old}" must appear once in FizzBuzz.java')
 
 
