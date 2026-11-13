@@ -9,7 +9,6 @@ Pull requests come from a source: GitHub in production, an in-memory one in test
 """
 import json
 import os
-import subprocess
 import traceback
 import urllib.error
 import urllib.request
@@ -63,11 +62,7 @@ class GitHub:
         return self.api(f'/users/{login}').get('name') or login
 
     def checkout(self, repo, number, dest):
-        for args in (['init', '-q'], ['fetch', '-q', '--depth', '1', f'https://github.com/{repo}.git', f'pull/{number}/head'],
-                     ['checkout', '-q', 'FETCH_HEAD']):
-            code, out = executor.host_run(['git', *args], cwd=dest, timeout=600)
-            if code:
-                raise subprocess.CalledProcessError(code, ['git', *args], out)
+        executor.fetch(f'https://github.com/{repo}.git', f'pull/{number}/head', dest)
 
 
 def grade_submission(lesson, source, pr, adapter=None):
@@ -91,7 +86,8 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
     root = Path(root)
     source = source or GitHub()
     subs = submissions.Submissions(root)
-    for lesson in lessons.load(root / 'lessons.json', fixtures=root / 'grader' / 'fixtures'):
+    unreachable = set()  # logins whose profile could not be read this run
+    for lesson in lessons.load(root):
         try:
             prs = source.pull_requests(lesson.repo)
         except (urllib.error.URLError, OSError) as e:  # rate limit, outage, renamed repo: try again next run
@@ -101,11 +97,11 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
             name = submissions.key(lesson, pr)
             if only and name != only:
                 continue
-            if pr.login not in subs.names:
+            if pr.login not in subs.names and pr.login not in unreachable:  # never looked up, or the last try failed
                 try:
                     subs.names[pr.login] = source.display_name(pr.login)
                 except (urllib.error.URLError, OSError):
-                    subs.names[pr.login] = pr.login
+                    unreachable.add(pr.login)  # shown by login for now; asked again next run
             if no_run or not subs.needs_grading(lesson, pr):
                 subs.record(lesson, pr)
                 continue

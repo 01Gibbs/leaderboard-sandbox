@@ -9,11 +9,10 @@ on:
         description: 'Name to show on the leaderboard'
         required: true
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read  # the deploy key, not the token, saves the change
 jobs:
   run:
     uses: ./.github/workflows/facilitator-action.yml
+    secrets: inherit
     with:
       args: '["rename", ${{ toJSON(inputs.person) }}, ${{ toJSON(inputs.new_name) }}]'

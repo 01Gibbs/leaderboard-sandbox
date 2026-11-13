@@ -5,7 +5,6 @@ the exercise repository, into the lesson's test files (grader/fixtures/<key>/), 
 `tests` level. Every submission is then graded with those copies, so a participant editing the tests does not
 help, and a later change to the exercise repository regrades nobody until someone pins again.
 """
-import json
 import os
 import re
 import shutil
@@ -23,14 +22,14 @@ class PinFailed(Exception):
     pass
 
 
-def pin(lessons_file, fixtures, key, commit=None, url=None):
+def pin(root, key, commit=None, url=None):
     """Copy the tests of lesson `key`'s repository at `commit` (a full commit id; default: its latest commit)
-    into fixtures/<key>/ and record the commit in lessons.json. Returns the commit pinned. On failure nothing
-    is changed."""
+    into the leaderboard repository at `root` (grader/fixtures/<key>/) and record the commit in lessons.json.
+    Returns (the commit pinned, how many test files). On failure nothing is changed."""
     if commit and not re.fullmatch(r'[0-9a-f]{40}', commit):
         raise PinFailed('Give the full 40-character commit id, or leave it out to pin the latest commit.')
     try:
-        lesson = next((l for l in lessons.load(lessons_file, fixtures) if l.key == key), None)
+        lesson = next((l for l in lessons.load(root) if l.key == key), None)
     except lessons.LessonsInvalid as e:
         raise PinFailed(str(e)) from None
     if lesson is None:
@@ -38,7 +37,7 @@ def pin(lessons_file, fixtures, key, commit=None, url=None):
     if lesson.check not in GENERIC:
         raise PinFailed(f'{key} uses the custom check "{lesson.check}", which pinning would replace. '
                         'Set its check to "none" in lessons.json first if that is what you want.')
-    fixtures = Path(fixtures)
+    fixtures = lessons.fixtures(root)
     fixtures.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory(dir=fixtures, prefix='.pin-') as staged:
         sha = _fetch(url or f'https://github.com/{lesson.repo}.git', commit or 'HEAD', Path(tmp))
@@ -55,11 +54,8 @@ def pin(lessons_file, fixtures, key, commit=None, url=None):
         if not new.is_dir() or not any(f.is_file() for f in new.rglob('*')):
             raise PinFailed(f'{lesson.repo} has no tests (src/test/) at {sha[:7]}.')
         _swap(new, fixtures / key, Path(staged) / 'old')
-    items = json.loads(Path(lessons_file).read_text(encoding='utf-8'))
-    item = next(i for i in items if i.get('key') == key)
-    item['check'], item['tests_commit'] = 'tests', sha
-    Path(lessons_file).write_text(json.dumps(items, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
-    return sha
+    lessons.record_pinned(root, key, sha)
+    return sha, sum(1 for f in (fixtures / key).rglob('*') if f.is_file())
 
 
 def _test_folders(project):
@@ -80,8 +76,7 @@ def _swap(new, dest, old):
 
 
 def _fetch(url, ref, dest):
-    for args in (['init', '-q'], ['fetch', '-q', '--depth', '1', url, ref], ['checkout', '-q', 'FETCH_HEAD'], ['rev-parse', 'HEAD']):
-        code, out = executor.host_run(['git', *args], cwd=dest, timeout=600)
-        if code:
-            raise PinFailed(f'Could not fetch {ref} from {url}: {out.strip()}')
-    return out.strip()
+    try:
+        return executor.fetch(url, ref, dest)
+    except RuntimeError as e:
+        raise PinFailed(f'Could not fetch {ref} from {url}: {e}') from None

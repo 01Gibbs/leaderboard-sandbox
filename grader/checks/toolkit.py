@@ -1,6 +1,7 @@
 """The toolkit every check is built from: finding the project, running Gradle with whichever JDK works, copying
 our test files over a submission, and RunningApp (Jar and Container adapters) for calling a running app over
-HTTP. Participant code runs only through the workspace (ws.run, ws.start), never directly.
+HTTP. Participant code runs only through the workspace (ws.run, ws.start), never directly; the one exception is
+Container, whose image the participant wrote and which Docker runs (see executor.host_run).
 
 A change here regrades every automated lesson (lessons.SHARED_CODE).
 """

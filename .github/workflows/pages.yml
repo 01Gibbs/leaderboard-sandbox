@@ -1,5 +1,5 @@
-# Publishes the page. Runs on every push to main, and is called directly by the workflows that change the
-# scores, because GitHub does not start workflows for pushes those workflows make themselves.
+# Publishes the page. Runs on every push to main, including the grader's and the facilitator forms' saves,
+# which push with the LEADERBOARD_DEPLOY_KEY deploy key (pushes made with the default token start no workflows).
 # Needs Settings -> Pages -> Source: GitHub Actions.
 name: Publish the page
 
@@ -7,7 +7,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-  workflow_call:
 
 defaults:
   run:
@@ -15,7 +14,7 @@ defaults:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       pages: write
@@ -27,12 +26,14 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          ref: main  # the latest scores, not the commit that started the calling workflow
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+          ref: main  # the latest scores, even when started by hand from another branch
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6.0.0
+      - name: Collect only the files the page loads
+        run: mkdir _site && cp index.html scoring.js participants.csv lessons.json dashboard.json _site/
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
         with:
-          path: .
+          path: _site
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1

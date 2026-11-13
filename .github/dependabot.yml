@@ -1,0 +1,11 @@
+# Proposes a pull request when an action the workflows use has a new release. The workflows pin each action to
+# a commit (a test enforces it), so updates arrive only this way, reviewed and tested.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']

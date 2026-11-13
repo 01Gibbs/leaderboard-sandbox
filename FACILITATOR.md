@@ -26,12 +26,12 @@ When a form asks for a **person**, use either their name as it appears on the le
 | Grade new pull requests right now | **Grade submissions** | nothing (it also runs every 4 hours) |
 
 ## Points
-Submitted **10**, correct **30**, each stretch task **+5**, each help **+5**, and bonus points count one for one. The first 3 pull requests on each exercise earn their authors a stretch credit automatically. Equal points are ranked by number of correct exercises.
+Submitted **10**, correct **30**, each stretch task **+5**, each help **+5**, and bonus points count one for one. The first 3 pull requests on each exercise earn their authors a stretch credit automatically. Equal points share a rank; within it, people with more correct exercises are listed first.
 
 ## Good to know
 - **New participants appear by themselves** when they open a pull request on an exercise repository. They show under their GitHub profile name or username until you rename them.
 - **Merging** keeps the higher value of every column. That means the best result for each exercise and the larger stretch, helped and bonus numbers, so nobody loses points. The kept row remembers both GitHub accounts, so the duplicate doesn't come back.
-- **Undo** reverses the latest facilitator change, and only the cells that change touched. Run it again to go back one more. Anything changed since, by the grader or by anyone else, is kept; if a cell was changed again since, undo leaves it alone and says so. Each run lists the five most recent changes and who made them.
+- **Undo** reverses the latest facilitator change, and only the cells that change touched. Run it again to go back one more (up to the last 100 changes). Anything changed since, by the grader or by anyone else, is kept; if a cell was changed again since, undo leaves it alone and says so. Each run lists the five most recent changes and who made them.
 - **Two facilitators at once is fine.** If two changes are saved at the same moment, both land.
 - **Results only go up.** The automatic grader never lowers a result, so it never overwrites your changes. If you mark an exercise lower than a pull request earned, the next grading run raises it again.
 - **Exercise keys** for *Mark an exercise* are in [`lessons.json`](lessons.json): `fizzbuzz`, `rest_api`, `framework_upgrade`, `container_image`.

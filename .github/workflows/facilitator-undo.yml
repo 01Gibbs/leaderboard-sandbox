@@ -2,11 +2,10 @@ name: 'Facilitator: Undo last change'
 on:
   workflow_dispatch:
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read  # the deploy key, not the token, saves the change
 jobs:
   run:
     uses: ./.github/workflows/facilitator-action.yml
+    secrets: inherit
     with:
       args: '["undo"]'

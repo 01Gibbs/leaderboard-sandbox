@@ -7,7 +7,8 @@ A workspace is a scratch folder plus a way of running commands in it. It guarant
 
 Two adapters decide how commands run: Local (this machine's user) and Sandbox (a separate user in CI, which
 cannot write to the grader or its results). `from_env()` picks the sandbox when GRADER_SANDBOX_USER is set.
-Trusted commands that never execute participant code on this machine (git, docker) use `host_run`.
+Trusted tools use `host_run` (git, docker) and `fetch` (git): see host_run for docker, which builds and runs
+the participant's image in containers on this machine's Docker daemon, outside the sandbox user.
 """
 import os
 import shutil
@@ -55,8 +56,20 @@ def _kill_group(pgid):
 
 
 def host_run(cmd, cwd, timeout):
-    """A trusted command (git, docker): clean environment, never as the sandbox user."""
+    """A trusted tool (git, docker) with a clean environment, never as the sandbox user. Docker is the exception
+    to "never runs participant code": building and running a participant's image runs their code inside
+    containers on this machine's Docker daemon. Only the container check does that (tests/test_boundaries.py)."""
     return _run(cmd, cwd, clean_env(), timeout)
+
+
+def fetch(url, ref, dest):
+    """Check out `ref` (a branch, pull/N/head or full commit id) of the git repository at `url` into the empty
+    folder `dest`, without history. Returns the commit id; raises RuntimeError with git's message."""
+    for args in (['init', '-q'], ['fetch', '-q', '--depth', '1', url, ref], ['checkout', '-q', 'FETCH_HEAD'], ['rev-parse', 'HEAD']):
+        code, out = host_run(['git', *args], cwd=dest, timeout=600)
+        if code:
+            raise RuntimeError(out.strip())
+    return out.strip()
 
 
 @dataclass(frozen=True)

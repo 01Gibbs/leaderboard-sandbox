@@ -67,7 +67,6 @@ h1, h2, p { margin: 0; }
 /* Messages from the data loader */
 .note { font-size: 13px; color: var(--ink-2); padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
 .note.err { color: var(--danger); border-color: var(--danger); }
-.picker { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 
 /* Grid */
 .grid {
@@ -186,10 +185,6 @@ h1, h2, p { margin: 0; }
   </header>
 
   <div id="msg" class="note" role="status" hidden></div>
-  <div id="picker" class="note picker" hidden>
-    <label for="csvFile">Choose participants.csv:</label>
-    <input type="file" id="csvFile" accept=".csv,text/csv">
-  </div>
 
   <div class="grid">
     <div class="stats" aria-label="Summary" data-tour="stats">
@@ -260,23 +255,7 @@ let TRACKS = [];
 const STATUS = { none: 'Not submitted', submitted: 'Submitted', correct: 'Correct' };
 const TOP_N = 5;
 
-// Used when dashboard.json cannot be loaded (for example when the page is opened from disk).
-let content = {
-  title: 'Java Bootcamp · Daily Standup',
-  subtitle: 'Cohort 14 — Back-End Engineering Track',
-  weekLabel: 'Week 4 of 10 · Day 18',
-  leaderboardTag: 'Overall',
-  workshopsTitle: "Workshops Delivered",
-  workshops: [
-    { day: '11 Nov to 13 Nov', topic: 'Upgrade a Spring Boot Application to a New Major Version', lead: 'Shubhaja Menon' },
-    { day: '09 Nov to 10 Nov', topic: 'Build an Onboarding Tracker REST API with Spring Boot', lead: 'Shubhaja Menon' },
-    { day: '06 Nov', topic: 'writing meaningful unit tests and measuring code coverage', lead: 'James Wright' },
-    { day: '05 Nov', topic: 'Setup of development environment', lead: 'James Wright' },
-  ],
-  nextWeekTitle: "Next week's plan",
-  nextWeek: ['17 Nov to 19 Nov · Upgrade a Container Base Image for a Java Application'],
-  kudos: { text: "Kudos to this week's workshop co-ordinators — ", names: 'Shubhaja Menon, James Wright, Gibbs Gilbert & Aparna Mohanty' },
-};
+let content = {};  // from dashboard.json
 
 let rows = [], loaded = false, showAll = false, query = '', skipped = 0;
 const $ = (id) => document.getElementById(id);
@@ -441,12 +420,12 @@ document.querySelectorAll('[data-points]').forEach((b) => {
   render();
   try {
     const r = await fetch(CONTENT_FILE, { cache: 'no-cache' });
-    if (r.ok) { content = Object.assign({}, content, await r.json()); }
-  } catch (e) { /* keep the built-in text */ }
+    if (r.ok) content = await r.json();
+  } catch (e) { /* no title or workshops; the scores still show */ }
   try {
     const res = await fetch(LESSONS_FILE, { cache: 'no-cache' });
     if (res.ok) TRACKS = (await res.json()).map((l) => ({ k: l.key, label: l.label }));
-  } catch (e) { /* opened from disk: exercises come from the CSV columns instead */ }
+  } catch (e) { /* no lessons.json: exercises come from the CSV columns instead */ }
   render();
   try {
     const res = await fetch(DATA_FILE, { cache: 'no-cache' });
@@ -454,21 +433,11 @@ document.querySelectorAll('[data-points]').forEach((b) => {
     load(await res.text());
     if (skipped) say(skipped + ' row' + (skipped === 1 ? '' : 's') + ' in participants.csv had no name and were skipped.', true);
   } catch (e) {
-    say('The scores file could not be loaded automatically (' + e.message + '). This happens when the page is opened straight from disk. Choose participants.csv below to view it, or run python3 -m http.server 8000 in this folder to open it through a local server.', true);
-    $('picker').hidden = false;
+    say('The scores file could not be loaded (' + e.message + '). Opened straight from disk? Run python3 walkthrough.py --real, or python3 -m http.server 8000, in this folder instead.', true);
   }
   loaded = true; render();
 })();
 
-// Fallback for pages opened from disk: read the CSV the viewer picks.
-$('csvFile').addEventListener('change', async (e) => {
-  const f = e.target.files[0]; if (!f) return;
-  load(await f.text());
-  say('Loaded ' + rows.length + ' participant' + (rows.length === 1 ? '' : 's') + ' from ' + f.name + '.' +
-    (skipped ? ' ' + skipped + ' row' + (skipped === 1 ? '' : 's') + ' had no name and were skipped.' : ''), skipped > 0);
-  e.target.value = ''; // lets the same file be chosen again after you edit it
-  render();
-});
 </script>
 </body>
 </html>

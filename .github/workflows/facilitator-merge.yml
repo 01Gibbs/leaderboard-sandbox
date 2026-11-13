@@ -9,11 +9,10 @@ on:
         description: 'The duplicate row to fold into it, e.g. bukkie-create. The higher value of every column is kept.'
         required: true
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read  # the deploy key, not the token, saves the change
 jobs:
   run:
     uses: ./.github/workflows/facilitator-action.yml
+    secrets: inherit
     with:
       args: '["merge", ${{ toJSON(inputs.keep) }}, ${{ toJSON(inputs.duplicate) }}]'

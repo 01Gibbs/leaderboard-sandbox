@@ -1,9 +1,9 @@
 """The leaderboard's rules, read from the page's own scoring.js so the grader and the page always agree.
 
-The RULES block in scoring.js (points, status words, columns, delimiters) is the single copy. parse_csv,
-norm_header, norm_status, to_int, read_participants and points are ports of scoring.js's functions of the same
-names (read_participants always takes the lesson keys; only the page needs to guess them from the columns).
-The development repository's tests run both on the same files to prove they agree.
+The RULES block in scoring.js (points, status words, columns, delimiters) is the single copy.
+parse_csv, norm_header, norm_status and to_int are ports of scoring.js's functions of the same names, so the grader
+reads participants.csv exactly as the page does. Points and ranking exist only in scoring.js.
+grader/tests/test_rules.py runs both on the same files to prove they agree.
 """
 import json
 import re
@@ -85,37 +85,3 @@ def to_int(v):
     """Like JavaScript's parseInt: leading whole number, else 0 ("7.5" -> 7, "abc" -> 0)."""
     m = re.match(r'([+-]?[0-9]+)', str(v or '').strip())
     return int(m.group(1)) if m else 0
-
-
-def to_count(v):
-    return max(0, to_int(v))
-
-
-def read_participants(text, tracks):
-    """participants.csv text -> {'rows': [{name, tracks, stretch, helped, bonus}], 'skipped': n}, as the page reads it."""
-    table, _, _ = parse_csv(text)
-    if not table:
-        return {'rows': [], 'skipped': 0}
-    head = [norm_header(h) for h in table[0]]
-
-    def cell(r, k):
-        i = head.index(k) if k in head else -1
-        return (r[i] if i < len(r) else '') if i >= 0 else ''
-
-    rows, skipped = [], 0
-    for r in table[1:]:
-        name = cell(r, 'name').strip()[:80]
-        if not name:
-            skipped += 1
-            continue
-        rows.append({'name': name, 'tracks': {k: norm_status(cell(r, k)) for k in tracks},
-                     'stretch': to_count(cell(r, 'stretch')), 'prStretch': to_count(cell(r, EARLY_BONUS['column'])),
-                     'helped': to_count(cell(r, 'helped')), 'bonus': to_int(cell(r, 'bonus'))})
-    return {'rows': rows, 'skipped': skipped}
-
-
-def points(participant, tracks):
-    p = RULES['points']
-    return (sum(p[participant['tracks'].get(k, 'none')] for k in tracks)
-            + (participant['stretch'] + participant['prStretch']) * p['stretch']
-            + participant['helped'] * p['helped'] + participant['bonus'] * p['bonus'])

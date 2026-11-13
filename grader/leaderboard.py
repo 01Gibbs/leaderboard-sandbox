@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import exercise_tests  # noqa: E402
 import grade  # noqa: E402
 import roster  # noqa: E402
+import submissions  # noqa: E402
 from rules import COUNTS, STATUSES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -79,9 +80,7 @@ def run(argv, root):
     if a.cmd == 'history':
         return board.recent(a.count)
     if a.cmd == 'pin-tests':
-        lessons_file, fixtures = root / 'lessons.json', root / 'grader' / 'fixtures'
-        sha = exercise_tests.pin(lessons_file, fixtures, a.lesson, a.commit)
-        count = sum(1 for f in (fixtures / a.lesson).rglob('*') if f.is_file())
+        sha, count = exercise_tests.pin(root, a.lesson, a.commit)
         return f'{a.lesson} is graded with its repository\'s {count} test files as of {sha[:7]}'
     if a.cmd == 'grade':
         grade.grade_all(root, no_run=a.no_run, only=a.only)
@@ -94,10 +93,10 @@ def run(argv, root):
 def main(argv, root=ROOT):
     # Workflows pass their form inputs as one JSON array, so no input is ever read by a shell.
     if argv[:1] == ['--args-json']:
-        argv = [str(v) for v in json.loads(argv[1])]
+        argv = ['' if v is None else str(v) for v in json.loads(argv[1])]  # a blank optional field arrives as null
     try:
         summary = run(argv, Path(root))
-    except (roster.ActionError, exercise_tests.PinFailed) as e:
+    except (roster.ActionError, exercise_tests.PinFailed, submissions.ResultsInvalid) as e:
         report(f'Nothing was changed. {e}', failed=True)
         return 1
     if summary and argv[:1] == ['history']:
