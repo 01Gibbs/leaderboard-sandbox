@@ -13,6 +13,9 @@ sys.path.insert(0, str(GRADER))
 import roster  # noqa: E402
 import submissions  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from tiers import slow  # noqa: E402
+
 
 class SavedFilesTests(unittest.TestCase):
     def test_the_workflows_commit_exactly_the_files_the_grader_writes(self):
@@ -74,12 +77,20 @@ class WorkflowRulesTests(unittest.TestCase):
         for where, wf, job in self.jobs():
             self.assertTrue('permissions' in job or 'permissions' in wf, f'{where} inherits the default token permissions')
 
+    def test_actions_are_pinned_to_a_commit(self):
+        # A tag can be moved to other code; a commit cannot. Dependabot (.github/dependabot.yml) proposes updates.
+        for where, _, job in self.jobs():
+            for step in job.get('steps', []):
+                if 'uses' in step:
+                    self.assertRegex(step['uses'], r'^[\w.-]+/[\w./-]+@[0-9a-f]{40}$', f'{where}: pin {step["uses"]} to a commit')
+
     def test_jobs_run_on_a_pinned_runner_image(self):
         for where, _, job in self.jobs():
             if 'runs-on' in job:
                 self.assertRegex(job['runs-on'], r'^ubuntu-\d+\.\d+$', f'{where}: pin the image, not ubuntu-latest')
 
 
+@slow
 @unittest.skipUnless(shutil.which('ruby') and shutil.which('git'), 'needs git and Ruby')
 class WorkflowTests(unittest.TestCase):
     def test_facilitator_and_publish_workflows(self):

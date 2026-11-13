@@ -20,6 +20,9 @@ from checks import container_image, fizzbuzz  # noqa: E402
 import grade  # noqa: E402
 import lessons  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from tiers import slow  # noqa: E402
+
 DATA = Path(__file__).resolve().parent / 'data'
 STARTERS = {
     'rest_reference': 'https://github.com/AtulKumarSharma79/containerbaseimage.git',  # a finished REST API
@@ -99,6 +102,7 @@ def run_check(check, folder, lesson_key=None):
     return passed, reasons
 
 
+@slow
 @unittest.skipUnless(checks.jdks(), 'needs a JDK')
 class FizzBuzzCheckTests(unittest.TestCase):
     def test_meaningful_tests_pass(self):
@@ -121,6 +125,7 @@ class FizzBuzzCheckTests(unittest.TestCase):
         self.assertIn('no FizzBuzzTest.java', reasons[0])
 
 
+@slow
 @unittest.skipUnless(checks.jdks(), 'needs a JDK')
 class GradleCheckTests(unittest.TestCase):
     """Builds real Spring Boot projects, so each test takes 15-60 seconds."""
@@ -241,6 +246,7 @@ def docker_running():
     return bool(shutil.which('docker')) and subprocess.run(['docker', 'info'], capture_output=True).returncode == 0
 
 
+@slow
 @unittest.skipUnless(checks.jdks() and docker_running(), 'needs a JDK and a running Docker')
 class ContainerCheckTests(unittest.TestCase):
     def test_compliant_image_builds_runs_and_passes(self):

@@ -16,6 +16,7 @@ WF = SRC / '.github' / 'workflows'
 work = Path(tempfile.mkdtemp())
 origin, clone = work / 'origin.git', work / 'clone'
 ok_count = 0
+failures = []
 
 
 def sh(cmd, cwd, env=None, check=True, pipefail=True):
@@ -49,20 +50,29 @@ def run_steps(workflow, job, cwd, env):
 
 
 def to_json_args(template, inputs):
-    """Evaluate the '${{ toJSON(inputs.x) }}' expressions the way GitHub does."""
-    return re.sub(r'\$\{\{\s*toJSON\(inputs\.(\w+)\)\s*\}\}', lambda m: json.dumps(inputs.get(m.group(1), '')), template)
+    """Evaluate the '${{ toJSON(inputs.x) }}' expressions the way GitHub does: an optional field left blank is null."""
+    return re.sub(r'\$\{\{\s*toJSON\(inputs\.(\w+)\)\s*\}\}', lambda m: json.dumps(inputs.get(m.group(1)) or None), template)
 
 
 def expect(cond, msg):
+    """Record one check. A failure does not stop the run, so one broken journey does not hide the others."""
     global ok_count
     if not cond:
-        raise SystemExit('FAILED: ' + msg)
+        failures.append(msg)
+        print('  FAILED -', msg)
+        return
     ok_count += 1
     print('  ok -', msg)
 
 
-# A scratch copy of the repository with a local bare 'origin', like GitHub.
-shutil.copytree(SRC, work / 'seed', ignore=shutil.ignore_patterns('.git', '__pycache__'))
+# A scratch copy of the repository with a local bare 'origin', like GitHub: the files git would check out
+# (tracked, or new and not ignored), not caches or worktrees.
+listed = subprocess.run(['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], cwd=SRC,
+                        capture_output=True, text=True, check=True).stdout.split('\0')
+for f in filter(None, listed):
+    if (SRC / f).is_file():
+        (work / 'seed' / f).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(SRC / f, work / 'seed' / f)
 # Fixed participants, so this does not depend on the real scores.
 (work / 'seed' / 'participants.csv').write_text('''name,github_username,fizzbuzz,rest_api,framework_upgrade,container_image,stretch,helped,bonus,pr_stretch
 Stuart Smith,StuartJSmith10-dev,correct,,,,1,,,
@@ -120,6 +130,8 @@ expect(ok and '"Ali ""The Builder"" O\'Neil, $(whoami)",madbpopye' in csv_at_ori
 ok, s = run_facilitator('facilitator-add.yml', {'name': 'Bukky Adeyemi', 'github': ''})
 ok2, _ = run_facilitator('facilitator-award.yml', {'person': 'Bukky Adeyemi', 'kind': 'stretch', 'amount': '3'})
 expect(ok and ok2 and row('Bukky Adeyemi').startswith('Bukky Adeyemi,,,,,,3'), 'add: new person, then award to them')
+ok, s = run_facilitator('facilitator-add.yml', {'name': 'Asha Rao', 'github': ''})
+expect(ok and row('Asha Rao') == 'Asha Rao,,,,,,,,,', 'add: a second person without a GitHub login (the blank field arrives as null)')
 
 ok, s = run_facilitator('facilitator-merge.yml', {'keep': 'Bukky Adeyemi', 'duplicate': 'bukkie-create'})
 merged = row('Bukky Adeyemi')
@@ -207,5 +219,7 @@ for f in WF.glob('facilitator-*.yml'):
 pages_wf = yaml(WF / 'pages.yml')
 expect(pages_wf['true']['push']['branches'] == ['main'], 'pages.yml publishes on every push to main')
 
-print(f'\nAll {ok_count} workflow checks passed')
 shutil.rmtree(work)
+if failures:
+    raise SystemExit(f'\n{len(failures)} of {ok_count + len(failures)} workflow checks failed:\n  ' + '\n  '.join(failures))
+print(f'\nAll {ok_count} workflow checks passed')
