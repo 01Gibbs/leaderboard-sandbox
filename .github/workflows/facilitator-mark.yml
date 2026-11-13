@@ -13,7 +13,7 @@ on:
         type: choice
         options: [correct, submitted, none]
 permissions:
-  contents: write
+  contents: read  # the deploy key, not the token, saves the change
 jobs:
   run:
     uses: ./.github/workflows/facilitator-action.yml

@@ -9,7 +9,7 @@ on:
         description: 'GitHub login, if known (their pull requests then count for this row)'
         required: false
 permissions:
-  contents: write
+  contents: read  # the deploy key, not the token, saves the change
 jobs:
   run:
     uses: ./.github/workflows/facilitator-action.yml

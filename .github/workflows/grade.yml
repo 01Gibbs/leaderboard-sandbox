@@ -22,7 +22,7 @@ defaults:
 
 jobs:
   grade:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -58,9 +58,9 @@ jobs:
   publish:
     needs: grade
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      contents: read  # pushes with the deploy key
     steps:
       - uses: actions/checkout@v4
         with:

@@ -13,7 +13,7 @@ on:
         description: 'How many helps / stretch tasks, or bonus points. Use a minus sign to take away.'
         default: '1'
 permissions:
-  contents: write
+  contents: read  # the deploy key, not the token, saves the change
 jobs:
   run:
     uses: ./.github/workflows/facilitator-action.yml
