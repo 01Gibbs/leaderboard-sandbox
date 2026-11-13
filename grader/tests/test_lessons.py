@@ -60,6 +60,18 @@ class LoadingTests(Sandbox):
             with self.assertRaisesRegex(lessons.LessonsInvalid, f'"{column}" is already used'):
                 self.load()
 
+    def test_a_misspelt_field_is_reported_not_ignored(self):
+        # Ignoring "chek" would quietly turn an automated lesson into a hand-marked one.
+        self.write([{'key': 'a', 'label': 'A', 'repo': 'o/a', 'chek': 'tests'}])
+        with self.assertRaisesRegex(lessons.LessonsInvalid, 'unknown field "chek"'):
+            self.load()
+
+    def test_a_field_that_is_not_text_is_reported(self):
+        self.write([{'key': 7, 'label': ['A'], 'repo': 'o/a', 'check': None}])
+        with self.assertRaises(lessons.LessonsInvalid) as e:
+            self.load()
+        self.assertEqual(sum('must be text' in p for p in e.exception.problems), 3)
+
     def test_missing_check_means_none(self):
         self.write([{'key': 'a', 'label': 'A', 'repo': 'o/a'}])
         self.assertEqual(self.load()[0].check, 'none')

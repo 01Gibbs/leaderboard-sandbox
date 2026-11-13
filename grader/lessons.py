@@ -19,6 +19,7 @@ import rules
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent  # this leaderboard repository
 RESERVED = tuple(rules.BASE_COLUMNS + rules.COUNTS + rules.GENERATED)  # participants.csv columns that are not lessons
+FIELDS = ('key', 'label', 'repo', 'check', 'tests_commit')  # what a lesson in lessons.json may have
 # Used by every check, so a change to any of these regrades every automated lesson.
 SHARED_CODE = [HERE / 'executor.py'] + [HERE / 'checks' / f'{m}.py' for m in checks.SHARED]
 
@@ -83,8 +84,12 @@ def load(root=ROOT):
 
     problems, seen, out = [], set(), []
     for n, item in enumerate(items, 1):
+        where = f'lesson {n}' + (f' ({item["key"]})' if isinstance(item.get('key'), str) and item['key'] else '')
+        problems += [f'{where}: unknown field "{f}"; the fields are {", ".join(FIELDS)}' for f in item if f not in FIELDS]
+        bad = [f for f in FIELDS if f in item and not isinstance(item[f], str)]
+        problems += [f'{where}: {f} must be text' for f in bad]
+        item = {f: v for f, v in item.items() if f in FIELDS and f not in bad}
         key, check = item.get('key', ''), item.get('check', 'none')
-        where = f'lesson {n}' + (f' ({key})' if key else '')
         if not re.fullmatch(r'[a-z][a-z0-9_]*', key):
             problems.append(f'{where}: key "{key}" must be lowercase letters, digits and _')
         elif key in seen or key in RESERVED:

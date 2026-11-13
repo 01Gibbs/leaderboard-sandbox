@@ -443,6 +443,14 @@ class WorkflowInputTests(Sandbox):
         self.assertEqual(self.row('Ada Probe')['github_username'], '')
         self.assertNotIn('None', self.csv_text())
 
+    def test_applying_a_malformed_results_file_changes_nothing(self):
+        (self.dir / 'grader' / 'results.json').write_text('{"submissions": {"o/r#1": {"task": "fizzbuzz", "login": "a b", "passed": true}}}')
+        before = self.csv_text()
+        code, _, err = self.cli('apply')
+        self.assertEqual(code, 1)
+        self.assertIn('Nothing was changed', err)
+        self.assertEqual(self.csv_text(), before)
+
     def test_failure_is_shown_on_the_run_page(self):
         summary = self.dir / 'summary.md'
         self.patch(leaderboard.os, 'environ', {'GITHUB_STEP_SUMMARY': str(summary)})

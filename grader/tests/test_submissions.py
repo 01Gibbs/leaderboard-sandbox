@@ -13,7 +13,7 @@ from types import SimpleNamespace
 GRADER = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(GRADER))
 from grade import PullRequest  # noqa: E402
-from submissions import Submissions  # noqa: E402
+from submissions import ResultsInvalid, Submissions  # noqa: E402
 
 
 def lesson(key='alpha', automated=True, version='v1'):
@@ -94,6 +94,15 @@ class RecordingTests(Sandbox):
         (self.dir / 'grader' / 'results.json').write_text(json.dumps({'note': 'kept', 'submissions': {}}))
         self.subs().save()
         self.assertEqual(self.saved()['note'], 'kept')
+
+    def test_a_malformed_file_is_refused_with_every_problem(self):
+        # The publish job trusts a file made in the job that ran pull-request code: check it before it is used.
+        (self.dir / 'grader' / 'results.json').write_text(json.dumps({'people': {'ann': ['x']}, 'submissions': {
+            'o/r#1': {'task': 'fizzbuzz', 'login': '=HYPERLINK("x")', 'passed': 'yes'}}}))
+        with self.assertRaises(ResultsInvalid) as e:
+            self.subs()
+        for part in ('o/r#1: login', 'o/r#1: passed', 'people: ann'):
+            self.assertIn(part, str(e.exception))
 
     def saved_after(self, s):
         s.save()

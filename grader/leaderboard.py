@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import exercise_tests  # noqa: E402
 import grade  # noqa: E402
 import roster  # noqa: E402
+import submissions  # noqa: E402
 from rules import COUNTS, STATUSES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -95,7 +96,7 @@ def main(argv, root=ROOT):
         argv = ['' if v is None else str(v) for v in json.loads(argv[1])]  # a blank optional field arrives as null
     try:
         summary = run(argv, Path(root))
-    except (roster.ActionError, exercise_tests.PinFailed) as e:
+    except (roster.ActionError, exercise_tests.PinFailed, submissions.ResultsInvalid) as e:
         report(f'Nothing was changed. {e}', failed=True)
         return 1
     if summary and argv[:1] == ['history']:

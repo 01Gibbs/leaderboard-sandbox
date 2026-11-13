@@ -8,12 +8,41 @@ grade.grade_all records here; Roster.apply_results and the walkthrough read from
   - a result counts until the pull request gets a new commit or its lesson changes (Lesson.version).
 """
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 from rules import EARLY_BONUS, RANK, to_int
 
 UNCHECKED = 'no automated check for this lesson; a facilitator marks it'
+LOGIN = re.compile(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})')  # a GitHub username
+
+
+class ResultsInvalid(ValueError):
+    """results.json is not what the grader writes. Nothing is read from it."""
+
+
+def _check(data):
+    """Every problem with results.json's people and submissions, so a damaged or tampered file is refused before
+    anything reaches participants.csv. Other top-level fields are kept as they are."""
+    if not isinstance(data, dict):
+        return ['it must be a JSON object']
+    people, subs = data.get('people', {}), data.get('submissions', {})
+    if not isinstance(people, dict) or not isinstance(subs, dict):
+        return ['people and submissions must be objects']
+    problems = [f'people: {l} must be a GitHub login with a text name' for l, n in people.items()
+                if not (LOGIN.fullmatch(l) and isinstance(n, str))]
+    for k, s in subs.items():
+        if not isinstance(s, dict):
+            problems.append(f'{k}: must be an object')
+            continue
+        if not (isinstance(s.get('login'), str) and LOGIN.fullmatch(s['login'])):
+            problems.append(f'{k}: login must be a GitHub login')
+        if not isinstance(s.get('task'), str):
+            problems.append(f'{k}: task must be a lesson key')
+        if s.get('passed') not in (True, False, None):
+            problems.append(f'{k}: passed must be true, false or null')
+    return problems
 
 
 def key(lesson, pr):
@@ -31,6 +60,8 @@ class Submissions:
     def __init__(self, root):
         self.file = Path(root) / 'grader' / 'results.json'
         self._data = json.loads(self.file.read_text(encoding='utf-8')) if self.file.exists() else {}
+        if problems := _check(self._data):
+            raise ResultsInvalid('grader/results.json has problems:\n  ' + '\n  '.join(problems))
         self._subs = self._data.setdefault('submissions', {})
         self.names = self._data.setdefault('people', {})  # GitHub login -> profile name
 
