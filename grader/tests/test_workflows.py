@@ -64,6 +64,13 @@ class WorkflowRulesTests(unittest.TestCase):
             if name.startswith('facilitator-') and name != 'facilitator-action.yml':
                 self.assertEqual(wf['permissions'], {'contents': 'read'}, name)
 
+    def test_no_token_can_write_to_the_repository_and_only_the_page_job_can_deploy(self):
+        for where, wf, job in self.jobs():
+            granted = {**(wf.get('permissions') or {}), **(job.get('permissions') or {})}
+            self.assertNotEqual(granted.get('contents'), 'write', f'{where}: saves go through the deploy key')
+            if where != 'pages.yml/deploy':
+                self.assertNotIn('write', {granted.get('pages'), granted.get('id-token')}, f'{where} can deploy the page')
+
     def test_form_inputs_never_reach_a_shell(self):
         for where, _, job in self.jobs():
             for step in job.get('steps', []):

@@ -214,7 +214,8 @@ for name, job in [('facilitator-action.yml', yaml(WF / 'facilitator-action.yml')
     expect(checkout.get('with', {}).get('ssh-key') == '${{ secrets.LEADERBOARD_DEPLOY_KEY }}', f'{name} saves with the deploy key')
 for f in WF.glob('facilitator-*.yml'):
     if f.name != 'facilitator-action.yml':
-        expect(yaml(f)['jobs']['run'].get('secrets') == 'inherit', f'{f.name} passes the deploy key down')
+        expect(yaml(f)['jobs']['run'].get('secrets') == {'LEADERBOARD_DEPLOY_KEY': '${{ secrets.LEADERBOARD_DEPLOY_KEY }}'},
+               f'{f.name} passes down the deploy key and no other secret')
 pages_wf = yaml(WF / 'pages.yml')
 expect(pages_wf['true']['push']['branches'] == ['main'], 'pages.yml publishes on every push to main')
 

@@ -8,10 +8,10 @@
 
 **Short answer:** Keep central grading, and make most new lessons need **no new Python**. To do that:
 
-1. Read a lesson's tests from its own repository, pinned to a commit. Today they are copied into `grader/fixtures/`.
+1. Read a lesson's tests from its own repository, pinned to a commit. *(Done: `pin-tests`.)*
 2. Describe the remaining checks in a short **acceptance spec**: HTTP calls, file rules, dependency versions and Dockerfile rules. Claude drafts the spec from `PROBLEM_STATEMENT.md`, and a facilitator reviews it.
 
-With both in place, a Spring/Gradle/Docker lesson takes about **30 to 45 minutes** to add. Today a custom check takes half a day. GitHub Classroom is no longer an option because it was retired in August 2026.
+With both in place, a Spring/Gradle/Docker lesson takes about **30 to 45 minutes** to add. A custom check takes 2 to 4 hours. GitHub Classroom is no longer an option because it was retired in August 2026.
 
 ---
 

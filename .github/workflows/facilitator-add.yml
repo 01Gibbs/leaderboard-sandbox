@@ -13,6 +13,7 @@ permissions:
 jobs:
   run:
     uses: ./.github/workflows/facilitator-action.yml
-    secrets: inherit
+    secrets:
+      LEADERBOARD_DEPLOY_KEY: ${{ secrets.LEADERBOARD_DEPLOY_KEY }}  # only the key that saves
     with:
       args: '["add", ${{ toJSON(inputs.name) }}, ${{ toJSON(inputs.github) }}]'
