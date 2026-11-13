@@ -1,12 +1,13 @@
 # Runs the grader's tests: on every pull request (so it can be a required check), and on pushes that change the
-# code, lessons or workflows. Two jobs run side by side: the fast tier, and the slow one that builds Java projects,
-# runs Docker and simulates every workflow. This is the only place the container check runs end to end.
+# code, lessons or workflows, not the scores the grader and forms save. Two jobs run side by side: `fast` (the fast
+# tier, about a minute) and `slow` (everything, including Java builds, Docker and the workflow simulation). This is
+# the only place the container check runs end to end.
 name: Test the grader
 
 on:
   pull_request:
   push:
-    paths: ['grader/**', 'lessons.json', 'dashboard.json', '.github/**', 'walkthrough/**', 'walkthrough.py', 'index.html', 'scoring.js']
+    paths: ['grader/**', '!grader/*.json', 'lessons.json', 'dashboard.json', '.github/**', 'walkthrough/**', 'walkthrough.py', 'index.html', 'scoring.js']
   workflow_dispatch:
 
 permissions:
@@ -55,8 +56,8 @@ jobs:
       - name: Check the sandbox user cannot change the grader
         run: |
           if sudo -n -u grader-sandbox touch grader/rules.py 2>/dev/null; then echo 'grader-sandbox can write to the checkout'; exit 1; fi
-      - name: Run the slow tests (check tests run submissions as the sandbox user, like the real grader)
+      - name: Run every test (check tests run submissions as the sandbox user, like the real grader)
         env:
           GRADER_SANDBOX_USER: grader-sandbox
           GRADER_CACHE: /tmp/grader-cache  # readable by the sandbox user
-        run: python3 -m unittest -v grader.tests.test_checks grader.tests.test_workflows
+        run: python3 -m unittest discover -v grader/tests

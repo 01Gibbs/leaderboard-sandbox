@@ -34,6 +34,6 @@ The existing custom checks in `grader/checks/` (`rest_api.py`, `framework_upgrad
 
 5. **Prove it** in `grader/tests/test_checks.py`, following `GradleCheckTests` and its `run_check` helper (it grades a folder through `grade.grade_submission`, exactly as real pull requests are graded): at least one known-good submission passes and one known-bad submission fails with the specific reason, using the starter or reference submissions you write (keep small ones in `grader/tests/data/<key>/`). Done when `python3 -m unittest discover grader/tests` is green with your new tests running, not skipped. A JDK is needed; if none is installed, download a Temurin JDK into a scratch folder and point `JAVA_HOME_21_X64` (or `_ARM64`) at it.
 
-6. **Record current submissions:** `python3 grader/leaderboard.py grade --no-run && python3 grader/leaderboard.py apply`. Done when `git diff participants.csv` shows the new column and the expected people as `submitted`.
+6. **Record current submissions:** `python3 grader/leaderboard.py grade --no-run && python3 grader/leaderboard.py apply`. Done when `git diff participants.csv` shows the new column and the expected people as `submitted`. Commit on a branch and open a pull request: main only takes changes through one.
 
 7. **Hand over:** tell the user what level the lesson is on, what it does not check, and that real grading happens on the next scheduled run (or *Actions → Grade submissions → Run workflow*). For `none`, remind them facilitators mark results with *Facilitator: Mark an exercise*.

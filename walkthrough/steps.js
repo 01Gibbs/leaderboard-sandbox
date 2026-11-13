@@ -101,7 +101,7 @@ export function steps(ctx) {
       chapter: 'The leaderboard',
       title: 'Workshops and kudos',
       target: 'workshops',
-      text: `<p>The workshops delivered, next week’s plan and the kudos line come from ${fileLink(ctx, 'dashboard.json')}. Edit that file on GitHub and commit; the page updates a minute or two later.</p>`,
+      text: `<p>The workshops delivered, next week’s plan and the kudos line come from ${fileLink(ctx, 'dashboard.json')}. Change it in a pull request (main only takes changes through one); the page updates a minute or two after it merges.</p>`,
     },
 
     // ---------- 2. How it works ----------

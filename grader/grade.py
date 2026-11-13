@@ -97,7 +97,7 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
             name = submissions.key(lesson, pr)
             if only and name != only:
                 continue
-            if subs.name(pr.login) == pr.login and pr.login not in unreachable:  # no profile name known yet
+            if pr.login not in subs.names and pr.login not in unreachable:  # never looked up, or the last try failed
                 try:
                     subs.names[pr.login] = source.display_name(pr.login)
                 except (urllib.error.URLError, OSError):

@@ -184,6 +184,15 @@ class GradingTests(Sandbox):
         self.grade()
         self.assertEqual(self.results()['people'], {'ghost': 'Gus Host'})
 
+    def test_a_profile_without_a_name_is_looked_up_once(self):
+        self.github.add('o/alpha', 1, 'nemo', 'a1')
+        self.github.names['nemo'] = 'nemo'  # GitHub has no name for them; display_name gives the login
+        asked = mock.Mock(wraps=self.github.display_name)
+        self.github.display_name = asked
+        self.grade()
+        self.grade()
+        self.assertEqual(asked.call_count, 1)
+
     def test_progress_is_saved_after_each_pull_request(self):
         seen = []
 
