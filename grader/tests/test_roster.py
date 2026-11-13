@@ -17,7 +17,9 @@ GRADER = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(GRADER))
 import leaderboard  # noqa: E402
 import roster  # noqa: E402
-import rules  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import page  # noqa: E402
 
 LESSONS = [
     {'key': 'fizzbuzz', 'label': 'FizzBuzz', 'repo': 'o/fizz', 'check': 'fizzbuzz'},
@@ -174,9 +176,10 @@ class MergeTests(Sandbox):
         self.assertEqual(len(rows), 2)
         self.assertEqual(self.roster().find('Bukky Adeyemi')['fizzbuzz'], 'correct')
 
+    @page.needs_node
     def test_merged_person_never_has_fewer_points_than_either_row(self):
         keys = [l['key'] for l in LESSONS]
-        points = lambda: {r['name']: rules.points(r, keys) for r in rules.read_participants(self.csv_text(), keys)['rows']}
+        points = lambda: page.points(self.csv_text(), keys)
         before = points()
         self.cli('merge', 'Bukky Adeyemi', 'bukkie-create')
         after = points()['Bukky Adeyemi']
@@ -355,12 +358,12 @@ class EarlyBonusTests(Sandbox):
         self.cli('merge', 'bukkie-create', 'second')
         self.assertEqual(self.bonus('bukkie-create'), '2')
 
+    @page.needs_node
     def test_counts_as_stretch_points(self):
         keys = [l['key'] for l in LESSONS]
         self.results(('a1', 'fizzbuzz', None))
         self.cli('apply')
-        row = next(r for r in rules.read_participants(self.csv_text(), keys)['rows'] if r['name'] == 'a1')
-        self.assertEqual(rules.points(row, keys), 10 + 5)
+        self.assertEqual(page.points(self.csv_text(), keys)['a1'], 10 + 5)
 
     def test_rows_without_a_github_account_are_left_alone(self):
         self.results(('a1', 'fizzbuzz', None))
@@ -395,6 +398,7 @@ class FileFormatTests(Sandbox):
         self.assertEqual(self.csv_text().splitlines()[1:], ['Stuart Smith,StuartJSmith10-dev,correct,submitted,,,2,-1,',
                                                             'Bukky Adeyemi,,correct,,,,1,,'])
 
+    @page.needs_node
     def test_the_real_file_keeps_its_scores_when_written_in_canonical_form(self):
         real = (GRADER.parent / 'participants.csv').read_text(encoding='utf-8')
         (self.dir / 'participants.csv').write_text(real, encoding='utf-8')
@@ -403,7 +407,7 @@ class FileFormatTests(Sandbox):
         sheet = roster._Sheet(self.dir / 'participants.csv', keys)
         sheet.save()
         once = self.csv_text()
-        self.assertEqual(rules.read_participants(once, keys), rules.read_participants(real, keys))
+        self.assertEqual(page.read(once, keys), page.read(real, keys))
         roster._Sheet(self.dir / 'participants.csv', keys).save()
         self.assertEqual(self.csv_text(), once)
 

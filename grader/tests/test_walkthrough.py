@@ -99,14 +99,15 @@ class SampleDataTests(unittest.TestCase):
     KEYS = ['fizzbuzz', 'rest_api', 'framework_upgrade', 'container_image', 'kafka']
 
     def parsed(self):
-        sys.path.insert(0, str(REPO / 'grader'))
-        import rules
-        return rules.read_participants(walkthrough.sample_csv(self.KEYS), self.KEYS)['rows']
+        sys.path.insert(0, str(REPO / 'grader' / 'tests'))
+        import page
+        return page.read(walkthrough.sample_csv(self.KEYS), self.KEYS)['rows']
 
     def test_has_a_column_for_every_lesson(self):
         head = walkthrough.sample_csv(self.KEYS).splitlines()[0].split(',')
         self.assertEqual(head, ['name', 'github_username', *self.KEYS, 'stretch', 'helped', 'bonus', 'pr_stretch'])
 
+    @unittest.skipUnless(shutil.which('node'), "needs Node.js to run the page's scoring.js")
     def test_shows_every_state_the_tour_talks_about(self):
         rows = self.parsed()
         statuses = {s for r in rows for s in r['tracks'].values()}
@@ -118,6 +119,7 @@ class SampleDataTests(unittest.TestCase):
     def test_is_the_same_every_time(self):
         self.assertEqual(walkthrough.sample_csv(self.KEYS), walkthrough.sample_csv(self.KEYS))
 
+    @unittest.skipUnless(shutil.which('node'), "needs Node.js to run the page's scoring.js")
     def test_names_are_made_up(self):
         real = (REPO / 'participants.csv').read_text().lower()
         for r in self.parsed():
