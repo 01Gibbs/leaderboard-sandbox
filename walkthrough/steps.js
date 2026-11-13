@@ -149,7 +149,7 @@ export function steps(ctx) {
         <p>Done once, by whoever owns the repository${ctx.repo ? ` (${link(ctx.repo.url + '/settings', 'Settings')})` : ''}:</p>
         <ol class="flow">
           <li><b>Publish the page</b><span>Settings \u2192 Pages \u2192 Source: GitHub Actions</span></li>
-          <li><b>Let the forms save changes</b><span>Settings \u2192 Actions \u2192 General \u2192 Workflow permissions: Read and write</span></li>
+          <li><b>Let the forms save changes</b><span>a deploy key with write access, its private key as the LEADERBOARD_DEPLOY_KEY secret, and a ruleset that lets only it push to main</span></li>
           <li><b>Add facilitators</b><span>Settings \u2192 Collaborators, with Write access</span></li>
           <li><b>Grade once</b><span>Actions \u2192 Grade submissions \u2192 Run workflow (the first run takes 20 to 40 minutes)</span></li>
         </ol>`,

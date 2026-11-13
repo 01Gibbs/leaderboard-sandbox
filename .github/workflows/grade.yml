@@ -63,17 +63,11 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.LEADERBOARD_DEPLOY_KEY }}  # main requires a pull request; only this key may push to it
       - uses: actions/download-artifact@v4
         with:
           name: results
           path: ${{ runner.temp }}/graded
       - name: Update participants.csv
         run: grader/run_and_push.sh "Update leaderboard from graded submissions" 'cp "$RUNNER_TEMP/graded/results.json" grader/results.json && python3 grader/leaderboard.py apply'
-
-  publish-page:
-    needs: publish
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    uses: ./.github/workflows/pages.yml

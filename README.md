@@ -27,7 +27,13 @@ Submitted **10**, correct **30**, each stretch credit **+5**, each time helping 
 
 ## One-time setup (repository owner)
 1. **Publish the page:** Settings → Pages → *Source* → **GitHub Actions**. The *Publish the page* workflow deploys it after every change. The site appears at `https://<owner>.github.io/<repository>/`.
-2. **Allow the workflows to save changes:** Settings → Actions → General → *Workflow permissions* → **Read and write permissions** → Save. If `main` has branch protection, allow GitHub Actions to push to it.
+2. **Let the workflows save changes, and only them:** the forms and the grader push their changes to `main` with a deploy key, so `main` can require a pull request from everyone else.
+   1. On your computer: `ssh-keygen -t ed25519 -N "" -C leaderboard-bot -f leaderboard-bot`.
+   2. Settings → Deploy keys → **Add deploy key**: paste `leaderboard-bot.pub`, tick **Allow write access**.
+   3. Settings → Secrets and variables → Actions → **New repository secret** `LEADERBOARD_DEPLOY_KEY`: paste `leaderboard-bot` (the private key). Then delete both files.
+   4. Settings → Rules → Rulesets → **New branch ruleset** for the default branch: *Restrict deletions*, *Block force pushes*, *Require a pull request before merging* (and the *Test the grader* status check, if you like), with **Deploy keys** in the bypass list → set *Enforcement* to **Active**.
+
+   Pushes made with the deploy key also start *Publish the page*, which is how the page updates after every change.
 3. **Give facilitators access:** Settings → Collaborators → add each facilitator with **Write** access. That is what lets them run the forms.
 4. **Run it once:** Actions → *Grade submissions* → **Run workflow**. The first run builds every existing submission and takes 20 to 40 minutes. After that, it runs by itself and only grades new commits.
 

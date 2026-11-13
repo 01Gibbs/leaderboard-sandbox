@@ -194,13 +194,18 @@ triggers = grade_wf['true']  # YAML 1.1 reads the key `on:` as true
 expect(triggers['schedule'] == [{'cron': '0 */4 * * *'}], 'grade: runs by itself every 4 hours')
 expect('workflow_dispatch' in triggers, 'grade: a facilitator can also start it by hand')
 
-print('Page publishing')
-for name, wf in [('facilitator-action.yml', yaml(WF / 'facilitator-action.yml')), ('grade.yml', grade_wf)]:
-    callers = [j for j in wf['jobs'].values() if j.get('uses') == './.github/workflows/pages.yml']
-    expect(len(callers) == 1 and callers[0]['permissions'].get('pages') == 'write', f'{name} republishes the page after saving')
+print('Saving past branch protection, and page publishing')
+# main requires a pull request; only the deploy key may push to it. Its pushes also start "Publish the page",
+# which pushes made with the default token would not.
+for name, job in [('facilitator-action.yml', yaml(WF / 'facilitator-action.yml')['jobs']['change']),
+                  ('grade.yml', grade_wf['jobs']['publish'])]:
+    checkout = next(s for s in job['steps'] if str(s.get('uses', '')).startswith('actions/checkout'))
+    expect(checkout.get('with', {}).get('ssh-key') == '${{ secrets.LEADERBOARD_DEPLOY_KEY }}', f'{name} saves with the deploy key')
 for f in WF.glob('facilitator-*.yml'):
     if f.name != 'facilitator-action.yml':
-        expect(yaml(f)['permissions'].get('pages') == 'write', f'{f.name} grants the page permission it passes down')
+        expect(yaml(f)['jobs']['run'].get('secrets') == 'inherit', f'{f.name} passes the deploy key down')
+pages_wf = yaml(WF / 'pages.yml')
+expect(pages_wf['true']['push']['branches'] == ['main'], 'pages.yml publishes on every push to main')
 
 print(f'\nAll {ok_count} workflow checks passed')
 shutil.rmtree(work)

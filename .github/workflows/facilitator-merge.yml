@@ -10,10 +10,9 @@ on:
         required: true
 permissions:
   contents: write
-  pages: write
-  id-token: write
 jobs:
   run:
     uses: ./.github/workflows/facilitator-action.yml
+    secrets: inherit
     with:
       args: '["merge", ${{ toJSON(inputs.keep) }}, ${{ toJSON(inputs.duplicate) }}]'
