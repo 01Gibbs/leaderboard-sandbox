@@ -25,7 +25,7 @@ const FORM_HELP = {
   'facilitator-merge.yml': 'Someone appears twice: keep one row. The higher value of every column is kept.',
   'facilitator-add.yml': 'Add someone who has not opened a pull request yet.',
   'facilitator-undo.yml': 'Reverse the latest change. Run it again to go back further.',
-  'grade.yml': 'Grade new pull requests now instead of waiting for the next 30-minute run.',
+  'grade.yml': 'Grade new pull requests now instead of waiting for the next scheduled run.',
 };
 
 function fileLink(ctx, path, text) {
