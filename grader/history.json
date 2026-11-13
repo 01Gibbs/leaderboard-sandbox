@@ -251,5 +251,38 @@
         }
       }
     ]
+  },
+  {
+    "at": "2026-11-13T15:02:08+00:00",
+    "by": "01Gibbs",
+    "action": "Renamed Zz Workflow Probe to Zz Probe Renamed",
+    "changes": [
+      {
+        "before": {
+          "name": "Zz Workflow Probe",
+          "github_username": "None",
+          "fizzbuzz": "",
+          "rest_api": "",
+          "framework_upgrade": "",
+          "stretch": "",
+          "pr_stretch": "",
+          "helped": "",
+          "container_image": "",
+          "bonus": ""
+        },
+        "after": {
+          "name": "Zz Probe Renamed",
+          "github_username": "None",
+          "fizzbuzz": "",
+          "rest_api": "",
+          "framework_upgrade": "",
+          "stretch": "",
+          "pr_stretch": "",
+          "helped": "",
+          "container_image": "",
+          "bonus": ""
+        }
+      }
+    ]
   }
 ]
