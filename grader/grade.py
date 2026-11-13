@@ -91,7 +91,7 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
     root = Path(root)
     source = source or GitHub()
     subs = submissions.Submissions(root)
-    for lesson in lessons.load(root / 'lessons.json', fixtures=root / 'grader' / 'fixtures'):
+    for lesson in lessons.load(root):
         try:
             prs = source.pull_requests(lesson.repo)
         except (urllib.error.URLError, OSError) as e:  # rate limit, outage, renamed repo: try again next run

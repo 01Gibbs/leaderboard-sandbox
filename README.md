@@ -67,7 +67,7 @@ The current custom checks:
 - **Code:** Python 3 standard library only, in `grader/`, plus `scoring.js` at the top:
   - `scoring.js`: the rules (points, status words, how the CSV is read). The page loads it, and `grader/rules.py` reads the same rules, so the two can't disagree; a test runs both on tricky files to prove it.
   - `exercise_tests.py`: `pin-tests`, which copies an exercise repository's own tests at one commit into a lesson's test files. Pinning a commit means a later change to the exercise repository regrades nobody until someone pins again.
-  - `lessons.py`: loads and checks `lessons.json`; gives each lesson its check, test files and a version (changing one lesson re-grades only that lesson).
+  - `lessons.py`: loads and checks `lessons.json`; gives each lesson its check, test files and a version (changing one lesson re-grades only that lesson). It owns where `lessons.json` and `grader/fixtures/` live, and is the only code that writes `lessons.json`.
   - `roster.py`: every change to `participants.csv`: facilitator actions, undo, and applying graded results (results only go up). It writes each value one way (`correct`, `submitted` or blank; counts as a number or blank), so hand edits in any spelling the page accepts are tidied on the next save.
   - `grade.py`: finds pull requests (GitHub, or an in-memory stand-in in tests) and grades the ones that need it.
   - `submissions.py`: `grader/results.json`, one entry per pull request: whether a result still counts, each person's best status, the early-PR bonus, per-lesson counts.

@@ -59,14 +59,14 @@ class PinTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.dir)
         self.exercise = Exercise(self.dir)
         self.lessons_file = self.dir / 'lessons.json'
-        self.fixtures = self.dir / 'fixtures'
+        self.fixtures = self.dir / 'grader' / 'fixtures'
         self.lessons_file.write_text(json.dumps([
             {'key': 'greeter', 'label': 'Greeter', 'repo': 'o/greeter', 'check': 'none'},
             {'key': 'other', 'label': 'Other', 'repo': 'o/other', 'check': 'build'},
         ], indent=2) + '\n')
 
     def pin(self, key='greeter', commit=None):
-        return exercise_tests.pin(self.lessons_file, self.fixtures, key, commit, url=str(self.exercise.path))
+        return exercise_tests.pin(self.dir, key, commit, url=str(self.exercise.path))[0]
 
     def fixture_files(self, key='greeter'):
         root = self.fixtures / key

@@ -1,7 +1,9 @@
 """Lessons: the exercises on the leaderboard, as listed in lessons.json.
 
-Everything else (the grader, the roster, the walkthrough) reads lessons through `load()`, so a mistake in
-lessons.json is reported the same way everywhere, with every problem listed at once.
+Everything else (the grader, the roster, the walkthrough) reads lessons through `load(root)`, so a mistake in
+lessons.json is reported the same way everywhere, with every problem listed at once. This module also owns where
+lessons.json and each lesson's test files live in a leaderboard repository, and the only other write to
+lessons.json (`record_pinned`).
 """
 import hashlib
 import inspect
@@ -15,9 +17,8 @@ import checks
 import rules
 
 HERE = Path(__file__).resolve().parent
-LESSONS_FILE = HERE.parent / 'lessons.json'
-FIXTURES = HERE / 'fixtures'
-RESERVED = tuple(rules.BASE_COLUMNS + rules.COUNTS)  # participants.csv columns that are not lessons
+ROOT = HERE.parent  # this leaderboard repository
+RESERVED = tuple(rules.BASE_COLUMNS + rules.COUNTS + rules.GENERATED)  # participants.csv columns that are not lessons
 # Used by every check, so a change to any of these regrades every automated lesson.
 SHARED_CODE = [HERE / 'executor.py'] + [HERE / 'checks' / f'{m}.py' for m in checks.SHARED]
 
@@ -59,10 +60,22 @@ class Lesson:
         return h.hexdigest()[:12]
 
 
-def load(path=LESSONS_FILE, fixtures=FIXTURES):
-    """The lessons, in order. Raises LessonsInvalid listing every problem."""
+def lessons_file(root=ROOT):
+    return Path(root) / 'lessons.json'
+
+
+def fixtures(root=ROOT):
+    """grader/fixtures: one folder of test files per lesson."""
+    return Path(root) / 'grader' / 'fixtures'
+
+
+FIXTURES = fixtures()
+
+
+def load(root=ROOT):
+    """The lessons of the leaderboard repository at `root`, in order. Raises LessonsInvalid listing every problem."""
     try:
-        items = json.loads(Path(path).read_text(encoding='utf-8'))
+        items = json.loads(lessons_file(root).read_text(encoding='utf-8'))
     except (OSError, ValueError) as e:
         raise LessonsInvalid([f'cannot read it as JSON ({e})']) from None
     if not isinstance(items, list) or not all(isinstance(i, dict) for i in items):
@@ -85,7 +98,17 @@ def load(path=LESSONS_FILE, fixtures=FIXTURES):
             problems.append(f'{where}: check must be one of none, {", ".join(checks.CHECKS)}')
         if 'tests_commit' in item and not (check == 'tests' and re.fullmatch(r'[0-9a-f]{40}', str(item['tests_commit']))):
             problems.append(f'{where}: tests_commit must be a full commit id, on a lesson whose check is tests')
-        out.append(Lesson(key, item.get('label', ''), item.get('repo', ''), check, Path(fixtures) / key))
+        out.append(Lesson(key, item.get('label', ''), item.get('repo', ''), check, fixtures(root) / key))
     if problems:
         raise LessonsInvalid(problems)
     return out
+
+
+def record_pinned(root, key, commit):
+    """Grade lesson `key` with its pinned test files from now on: check "tests", tests_commit `commit`.
+    Every other lesson is left as it is."""
+    path = lessons_file(root)
+    items = json.loads(path.read_text(encoding='utf-8'))
+    item = next(i for i in items if i.get('key') == key)
+    item['check'], item['tests_commit'] = 'tests', commit
+    path.write_text(json.dumps(items, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')

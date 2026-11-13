@@ -136,7 +136,6 @@ class Roster:
     def __init__(self, root):
         root = Path(root)
         self.csv_file = root / 'participants.csv'
-        self.lessons_file = root / 'lessons.json'
         self.history_file = root / 'grader' / 'history.json'
         self.root = root
 
@@ -144,7 +143,7 @@ class Roster:
 
     def lesson_keys(self):
         try:
-            return [l.key for l in lessons.load(self.lessons_file)]
+            return [l.key for l in lessons.load(self.root)]
         except lessons.LessonsInvalid as e:
             raise ActionError(str(e)) from None
 

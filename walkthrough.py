@@ -79,7 +79,7 @@ def build_context(root, sample=True):
     except (OSError, ValueError):  # a broken results.json: show no submissions rather than no walkthrough
         stats = lambda key: dict.fromkeys(('submissions', 'people', 'correct'), 0)  # noqa: E731
     try:
-        loaded, problems = lessons.load(root / 'lessons.json', fixtures=root / 'grader' / 'fixtures'), []
+        loaded, problems = lessons.load(root), []
     except lessons.LessonsInvalid as e:
         loaded, problems = [], e.problems
     lesson_rows = []
@@ -126,7 +126,7 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if path == '/participants.csv' and self.sample:
             try:
-                keys = [l.key for l in lessons.load(root / 'lessons.json', fixtures=root / 'grader' / 'fixtures')]
+                keys = [l.key for l in lessons.load(root)]
             except lessons.LessonsInvalid:
                 keys = []
             self.send_text(sample_csv(keys), 'text/csv; charset=utf-8')

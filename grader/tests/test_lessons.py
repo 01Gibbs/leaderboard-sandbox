@@ -26,14 +26,14 @@ class Sandbox(unittest.TestCase):
         self.dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.dir)
         self.file = self.dir / 'lessons.json'
-        self.fixtures = self.dir / 'fixtures'
+        self.fixtures = self.dir / 'grader' / 'fixtures'
         self.write(VALID)
 
     def write(self, items):
         self.file.write_text(json.dumps(items))
 
     def load(self):
-        return lessons.load(self.file, fixtures=self.fixtures)
+        return lessons.load(self.dir)
 
 
 class LoadingTests(Sandbox):
@@ -53,6 +53,12 @@ class LoadingTests(Sandbox):
         for part in ('lowercase', '"helped" is already used', 'owner/name', 'check must be one of', 'needs a label', '"ok" is already used'):
             self.assertIn(part, msg)
         self.assertEqual(len(e.exception.problems), 6)
+
+    def test_a_key_cannot_be_a_column_the_sheet_already_uses(self):
+        for column in ('name', 'github_username', 'stretch', 'helped', 'bonus', 'pr_stretch'):
+            self.write([{'key': column, 'label': 'x', 'repo': 'o/r', 'check': 'none'}])
+            with self.assertRaisesRegex(lessons.LessonsInvalid, f'"{column}" is already used'):
+                self.load()
 
     def test_missing_check_means_none(self):
         self.write([{'key': 'a', 'label': 'A', 'repo': 'o/a'}])

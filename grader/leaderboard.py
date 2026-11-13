@@ -79,9 +79,7 @@ def run(argv, root):
     if a.cmd == 'history':
         return board.recent(a.count)
     if a.cmd == 'pin-tests':
-        lessons_file, fixtures = root / 'lessons.json', root / 'grader' / 'fixtures'
-        sha = exercise_tests.pin(lessons_file, fixtures, a.lesson, a.commit)
-        count = sum(1 for f in (fixtures / a.lesson).rglob('*') if f.is_file())
+        sha, count = exercise_tests.pin(root, a.lesson, a.commit)
         return f'{a.lesson} is graded with its repository\'s {count} test files as of {sha[:7]}'
     if a.cmd == 'grade':
         grade.grade_all(root, no_run=a.no_run, only=a.only)
