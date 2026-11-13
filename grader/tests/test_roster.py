@@ -285,6 +285,16 @@ class ApplyTests(Sandbox):
         row = self.row('newbie')
         self.assertEqual((row['name'], row['rest_api']), ('Newbie Person', 'submitted'))
 
+    def test_a_row_named_by_login_takes_the_profile_name_once_known(self):
+        self.results(('newbie', 'rest_api', False))  # profile not known yet: the row is named newbie
+        self.cli('apply')
+        self.results(('newbie', 'rest_api', False, 'Newbie Person'), ('renamed', 'rest_api', False, 'Profile Name'))
+        self.cli('apply')
+        self.cli('rename', 'renamed', 'Chosen By Facilitator')
+        self.cli('apply')
+        self.assertEqual(self.row('newbie')['name'], 'Newbie Person')
+        self.assertEqual(self.row('renamed')['name'], 'Chosen By Facilitator')
+
     def test_never_lowers_a_status(self):
         self.results(('StuartJSmith10-dev', 'fizzbuzz', False))
         self.cli('apply')

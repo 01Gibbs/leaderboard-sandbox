@@ -86,6 +86,7 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
     root = Path(root)
     source = source or GitHub()
     subs = submissions.Submissions(root)
+    unreachable = set()  # logins whose profile could not be read this run
     for lesson in lessons.load(root):
         try:
             prs = source.pull_requests(lesson.repo)
@@ -96,11 +97,11 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
             name = submissions.key(lesson, pr)
             if only and name != only:
                 continue
-            if pr.login not in subs.names:
+            if subs.name(pr.login) == pr.login and pr.login not in unreachable:  # no profile name known yet
                 try:
                     subs.names[pr.login] = source.display_name(pr.login)
                 except (urllib.error.URLError, OSError):
-                    subs.names[pr.login] = pr.login
+                    unreachable.add(pr.login)  # shown by login for now; asked again next run
             if no_run or not subs.needs_grading(lesson, pr):
                 subs.record(lesson, pr)
                 continue

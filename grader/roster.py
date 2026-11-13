@@ -316,6 +316,9 @@ class Roster:
             if row is None:
                 row = by_login[login.lower()] = sheet.new_row(subs.name(login), login)
                 changes.append(f'Added {row["name"]} (@{login})')
+            elif row['name'] == login and subs.name(login) != login:  # added before their profile could be read
+                row['name'] = subs.name(login)
+                changes.append(f'Named @{login} {row["name"]}')
             if RANK[status] > RANK[norm_status(row.get(lesson))]:
                 changes.append(f'{row["name"]}: {lesson} -> {status}')
                 row[lesson] = status

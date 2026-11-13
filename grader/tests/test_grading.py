@@ -175,10 +175,14 @@ class GradingTests(Sandbox):
         self.assertIn('o/beta#1', self.results()['submissions'])
         self.assertTrue(any('Skipping o/alpha' in line for line in log))
 
-    def test_an_unknown_profile_falls_back_to_the_login(self):
+    def test_a_failed_profile_lookup_is_tried_again_next_run(self):
         self.github.add('o/alpha', 1, 'ghost', 'a1')
+        self.github.add('o/beta', 1, 'ghost', 'b1')
         self.grade()
-        self.assertEqual(self.results()['people'], {'ghost': 'ghost'})
+        self.assertEqual(self.results()['people'], {})  # shown by login until GitHub answers
+        self.github.names['ghost'] = 'Gus Host'
+        self.grade()
+        self.assertEqual(self.results()['people'], {'ghost': 'Gus Host'})
 
     def test_progress_is_saved_after_each_pull_request(self):
         seen = []
