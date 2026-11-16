@@ -2,7 +2,7 @@
 
 *Research note, 16 November 2026. Audience: project lead and facilitators. Builds on `adding-lessons.md` (12 Nov), which covers why we pin upstream tests and why GitHub Classroom is not an option. That note's step 1, `pin-tests`, now exists.*
 
-> **Status (16 Nov 2026).** Not built yet. The four blockers it found in the code still stand (lessons added by a workflow would not be saved; two lessons on one repository would share results; lesson settings are not in its version; tests can be switched off in `build.gradle`).
+> **Status (16 Nov 2026).** Not built yet. `run_and_push.sh` now also saves `grader/batches.json` (four files, not three), and the `roster.py` lines cited have moved; the point stands. The four blockers it found in the code still stand (lessons added by a workflow would not be saved; two lessons on one repository would share results; lesson settings are not in its version; tests can be switched off in `build.gradle`).
 
 **Short answer:**
 

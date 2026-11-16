@@ -138,6 +138,7 @@ export function steps(ctx) {
           <tr><th>${ctx.recent_actions.length ? fileLink(ctx, 'grader/history.json') : 'grader/history.json'}</th><td>Every facilitator change: who, when, what. Undo uses this. It appears after the first change.</td></tr>
           <tr><th>${fileLink(ctx, 'FACILITATOR.md')}</th><td>One-page guide for facilitators.</td></tr>
           <tr><th>${fileLink(ctx, 'README.md')}</th><td>Setup and how it works, for the project lead.</td></tr>
+          <tr><th>${fileLink(ctx, 'docs/TAKEOVER.md')}</th><td>Taking over or moving it, with prompts for Claude Code.</td></tr>
           <tr><th>${fileLink(ctx, 'grader/checks/toolkit.py', 'grader/')}</th><td>The grader and its tests, for maintainers.</td></tr>
         </table>`,
       text: '<p>Everything is in this one repository. Nothing needs installing to use it.</p>',
