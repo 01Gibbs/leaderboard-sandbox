@@ -11,6 +11,10 @@ on:
     secrets:
       LEADERBOARD_DEPLOY_KEY:
         required: true
+    outputs:
+      summary:
+        description: 'What happened, as shown on the run page (changes-from-issues.yml replies with it)'
+        value: ${{ jobs.change.outputs.summary }}
 
 defaults:
   run:
@@ -21,14 +25,22 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read  # pushes with the deploy key
+    outputs:
+      summary: ${{ steps.change.outputs.summary }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ssh-key: ${{ secrets.LEADERBOARD_DEPLOY_KEY }}  # main requires a pull request; only this key may push to it
       - name: Change the leaderboard
+        id: change
         env:
           ARGS: ${{ inputs.args }}
-        run: grader/run_and_push.sh "" 'python3 grader/leaderboard.py --args-json "$ARGS"'
+        run: |
+          status=0
+          grader/run_and_push.sh "" 'python3 grader/leaderboard.py --args-json "$ARGS"' || status=$?
+          end=$(openssl rand -hex 16)  # a delimiter nothing in the summary can contain
+          { echo "summary<<$end"; cat "$GITHUB_STEP_SUMMARY"; echo "$end"; } >> "$GITHUB_OUTPUT"
+          exit $status
       - name: Show recent actions
         if: always()
         run: |

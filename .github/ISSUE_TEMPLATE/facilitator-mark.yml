@@ -1,0 +1,28 @@
+# Sent by the facilitator page (facilitator.html), already filled in. Applied by changes-from-issues.yml
+# for collaborators with write access, then answered and closed. Fields match facilitator-mark.yml (tests).
+name: 'Facilitator: Mark an exercise'
+description: 'Set an exercise result you checked by hand.'
+title: 'Facilitator: Mark an exercise'
+labels: [facilitator]
+body:
+  - type: input
+    id: person
+    attributes:
+      label: 'Person'
+      description: 'Their name or GitHub username, as on the leaderboard.'
+    validations:
+      required: true
+  - type: input
+    id: lesson
+    attributes:
+      label: 'Exercise'
+      description: 'The exercise key, e.g. fizzbuzz or container_image.'
+    validations:
+      required: true
+  - type: input
+    id: status
+    attributes:
+      label: 'Result'
+      description: 'correct, submitted or none'
+    validations:
+      required: true

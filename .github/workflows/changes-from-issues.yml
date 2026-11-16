@@ -1,0 +1,70 @@
+# Facilitator changes sent as GitHub issues. The facilitator page's Save opens one of
+# .github/ISSUE_TEMPLATE/facilitator-*.yml already filled in; submitting it starts this. grader/issue_form.py
+# checks the author may change this repository (write, maintain or admin: the Collaborators list decides) and turns
+# the form into the same command the Actions form runs; facilitator-action.yml makes and saves the change. The issue
+# is then answered with what happened and closed. Nothing from the issue reaches a shell.
+name: 'Facilitator: change from an issue'
+
+on:
+  issues:
+    types: [opened]
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  read:
+    if: "startsWith(github.event.issue.title, 'Facilitator: ')"
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      allowed: ${{ steps.read.outputs.allowed }}
+      args: ${{ steps.read.outputs.args }}
+      reply: ${{ steps.read.outputs.reply }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check who sent it, and read the form
+        id: read
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 grader/issue_form.py
+
+  change:
+    needs: read
+    if: needs.read.outputs.allowed == 'true'
+    permissions:
+      contents: read  # the deploy key, not the token, saves the change
+    uses: ./.github/workflows/facilitator-action.yml
+    secrets:
+      LEADERBOARD_DEPLOY_KEY: ${{ secrets.LEADERBOARD_DEPLOY_KEY }}  # only the key that saves
+    with:
+      args: ${{ needs.read.outputs.args }}
+
+  answer:
+    needs: [read, change]
+    if: always() && needs.read.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write  # to comment on and close the issue
+    steps:
+      - name: Answer the issue and close it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          REPLY: ${{ needs.read.outputs.reply }}
+          SUMMARY: ${{ needs.change.outputs.summary }}
+          CHANGED: ${{ needs.change.result }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          body=${REPLY:-$SUMMARY}
+          body=${body:-"Something went wrong before the change could be made. Nothing was changed."}
+          gh issue comment "$ISSUE" -R "$REPO" --body "$body"$'\n\n'"[The run that did this]($RUN)"
+          if [[ $CHANGED == success ]]; then reason=completed; else reason='not planned'; fi
+          gh issue close "$ISSUE" -R "$REPO" --reason "$reason"

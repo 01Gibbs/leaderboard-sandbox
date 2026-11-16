@@ -1,0 +1,28 @@
+# Sent by the facilitator page (facilitator.html), already filled in. Applied by changes-from-issues.yml
+# for collaborators with write access, then answered and closed. Fields match facilitator-award.yml (tests).
+name: 'Facilitator: Award points'
+description: 'Give or take away helps, stretch tasks or bonus points.'
+title: 'Facilitator: Award points'
+labels: [facilitator]
+body:
+  - type: input
+    id: person
+    attributes:
+      label: 'Person'
+      description: 'Their name or GitHub username, as on the leaderboard.'
+    validations:
+      required: true
+  - type: input
+    id: kind
+    attributes:
+      label: 'What for'
+      description: 'helped, stretch or bonus'
+    validations:
+      required: true
+  - type: input
+    id: amount
+    attributes:
+      label: 'How many'
+      description: 'How many helps or stretch tasks, or bonus points. Use -1 to take one away.'
+    validations:
+      required: false

@@ -2,9 +2,9 @@
 
 Everything is done in your browser. You don't need to install anything.
 
-**To make a change:** open the **facilitator page**: the leaderboard's address followed by `facilitator.html` (for example `https://01gibbs.github.io/leaderboard-sandbox/facilitator.html`). Fill in a form and press **Save**. The page shows *Saving…*, then *Done* or *Not changed* with the reason, and lists recent changes by anyone. The public page updates a minute or two later.
+**To make a change:** open the **facilitator page**: the leaderboard's address followed by `facilitator.html` (for example `https://01gibbs.github.io/leaderboard-sandbox/facilitator.html`). Fill in a form and press **Save**. The page lists recent changes by anyone. The public page updates a minute or two later.
 
-The first time, the page asks for a GitHub token, so the forms can run as you. It explains how to make one: a fine-grained token for this repository only, with **Actions: Read and write** and **Contents: Read-only**. It stays in your browser. You need to be allowed to change this repository.
+Save opens GitHub with the change already filled in, as a new issue: sign in if asked, and press **Submit new issue**. About a minute later the change is made, and the issue is answered with what happened and closed. Only the leaderboard's collaborators can make changes (the repository owner adds them under Settings → Collaborators); anyone else's issue is answered saying so, and nothing changes. There is no token to make.
 
 **To practise first:** run `python3 facilitator_walkthrough.py` (Windows: `py facilitator_walkthrough.py`) in a copy of this repository. It opens a guided tour of the facilitator page on a practice copy with made-up people, where every form really works and nothing reaches GitHub. For a tour of the leaderboard itself, run `python3 walkthrough.py`.
 

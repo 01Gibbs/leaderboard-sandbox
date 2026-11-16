@@ -40,16 +40,12 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; display: grid
 .muted, .hint { color: var(--muted); }
 .hint { font-size: 13px; margin: 2px 0 0; font-weight: 400; }
 .banner { border-radius: 10px; padding: 10px 14px; background: var(--accent-soft); }
-#connect form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-top: 10px; }
-#connect label.check { display: flex; gap: 6px; align-items: center; font-size: 14px; grid-column: 1 / -1; }
-#connect label.check input { width: auto; }
-#connect ol { margin: 8px 0 0; padding-left: 20px; }
 #forms { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 #forms form { display: flex; flex-direction: column; gap: 10px; }
 #forms .help { margin: 0; color: var(--muted); font-size: 14px; }
 #forms label { display: flex; flex-direction: column; gap: 3px; font-size: 14px; font-weight: 600; }
 #forms .preview { font-size: 14px; min-height: 1.5em; margin: 0; }
-#forms button[type=submit] { align-self: flex-start; }
+#forms .send { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 0; }
 .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 ul.list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
 ul.list li { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere; }
@@ -68,29 +64,15 @@ li.bad { background: var(--bad-soft); }
   <h1>Facilitator</h1>
   <span id="who"></span>
   <a href="index.html">Leaderboard</a>
-  <button type="button" id="signout" hidden>Forget my token</button>
 </header>
 <main>
   <p id="practice" class="banner" hidden data-tour="practice"><b>Practice mode.</b> These are made-up people on a copy of the
     leaderboard on your own computer. Nothing you do here changes the real one.</p>
   <p id="error" role="alert" hidden></p>
 
-  <section id="connect" class="panel" data-tour="connect" hidden>
-    <h2>Connect to GitHub</h2>
-    <p class="muted">The forms start the leaderboard's facilitator workflows on GitHub, as you. That needs a token, made once:</p>
-    <ol>
-      <li>Open <a id="tokenLink" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">a new fine-grained token</a>.</li>
-      <li>Repository access: <b>Only select repositories</b> → <b id="repoName">this leaderboard</b>.</li>
-      <li>Permissions: <b>Actions: Read and write</b> and <b>Contents: Read-only</b>. Nothing else.</li>
-      <li>Generate it, copy it, and paste it here.</li>
-    </ol>
-    <form id="tokenForm">
-      <input id="token" type="password" autocomplete="off" placeholder="github_pat_…" aria-label="Token" required>
-      <button type="submit" class="primary">Connect</button>
-      <label class="check"><input type="checkbox" id="remember"> Remember it on this device (otherwise it is forgotten when you close the tab)</label>
-    </form>
-    <p class="hint">The token stays in this browser and is sent only to GitHub.</p>
-  </section>
+  <p id="how" class="banner" data-tour="how" hidden><b>Save opens GitHub</b> with the change filled in: press
+    <b>Submit new issue</b> there. If you are one of the leaderboard's collaborators, the change is made in about a minute
+    and the issue is answered with what happened. Anyone else is told only collaborators can make changes.</p>
 
   <section id="forms" data-tour="forms" aria-label="Facilitator actions"></section>
 
@@ -112,19 +94,21 @@ li.bad { background: var(--bad-soft); }
 <script src="scoring.js"></script>
 <script src="facilitator-forms.js"></script>
 <script>
-// Each form starts its facilitator-*.yml workflow through GitHub's API (workflow_dispatch), with the inputs that
-// workflow takes; the workflow makes the change and saves it, exactly as the Actions tab does. The page then
-// follows the run until GitHub says how it went. People and exercises for the pickers come from the same
-// participants.csv and lessons.json the leaderboard shows.
+// Save opens GitHub's "New issue" page with that form's template (.github/ISSUE_TEMPLATE/facilitator-*.yml) filled
+// in. Submitting it starts changes-from-issues.yml, which checks the author is a collaborator who can write, makes
+// the change with the same command as the matching Actions form, answers the issue and closes it. So the page needs
+// no token and no sign-in of its own: anyone can fill it in, and only collaborators' changes are made. Each form also
+// links to its Actions form. People and exercises for the pickers come from participants.csv and lessons.json, and
+// recent changes from grader/history.json (read without a token: GitHub allows 60 such reads an hour per network).
 //
-// ?practice talks to facilitator_walkthrough.py's stand-in for GitHub instead, on a copy with made-up people.
+// ?practice talks to facilitator_walkthrough.py's stand-in for GitHub instead, on a copy with made-up people: there
+// a form runs straight away, as its workflow would.
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const PRACTICE = params.has('practice');
 const API = PRACTICE ? new URL('practice-api', location.href).href : 'https://api.github.com';
 const REPO = PRACTICE ? 'practice/leaderboard' : (params.get('repo') || repoFromLocation());
-const TOKEN_KEY = 'lb-facilitator-token';
-let token = '', me = '', lessons = [], people = [];
+let me = '', lessons = [], people = [];
 
 function repoFromLocation() {
   // GitHub Pages serves owner/name at owner.github.io/name/
@@ -142,25 +126,9 @@ function el(tag, cls, text) {
 function showError(text) { $('error').textContent = text || ''; $('error').hidden = !text; }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/* ---- the token: sessionStorage unless the facilitator asks to be remembered ---- */
-function storedToken() {
-  for (const store of ['sessionStorage', 'localStorage']) {
-    try { const t = window[store].getItem(TOKEN_KEY); if (t) return t; } catch (e) {}
-  }
-  return '';
-}
-function storeToken(t, remember) {
-  for (const store of ['sessionStorage', 'localStorage']) {
-    try { window[store].removeItem(TOKEN_KEY); } catch (e) {}
-  }
-  if (!t) return;
-  try { window[remember ? 'localStorage' : 'sessionStorage'].setItem(TOKEN_KEY, t); } catch (e) {}
-}
-
 /* ---- GitHub ---- */
 async function gh(path, opts = {}) {
   const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(opts.headers || {}) };
-  if (token) headers.Authorization = 'Bearer ' + token;
   if (opts.body) headers['Content-Type'] = 'application/json';
   const res = await fetch(API.replace(/\/$/, '') + path, { ...opts, headers, cache: 'no-store' });
   if (!res.ok) {
@@ -173,15 +141,33 @@ async function gh(path, opts = {}) {
   return res.status === 204 ? null : res.headers.get('Content-Type')?.includes('json') ? res.json() : res.text();
 }
 
-async function connect(t) {
-  token = t;
-  const [user] = await Promise.all([gh('/user'), gh(`/repos/${REPO}`)]);
-  me = user.login;
-  $('who').textContent = PRACTICE ? 'Practising' : 'Signed in as @' + me;
-  $('connect').hidden = true;
-  $('signout').hidden = PRACTICE;
-  setFormsEnabled(true);
-  loadHistory();
+async function practise() {
+  me = (await gh('/user')).login;
+  $('who').textContent = 'Practising';
+}
+
+/* ---- sending a change: a filled-in issue on GitHub ---- */
+function issueUrl(form, inputs) {
+  const q = new URLSearchParams({ template: `facilitator-${form.id}.yml` });
+  Object.entries(inputs).forEach(([k, v]) => { if (v) q.set(k, v); });
+  return `https://github.com/${REPO}/issues/new?${q}`;
+}
+function actionsUrl(form) { return `https://github.com/${REPO}/actions/workflows/${form.workflow}`; }
+function openIssue(form, inputs, description) {
+  const url = issueUrl(form, inputs);
+  const item = el('li'), link = el('a', '', 'Submit it on GitHub');
+  link.href = url; link.target = '_blank'; link.rel = 'noopener';
+  item.append(el('span', 'state running', 'Opened on GitHub. '), el('span', '', description + ' '), link,
+    el('small', '', 'Press Submit new issue there. The change appears under Recent changes about a minute later.'));
+  $('runs').prepend(item);
+  $('noRuns').hidden = true;
+  window.open(url, '_blank', 'noopener');
+  watchHistory();
+}
+let watching = 0;
+async function watchHistory() {  // refresh recent changes for a few minutes after a change is sent
+  const mine = ++watching;
+  for (let i = 0; i < 12 && mine === watching; i++) { await sleep(15000); await loadHistory(); }
 }
 
 /* ---- people and exercises, for the pickers ---- */
@@ -258,7 +244,12 @@ function buildForms() {
     const say = el('p', 'preview muted');
     const go = el('button', 'primary', form.id === 'undo' ? 'Undo' : 'Save');
     go.type = 'submit';
-    panel.append(say, go);
+    const alt = el('a', 'hint', 'or run it in Actions');
+    alt.href = actionsUrl(form); alt.target = '_blank'; alt.rel = 'noopener';
+    alt.hidden = PRACTICE;
+    const row = el('p', 'send');
+    row.append(go, alt);
+    panel.append(say, row);
     const values = () => Object.fromEntries(form.fields.map((f) => [f.input, panel.elements[f.input].value.trim()]));
     const update = () => { say.textContent = preview(form, values()); };
     panel.addEventListener('input', update);
@@ -272,13 +263,12 @@ function buildForms() {
       if (form.id === 'undo' && !confirm('Undo the top change under Recent changes?')) return;
       go.disabled = true;
       try {
+        if (!PRACTICE) return openIssue(form, inputs, preview(form, inputs));
         await run(form, inputs, preview(form, inputs));
         if (form.id !== 'undo') form.fields.forEach((f) => { if (f.kind === 'text' && !f.value) panel.elements[f.input].value = ''; });
         update();
       } catch (err) {
-        showError(err.status === 401 || err.status === 403
-          ? 'GitHub refused: the token is missing, expired, or lacks "Actions: Read and write" on ' + REPO + '. ' + err.message
-          : String(err.message || err));
+        showError(String(err.message || err));
       } finally {
         go.disabled = false;
       }
@@ -362,28 +352,14 @@ function noHistory(text) { $('history').replaceChildren(el('li', 'muted', text))
     showError('Open this page from the leaderboard\'s GitHub Pages address, or add ?repo=owner/name to the address.');
     return;
   }
-  $('repoName').textContent = REPO;
-  if (PRACTICE) { $('practice').hidden = false; return connect('').catch((e) => showError(e.message)); }
-  $('tokenForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    showError('');
-    const t = $('token').value.trim();
-    try {
-      await connect(t);
-      storeToken(t, $('remember').checked);
-      $('token').value = '';
-    } catch (err) {
-      token = '';
-      showError(err.status === 401 ? 'GitHub did not accept that token. Check you copied all of it, and that it has not expired.'
-        : err.status === 404 ? `The token cannot see ${REPO}. Give it access to that repository.` : String(err.message || err));
-    }
-  });
-  $('signout').addEventListener('click', () => { storeToken(''); location.reload(); });
-  const saved = storedToken();
-  if (saved) {
-    try { await connect(saved); return; } catch (e) { storeToken(''); showError('Your saved token no longer works; connect again.'); }
+  if (PRACTICE) {
+    $('practice').hidden = false;
+    try { await practise(); } catch (e) { showError(e.message); return; }
+  } else {
+    $('how').hidden = false;
   }
-  $('connect').hidden = false;
+  setFormsEnabled(true);
+  loadHistory();
 })();
 </script>
 </body>
