@@ -12,9 +12,9 @@
 
   ],
   "nextWeekTitle": "Next week's plan",
-  "nextWeek": ["17 Nov to 19 Nov · Upgrade a Container Base Image for a Java Application"],
+  "nextWeek": ["17 Nov to 19 Nov: Upgrade a Container Base Image for a Java Application"],
   "kudos": {
-    "text": "Kudos to this week's workshop co-ordinators — ",
+    "text": "Kudos to workshop co-ordinators — ",
     "names": "Shubhaja Menon, James Wright, Gibbs Gilbert & Aparna Mohanty"
   }
 }
