@@ -143,10 +143,19 @@ expect(ok and row('Bukky Adeyemi').split(',')[5] == 'correct', 'mark: exercise m
 print('Mistakes')
 before = csv_at_origin()
 ok, s = run_facilitator('facilitator-award.yml', {'person': 'Stuart Smit', 'kind': 'helped', 'amount': '1'})
-expect(not ok and "❌ Nothing was changed" in s and "Did you mean 'Stuart Smith'" in s, 'typo: run fails, says nothing changed, suggests the right name')
+expect(ok and "❌ Nothing was changed" in s and "Did you mean 'Stuart Smith'" in s, 'typo: run succeeds (a refusal is an answer), says nothing changed, suggests the right name')
 expect(csv_at_origin() == before, 'typo: origin unchanged')
 ok, s = run_facilitator('facilitator-mark.yml', {'person': 'Bukky Adeyemi', 'lesson': 'docker', 'status': 'correct'})
-expect(not ok and 'fizzbuzz, rest_api, framework_upgrade, container_image' in s, 'mark: unknown exercise lists the valid keys')
+expect(ok and 'fizzbuzz, rest_api, framework_upgrade, container_image' in s, 'mark: unknown exercise lists the valid keys, run succeeds')
+
+workflow = yaml(WF / 'facilitator-action.yml')
+broken = work / 'run-broken'
+shutil.rmtree(broken, ignore_errors=True)
+sh(f'git clone -q {origin} {broken}', work)
+temp = Path(tempfile.mkdtemp())
+crashed = run_steps(workflow, workflow['jobs']['change'], broken, {'ARGS': 'not a JSON array', 'RUNNER_TEMP': str(temp),
+                                                                   'GITHUB_STEP_SUMMARY': str(temp / 'summary.md'), 'GITHUB_OUTPUT': str(temp / 'out')})
+expect(not crashed and csv_at_origin() == before, 'a fault (not a refusal) still fails the run, and changes nothing')
 
 print('Undo')
 ok, s = run_facilitator('facilitator-undo.yml', {})
@@ -205,7 +214,9 @@ triggers = grade_wf['true']  # YAML 1.1 reads the key `on:` as true
 expect(triggers['repository_dispatch'] == {'types': ['submission']}, 'grade: runs when an exercise repository says a pull request changed')
 expect(len(triggers['schedule']) == 1 and re.fullmatch(r'\d+ \d+ \* \* \*', triggers['schedule'][0]['cron']), 'grade: once a day as a backstop')
 expect('workflow_dispatch' in triggers, 'grade: a facilitator can also start it by hand')
-expect(grade_wf['concurrency'] == {'group': 'grade', 'cancel-in-progress': False}, 'grade: one run at a time, a running one never cancelled')
+expect(grade_wf['concurrency'] == {'group': 'grade', 'cancel-in-progress': False, 'queue': 'max'}, 'grade: one run at a time, every waiting run kept: none cancelled')
+pages_wf = yaml(WF / 'pages.yml')
+expect(pages_wf['jobs']['deploy']['concurrency'] == {'group': 'pages', 'cancel-in-progress': False, 'queue': 'max'}, 'pages: deploys wait their turn: none cancelled')
 checkout = next(st for st in grade_wf['jobs']['grade']['steps'] if st.get('uses', '').startswith('actions/checkout'))
 expect(checkout['with'].get('ref') == 'main', 'grade: a run that waited starts from the latest results, not the commit its event fired on')
 

@@ -71,5 +71,6 @@ jobs:
           body=${REPLY:-$SUMMARY}
           body=${body:-"Something went wrong before the change could be made. Nothing was changed."}
           gh issue comment "$ISSUE" -R "$REPO" --body "$body"$'\n\n'"[The run that did this]($RUN)"
-          if [[ $CHANGED == success ]]; then reason=completed; else reason='not planned'; fi
+          # Made: completed. Refused (the summary says nothing was changed) or not allowed: not planned.
+          if [[ $CHANGED == success && $SUMMARY != *'Nothing was changed'* ]]; then reason=completed; else reason='not planned'; fi
           gh issue close "$ISSUE" -R "$REPO" --reason "$reason"

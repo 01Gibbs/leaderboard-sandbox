@@ -21,7 +21,8 @@ jobs:
       id-token: write
     concurrency:
       group: pages
-      cancel-in-progress: true  # only the newest version matters
+      cancel-in-progress: false
+      queue: max  # every push deploys in turn (each publishes the newest main), so no run is ever cancelled
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
