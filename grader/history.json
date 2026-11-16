@@ -251,38 +251,5 @@
         }
       }
     ]
-  },
-  {
-    "at": "2026-11-16T11:45:12+00:00",
-    "by": "01Gibbs",
-    "action": "Gave 2 helps to E2E Check 111826a (helped: 0 -> 2)",
-    "changes": [
-      {
-        "before": {
-          "name": "E2E Check 111826a",
-          "github_username": "",
-          "fizzbuzz": "",
-          "rest_api": "",
-          "framework_upgrade": "",
-          "stretch": "",
-          "pr_stretch": "",
-          "helped": "",
-          "container_image": "",
-          "bonus": ""
-        },
-        "after": {
-          "name": "E2E Check 111826a",
-          "github_username": "",
-          "fizzbuzz": "",
-          "rest_api": "",
-          "framework_upgrade": "",
-          "stretch": "",
-          "pr_stretch": "",
-          "helped": "2",
-          "container_image": "",
-          "bonus": ""
-        }
-      }
-    ]
   }
 ]
