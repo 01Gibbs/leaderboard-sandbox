@@ -40,6 +40,8 @@ This repository grew out of [AtulKumarSharma79/Leaderboard](https://github.com/A
 A status here comes from the grader's checks, so a hand edit that marks a failing pull request `correct` is not carried over: the reasons are in `grader/results.json`, and a new commit is graded again within a minute.
 
 ## One-time setup (repository owner)
+**The quick way:** in a clone of the repository, run `grader/setup-leaderboard.sh` (needs the GitHub CLI, logged in as the owner). It does every step below with `gh`, asking before each one, skips what is already done, and finishes by connecting the exercise repositories (`grader/setup-pr-trigger.sh`). The steps, if you prefer Settings:
+
 1. **Publish the page:** Settings → Pages → *Source* → **GitHub Actions**. The *Publish the page* workflow deploys it after every change. The site appears at `https://<owner>.github.io/<repository>/`.
 2. **Let the workflows save changes, and only them:** the forms and the grader push their changes to `main` with a deploy key, so `main` can require a pull request from everyone else.
    1. On your computer: `ssh-keygen -t ed25519 -N "" -C leaderboard-bot -f leaderboard-bot`.
