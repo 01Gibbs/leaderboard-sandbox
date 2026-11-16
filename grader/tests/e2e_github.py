@@ -110,10 +110,19 @@ class GitHub:
             time.sleep(15)
         return runs
 
-    def finish(self, run, every=5):
+    def finish(self, run, every=5, limit=45 * 60, start_within=10 * 60):
+        """Follow a run to the end. Gives up (AssertionError) on one GitHub never starts (still queued with no job
+        after `start_within` seconds: it happens) or that runs past `limit`, instead of waiting forever."""
+        began = time.time()
         while run['status'] != 'completed':
             time.sleep(every)
             run = self.call('GET', f'/repos/{self.repo}/actions/runs/{run["id"]}')
+            waited = time.time() - began
+            if run['status'] == 'queued' and waited > start_within and not self.call(
+                    'GET', f'/repos/{self.repo}/actions/runs/{run["id"]}/jobs')['jobs']:
+                raise AssertionError(f'GitHub never started {run["html_url"]} ({int(waited)}s queued, no jobs)')
+            if waited > limit:
+                raise AssertionError(f'{run["html_url"]} still {run["status"]} after {int(waited)}s')
         return run
 
 
@@ -180,7 +189,10 @@ def journey(gh, me, via, stamp, lesson, start_csv, start_history):
 
     def step(title, workflow, inputs, expect, check):
         nonlocal made
-        run = gh.send_issue(workflow, inputs) if via == 'issues' else gh.run_form(workflow, inputs, me)
+        try:
+            run = gh.send_issue(workflow, inputs) if via == 'issues' else gh.run_form(workflow, inputs, me)
+        except AssertionError as e:  # a run that never started or never ended: report it, carry on to the undo
+            run = {'outcome': 'broken', 'html_url': str(e)}
         made += run['outcome'] == 'changed'
         problem = None if run['outcome'] == expect else f'{run["outcome"]}, expected {expect}'
         problem = problem or check(rows(gh.file('participants.csv')))
