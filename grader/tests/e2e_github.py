@@ -28,6 +28,7 @@ API = 'https://api.github.com'
 class GitHub:
     def __init__(self, repo, token):
         self.repo, self.token = repo, token
+        self.seen = set()  # runs already claimed, so two quick dispatches of one workflow get a run each
 
     def call(self, method, path, body=None, accept='application/vnd.github+json'):
         req = urllib.request.Request(API + path, method=method, data=json.dumps(body).encode() if body is not None else None,
@@ -54,24 +55,26 @@ class GitHub:
         """What facilitator.html does: dispatch, find the newest run by `me` since the click, follow it to the end."""
         started = time.time()
         self.call('POST', f'/repos/{self.repo}/actions/workflows/{workflow}/dispatches', {'ref': 'main', 'inputs': inputs})
-        run = None
+        return self.finish(self.find_run(workflow, 'workflow_dispatch', started, me))
+
+    def find_run(self, workflow, event, since, actor=None):
+        """The newest run of `workflow` for `event` started since `since` (by `actor`, if given) not already claimed.
+        GitHub does not say which run a dispatch started, so this is how the page finds it too."""
         for _ in range(40):
             time.sleep(3)
-            runs = self.call('GET', f'/repos/{self.repo}/actions/workflows/{workflow}/runs?event=workflow_dispatch&per_page=10')['workflow_runs']
-            mine = [r for r in runs if r['actor']['login'] == me and _when(r['created_at']) >= started - 60 and r['id'] not in SEEN]
+            runs = self.call('GET', f'/repos/{self.repo}/actions/workflows/{workflow}/runs?event={event}&per_page=10')['workflow_runs']
+            mine = [r for r in runs if (actor is None or r['actor']['login'] == actor)
+                    and _when(r['created_at']) >= since - 60 and r['id'] not in self.seen]
             if mine:
-                run = mine[0]
-                break
-        if run is None:
-            raise AssertionError(f'{workflow}: no run appeared')
-        SEEN.add(run['id'])
+                self.seen.add(mine[0]['id'])
+                return mine[0]
+        raise AssertionError(f'{workflow}: no {event} run appeared')
+
+    def finish(self, run, every=5):
         while run['status'] != 'completed':
-            time.sleep(5)
+            time.sleep(every)
             run = self.call('GET', f'/repos/{self.repo}/actions/runs/{run["id"]}')
         return run
-
-
-SEEN = set()
 
 
 def _when(stamp):
@@ -125,8 +128,9 @@ def main(argv):
         step('a misspelt name changes nothing', 'facilitator-award.yml', {'person': 'Nobody ' + stamp, 'kind': 'helped', 'amount': '1'},
              False, lambda s: None if s[who + ' R']['helped'] == '2' else 'the sheet changed')
     finally:
-        for n in range(made):
-            step(f'undo {n + 1} of {made}', 'facilitator-undo.yml', {}, True, lambda s: None)
+        changes = made  # undo counts as made too, so fix the number first
+        for n in range(changes):
+            step(f'undo {n + 1} of {changes}', 'facilitator-undo.yml', {}, True, lambda s: None)
         end_csv, end_history = gh.file('participants.csv'), json.loads(gh.file('grader/history.json') or '[]')
         leftovers = [n for n in rows(end_csv) if n.startswith(('E2E Check', 'E2E Duplicate'))]
         changed = {n for n, r in rows(start_csv).items() if rows(end_csv).get(n) != r}
@@ -140,18 +144,9 @@ def main(argv):
     if a.grade:
         started = time.time()
         gh.call('POST', f'/repos/{a.repo}/dispatches', {'event_type': 'submission', 'client_payload': {'pr': 'e2e_github.py'}})
-        run = None
-        for _ in range(40):
-            time.sleep(3)
-            runs = gh.call('GET', f'/repos/{a.repo}/actions/workflows/grade.yml/runs?event=repository_dispatch&per_page=5')['workflow_runs']
-            run = next((r for r in runs if _when(r['created_at']) >= started - 60), None)
-            if run:
-                break
-        while run and run['status'] != 'completed':
-            time.sleep(15)
-            run = gh.call('GET', f'/repos/{a.repo}/actions/runs/{run["id"]}')
-        ok = bool(run) and run['conclusion'] == 'success'
-        print(f'{"ok  " if ok else "FAIL"} a submission event starts a grading run that succeeds' + (f'  ({run["html_url"]})' if run else ''))
+        run = gh.finish(gh.find_run('grade.yml', 'repository_dispatch', started), every=15)
+        ok = run['conclusion'] == 'success'
+        print(f'{"ok  " if ok else "FAIL"} a submission event starts a grading run that succeeds  ({run["html_url"]})')
         if not ok:
             failures.append('grading run')
 

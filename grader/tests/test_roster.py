@@ -11,6 +11,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 GRADER = Path(__file__).resolve().parents[1]
@@ -531,6 +532,54 @@ class BrokenLessonsTests(Sandbox):
         self.assertIn('Nothing was changed', err)
         self.assertIn('must be lowercase', err)
         self.assertEqual(self.csv_text(), CSV)
+
+
+class EdgeTests(Sandbox):
+    """Cases mutation testing (grader/tests/mutate.py) showed no test covered."""
+
+    def test_undo_merge_of_two_github_accounts_restores_both_rows(self):
+        self.cli('add', 'Second Stuart', 'stuart-alt')
+        before = self.csv_text()
+        self.cli('merge', 'Stuart Smith', 'stuart-alt')
+        self.assertEqual(self.row('stuart-alt')['github_username'], 'StuartJSmith10-dev stuart-alt')
+        code, out, _ = self.cli('undo')
+        self.assertEqual(code, 0)
+        self.assertNotIn('Kept', out)  # the kept row is found again, though the re-added row shares its login
+        self.assertEqual(self.csv_text(), before)
+
+    def test_merge_fills_an_empty_extra_column_from_the_duplicate_but_keeps_a_filled_one(self):
+        (self.dir / 'participants.csv').write_text(CSV.replace('pr_stretch\n', 'pr_stretch,notes\n')
+                                                   .replace('Bukky Adeyemi,,,,,2,1,,\n', 'Bukky Adeyemi,,,,,2,1,,,\n')
+                                                   .replace('bukkie-create,bukkie-create,submitted,submitted,,,3,,\n',
+                                                            'bukkie-create,bukkie-create,submitted,submitted,,,3,,,joined late\n'))
+        self.cli('merge', 'Bukky Adeyemi', 'bukkie-create')
+        self.assertEqual(self.row('Bukky Adeyemi')['notes'], 'joined late')
+        self.cli('undo')
+        (self.dir / 'participants.csv').write_text(self.csv_text().replace('Bukky Adeyemi,,,,,2,1,,,', 'Bukky Adeyemi,,,,,2,1,,,keep me'))
+        self.cli('merge', 'Bukky Adeyemi', 'bukkie-create')
+        self.assertEqual(self.row('Bukky Adeyemi')['notes'], 'keep me')
+
+    def test_taking_away_everything_leaves_zero(self):
+        self.assertEqual(self.cli('award', 'Stuart Smith', 'stretch', '-1')[0], 0)
+        self.assertEqual(int(self.row('Stuart Smith')['stretch'] or 0), 0)
+
+    def test_an_ambiguous_match_without_a_github_account_says_so(self):
+        self.cli('add', 'Bukky Adeyemi Two')
+        self.cli('rename', 'Bukky Adeyemi Two', 'Stuart Smith')
+        code, _, err = self.cli('award', 'Stuart Smith', 'helped')
+        self.assertEqual(code, 1)
+        self.assertIn('Stuart Smith (@no GitHub)', err)
+
+    def test_a_local_change_is_signed_with_git_s_user_name_or_the_login(self):
+        home = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, home)
+        (home / 'gitconfig').write_text('[user]\n\tname = Pat Lead\n')
+        env = {'GIT_CONFIG_GLOBAL': str(home / 'gitconfig'), 'GIT_CONFIG_NOSYSTEM': '1', 'USER': 'patl'}
+        with mock.patch.dict('os.environ', env), mock.patch.dict('os.environ', {}, clear=False) as e:
+            e.pop('GITHUB_ACTOR', None)
+            self.assertEqual(roster.actor(), 'Pat Lead')
+            (home / 'gitconfig').write_text('')
+            self.assertEqual(roster.actor(), 'patl')
 
 
 if __name__ == '__main__':

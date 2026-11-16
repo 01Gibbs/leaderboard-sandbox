@@ -45,10 +45,7 @@ class Slice(unittest.TestCase):
 
     def form(self, *args):
         """A facilitator form, exactly as facilitator-action.yml passes it: one JSON array."""
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
-            code = leaderboard.main(['--args-json', json.dumps(list(args))], root=self.dir)
-        return code, out.getvalue()
+        return self.run_cli('--args-json', json.dumps(list(args)))
 
     def grading_run(self):
         """grade.yml: the grade job grades into its own checkout; the publish job applies that file to main's."""

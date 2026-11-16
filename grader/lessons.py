@@ -31,7 +31,7 @@ class LessonsInvalid(Exception):
         super().__init__('lessons.json has problems:\n  ' + '\n  '.join(problems))
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True)  # no mutate: frozen guards against accidents; nothing relies on it
 class Lesson:
     key: str          # the participants.csv column
     label: str        # shown on the page
@@ -60,7 +60,7 @@ class Lesson:
             for f in sorted(self.test_files.rglob('*')):
                 if f.is_file():
                     h.update(f.relative_to(self.test_files).as_posix().encode() + f.read_bytes())
-        return h.hexdigest()[:12]
+        return h.hexdigest()[:12]  # no mutate: any length that is unlikely to collide
 
 
 def lessons_file(root=ROOT):
@@ -118,4 +118,6 @@ def record_pinned(root, key, commit):
     items = json.loads(path.read_text(encoding='utf-8'))
     item = next(i for i in items if i.get('key') == key)
     item['check'], item['tests_commit'] = 'tests', commit
-    path.write_text(json.dumps(items, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    text = json.dumps(items, ensure_ascii=False,
+                      indent=2)  # no mutate: indent is layout (lessons.json is written with 2)
+    path.write_text(text + '\n', encoding='utf-8')

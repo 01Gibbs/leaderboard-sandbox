@@ -19,7 +19,7 @@ import importlib
 import pkgutil
 
 SHARED = ['toolkit']  # modules here that every check is built from, rather than checks themselves
-CHECKS = {}  # check functions loaded so far, by name (tests add stand-ins here)
+CHECKS = {}  # check functions loaded so far, by name. Tests add stand-ins here; that is the only other source.
 
 
 def names():

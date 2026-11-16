@@ -78,7 +78,9 @@ class Submissions:
         self.save()
 
     def save(self):
-        self.file.write_text(json.dumps(self._data, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+        text = json.dumps(self._data, sort_keys=True,
+                          indent=2)  # no mutate: indent is layout
+        self.file.write_text(text + '\n', encoding='utf-8')
 
     def name(self, login):
         """The person's GitHub profile name, or the login if it is not known."""
@@ -141,7 +143,7 @@ class Submissions:
                 continue
             k = (s['login'].lower(), s['task'])
             spelling[k[0]] = s['login']
-            if RANK[_status(s)] > RANK.get(best.get(k), -1):
+            if RANK[_status(s)] > RANK.get(best.get(k), -1):  # no mutate: any number below every rank
                 best[k] = _status(s)
         return [(spelling[login], lesson, status) for (login, lesson), status in sorted(best.items())]
 
@@ -152,7 +154,7 @@ class Submissions:
         for lesson in lesson_keys:
             # Opened first = earliest created_at; results recorded before created_at existed fall back to PR number.
             opened = sorted((s for s in self._subs.values() if s['task'] == lesson),
-                            key=lambda s: (s.get('created_at') or '', to_int(str(s.get('url', '')).rsplit('/', 1)[-1])))
+                            key=lambda s: (s.get('created_at') or '', to_int(str(s.get('url', '')).rsplit('/', 1)[-1])))  # no mutate: [-1] is the same for any maxsplit
             for s in opened[:EARLY_BONUS['firstSubmissions']]:
                 early[s['login'].lower()] = early.get(s['login'].lower(), 0) + 1
         return early

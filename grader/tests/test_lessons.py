@@ -81,6 +81,24 @@ class LoadingTests(Sandbox):
                     self.load()
                 self.assertIn(f'"{key}" is already used', str(e.exception))
 
+    def test_problems_name_the_lesson_by_its_place_and_key(self):
+        self.write([{'key': 'ok', 'label': 'Ok', 'repo': 'o/r'}, {'key': 5, 'label': 'X', 'repo': 'o/r'}, 'not a lesson'])
+        with self.assertRaises(lessons.LessonsInvalid) as e:
+            self.load()
+        self.assertIn('it must be a list of lessons', str(e.exception))
+        self.write([{'key': 'ok', 'label': '', 'repo': 'o/r'}, {'key': 5, 'label': 'X', 'repo': 'o/r'}])
+        with self.assertRaises(lessons.LessonsInvalid) as e:
+            self.load()
+        self.assertIn('lesson 1 (ok): needs a label', e.exception.problems)
+        self.assertIn('lesson 2: key must be text', e.exception.problems)
+
+    def test_pinning_keeps_lessons_json_as_written(self):
+        self.write([{'key': 'cafe', 'label': 'Café', 'repo': 'o/r', 'check': 'none'}])
+        lessons.record_pinned(self.dir, 'cafe', 'a' * 40)
+        text = self.file.read_text(encoding='utf-8')
+        self.assertIn('"label": "Café"', text)
+        self.assertIn('\n  {\n    "key": "cafe"', text)
+
     def test_missing_check_means_none(self):
         self.write([{'key': 'a', 'label': 'A', 'repo': 'o/a'}])
         self.assertEqual(self.load()[0].check, 'none')
@@ -198,9 +216,6 @@ class VersionTests(Sandbox):
         self.assertEqual(before['fizzbuzz'], self.versions()['fizzbuzz'])
 
 
-if __name__ == '__main__':
-    unittest.main()
-
 
 class CatalogueTests(unittest.TestCase):
     """Lessons are a catalogue (keys, labels, repositories) that facilitator actions read; only grading loads a
@@ -248,7 +263,8 @@ class CatalogueTests(unittest.TestCase):
             '    def checkout(self, repo, number, dest): pass\n'
             'log = []\n'
             'subs = grade.grade_all("..", source=Source(), log=log.append)\n'
-            'print(json.dumps({"log": log, "passed": {k: v.get("passed") for k, v in subs._subs.items()}}))')
+            'saved = json.load(open("results.json"))["submissions"]\n'
+            'print(json.dumps({"log": log, "passed": {k: v.get("passed") for k, v in saved.items()}}))')
         result = json.loads(out.splitlines()[-1])
         self.assertEqual(result['passed'].get('o/alpha#1'), True)  # the other lesson is still graded
         self.assertNotIn('o/beta#1', result['passed'])           # skipped this run, like an unreachable repository
@@ -260,5 +276,10 @@ class CatalogueTests(unittest.TestCase):
                           'try:\n    lessons.load("..")\nexcept lessons.LessonsInvalid as e:\n    print(e.problems[0])\n'
                           'print(sorted(m for m in sys.modules if m.startswith("checks.")))')
         problem, loaded = out.splitlines()[-2:]
-        self.assertIn('check must be one of none, build, container_image, fizzbuzz', problem)
+        names = sorted(f.stem for f in (self.root / 'grader' / 'checks').glob('*.py') if f.stem not in ('__init__', 'toolkit'))
+        self.assertIn('check must be one of none, ' + ', '.join(names), problem)
         self.assertEqual(loaded, '[]')
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -30,13 +30,9 @@ class _Sites(ast.NodeVisitor):
     """Every mutation site, as (node path, description), in a stable order."""
 
     def __init__(self, skip_lines):
-        self.sites, self.skip_lines, self.docstrings = [], skip_lines, set()
+        self.sites, self.skip_lines = [], skip_lines
 
     def visit(self, node):
-        for field in ('body',):
-            body = getattr(node, field, None)
-            if isinstance(body, list) and body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
-                self.docstrings.add(id(body[0].value))
         if getattr(node, 'lineno', None) in self.skip_lines:
             return
         if isinstance(node, ast.Compare):
@@ -45,9 +41,8 @@ class _Sites(ast.NodeVisitor):
             self.sites.append((node, ('op', None)))
         elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
             self.sites.append((node, ('drop-not', None)))
-        elif isinstance(node, ast.Constant) and id(node) not in self.docstrings:
-            if isinstance(node.value, bool) or (isinstance(node.value, int) and not isinstance(node.value, bool)):
-                self.sites.append((node, ('const', None)))
+        elif isinstance(node, ast.Constant) and isinstance(node.value, int):  # numbers, and True/False (bools are ints)
+            self.sites.append((node, ('const', None)))
         self.generic_visit(node)
 
 
@@ -113,8 +108,11 @@ def main(argv):
     a = p.parse_args(argv)
     module = Path(a.module).resolve().relative_to(REPO)
     tests = a.tests or [f'test_{module.stem}']
-    source = (REPO / module).read_text(encoding='utf-8')
-    found = list(mutants(source))
+    original = (REPO / module).read_text(encoding='utf-8')
+    found = list(mutants(original))
+    # Mutants are written by ast.unparse, which drops comments and reformats; run the unmutated baseline the same
+    # way, so only the mutation differs between a passing baseline and a mutant.
+    source = ast.unparse(ast.parse(original))
 
     work = Path(tempfile.mkdtemp(prefix='mutate-'))
     try:
@@ -122,17 +120,17 @@ def main(argv):
         for n in range(max(1, min(a.jobs, len(found)))):
             copy_repo(work / str(n))
             roots.append(work / str(n))
+        (roots[0] / module).write_text(source, encoding='utf-8')
         if not run_tests(roots[0], tests, a.timeout):
             raise SystemExit(f'The tests fail without any mutation: {" ".join(tests)}')
         free = list(roots)
 
         def trial(m):
-            root = free.pop()
+            root = free.pop()  # one copy per worker: the pool is as large as `roots`
             try:
                 (root / module).write_text(m[3], encoding='utf-8')
                 return m, not run_tests(root, tests, a.timeout)
             finally:
-                (root / module).write_text(source, encoding='utf-8')
                 free.append(root)
 
         with ThreadPoolExecutor(len(roots)) as pool:

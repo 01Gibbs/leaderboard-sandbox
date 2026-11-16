@@ -4,7 +4,8 @@ Results are recorded in Submissions (grader/results.json), which also decides wh
 still counts; the Roster brings them onto the leaderboard. The rules people rely on live here:
   - a grader error (not the participant's fault) is recorded as passed=None and retried next run;
   - one repository being unreachable skips that repository, not the run;
-  - a check module that cannot be loaded (a mistake in it) skips that check's lessons, not the run.
+  - a check module that cannot be loaded (a mistake in it) skips that check's lessons, not the run, with or
+    without --no-run (a result's version includes its check's code, so even recording one needs the check).
 
 Pull requests come from a source: GitHub in production, an in-memory one in tests.
 """

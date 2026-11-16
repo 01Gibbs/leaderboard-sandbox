@@ -25,7 +25,7 @@ from rules import BASE_COLUMNS, COUNTS, EARLY_BONUS, GENERATED, RANK, STATUSES, 
 
 LOGIN = BASE_COLUMNS[1]  # the github_username column
 
-HISTORY_LIMIT = 100
+HISTORY_LIMIT = 100  # no mutate: any cap will do; test_history_is_capped checks the capping
 BOM = '\ufeff'
 
 
@@ -107,7 +107,7 @@ class _Sheet:
             raise ActionError(f'More than one row matches "{who}": ' + ', '.join(f'{r["name"]} (@{r[LOGIN] or "no GitHub"})' for r in hits)
                               + '. Use their GitHub login instead.')
         known = [r['name'] for r in self.rows] + [l for r in self.rows for l in logins(r)]
-        close = difflib.get_close_matches(who.strip(), known, n=3, cutoff=0.5)
+        close = difflib.get_close_matches(who.strip(), known, n=3, cutoff=0.5)  # no mutate: how many suggestions is taste
         raise NotFound(f'Nobody called "{who}" is on the leaderboard.' + (f' Did you mean {" or ".join(map(repr, close))}?' if close else '')
                        + ' To add someone new, use "add".')
 
@@ -165,7 +165,7 @@ class Roster:
     def history(self):
         return json.loads(self.history_file.read_text()) if self.history_file.exists() else []
 
-    def recent(self, n=10):
+    def recent(self, n=10):  # no mutate: the CLI always passes its own count
         history = self.history()[-n:]
         if not history:
             return 'No facilitator actions yet.'
@@ -179,7 +179,7 @@ class Roster:
         history.append({'at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'by': actor(),
                         'action': description, 'changes': sheet.changes()})
         self._save(sheet)  # first: if it fails, no history entry is left for a change that never happened
-        self.history_file.write_text(json.dumps(history[-HISTORY_LIMIT:], indent=2) + '\n')
+        self.history_file.write_text(json.dumps(history[-HISTORY_LIMIT:], indent=2) + '\n')  # no mutate: indent is layout
         return description
 
     def add(self, name, github=''):
@@ -196,7 +196,7 @@ class Roster:
         sheet.new_row(name, github)
         return self._record(sheet, f'Added {name}' + (f' (@{github})' if github else ''))
 
-    def award(self, who, kind, amount=1):
+    def award(self, who, kind, amount=1):  # no mutate: the CLI always passes the amount
         if kind not in COUNTS:
             raise ActionError(f'Award one of: {", ".join(COUNTS)} (got "{kind}").')
         amount = to_int(amount)
@@ -301,7 +301,7 @@ class Roster:
                 else:
                     kept.append(f'{current["name"]}\'s {col} was changed again since, so it stays {current.get(col) or "empty"}')
         self._save(sheet)
-        self.history_file.write_text(json.dumps(history, indent=2) + '\n')
+        self.history_file.write_text(json.dumps(history, indent=2) + '\n')  # no mutate: indent is layout
         return f'Undid: {last["action"]} (by {last["by"]} at {last["at"]})' + ''.join(f'\nKept: {k}.' for k in kept)
 
     # ---------- graded results ----------
