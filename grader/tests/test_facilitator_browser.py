@@ -149,8 +149,9 @@ class FacilitatorJourneyTests(unittest.TestCase):
     def test_on_the_real_page_save_opens_the_filled_in_issue_on_github(self):
         page = self.browser.new_page()
         self.addCleanup(page.close)
-        page.route('https://github.com/**', lambda route: route.fulfill(body='GitHub'))  # never leave this computer
-        page.route('https://api.github.com/**', lambda route: route.fulfill(status=404, body='{}'))
+        # Never leave this computer: the page and the GitHub tab it opens are answered here.
+        page.context.route('https://github.com/**', lambda route: route.fulfill(body='GitHub', content_type='text/html'))
+        page.context.route('https://api.github.com/**', lambda route: route.fulfill(status=404, body='{}'))
         page.goto(self.base + '/facilitator.html?repo=someone/board')
         expect(page.locator('#how')).to_be_visible()
         form = page.locator('[data-tour="form-award"]')
@@ -160,11 +161,25 @@ class FacilitatorJourneyTests(unittest.TestCase):
             'href', 'https://github.com/someone/board/actions/workflows/facilitator-award.yml')
         with page.expect_popup() as popup:
             form.locator('button[type=submit]').click()
-        url = popup.value.url
+        github = popup.value
+        github.wait_for_url(re.compile(r'^https://github\.com/'))
+        url = github.url
         self.assertTrue(url.startswith('https://github.com/someone/board/issues/new?'), url)
         query = dict(urllib.parse.parse_qsl(url.split('?', 1)[1]))
         self.assertEqual(query, {'template': 'facilitator-award.yml', 'person': 'Asha Rao', 'kind': 'helped', 'amount': '2'})
         expect(page.locator('#runs li').first).to_contain_text('Opened on GitHub')
+        # A second change reuses the same GitHub tab instead of opening another.
+        form.locator('[name=amount]').fill('3')
+        form.locator('button[type=submit]').click()
+        expect(page.locator('#runs li')).to_have_count(2)
+        github.wait_for_url(re.compile(r'amount=3'))
+        self.assertEqual(len(page.context.pages), 2, 'the facilitator page and one GitHub tab')
+        github.close()  # closed by the facilitator: the next change opens a fresh tab
+        form.locator('[name=amount]').fill('4')
+        with page.expect_popup() as again:
+            form.locator('button[type=submit]').click()
+        again.value.wait_for_url(re.compile(r'amount=4'))
+        self.assertEqual(len(page.context.pages), 2)
 
 
 if __name__ == '__main__':
