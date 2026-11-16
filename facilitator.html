@@ -161,8 +161,22 @@ function openIssue(form, inputs, description) {
     el('small', '', 'Press Submit new issue there. The change appears under Recent changes about a minute later.'));
   $('runs').prepend(item);
   $('noRuns').hidden = true;
-  window.open(url, '_blank', 'noopener');
+  showOnGitHub(url);
   watchHistory();
+}
+// One GitHub tab for every change, not a new tab each time. Browsers forget a tab's name once it goes to another
+// site, so the page keeps hold of the tab it opened and sends the next change there. That needs the tab to keep
+// this page as its opener (a browser lets only the opener send it elsewhere); the only site it ever shows is
+// github.com, which is trusted with that.
+let githubTab = null;
+function showOnGitHub(url) {
+  if (githubTab && !githubTab.closed) {
+    githubTab.location.href = url;
+  } else {
+    githubTab = window.open(url, '_blank');
+    if (!githubTab) { location.href = url; return; }  // pop-ups blocked: go there in this tab instead
+  }
+  githubTab.focus();
 }
 let watching = 0;
 async function watchHistory() {  // refresh recent changes for a few minutes after a change is sent
