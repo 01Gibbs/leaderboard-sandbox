@@ -79,6 +79,7 @@ The current custom checks:
 - **REST API:** starts the app and calls `GET`/`POST /api/employees`, including the `400` cases.
 - **Framework upgrade:** checks for Spring Boot 3.5.x, no `javax.*` imports, the removed properties gone, and `commons-text` 1.10 or newer. The original tests must pass, and the API must behave as before.
 - **Container image:** requires an approved, pinned `eclipse-temurin` 21/25 image, a multi-stage build with a JRE runtime, a non-root user and a `.dockerignore`. It then builds and runs the image and calls the API.
+- **Replace a library:** no Joda-Time, log4j 1.x or opencsv 2.3 in the source, `log4j.properties` deleted, none of the three in the built app (directly or through another library), and the starter's tests pass unchanged, so the API, CSV export and log message behave as before. The library audit and the Bruno comparison are left to facilitators.
 
 **Adding a lesson with Claude:** in this repository, ask Claude Code to *"add the lesson in owner/repo to the leaderboard"*. The `add-lesson` skill (`.claude/skills/add-lesson`) walks through choosing the level, writing and testing the check, and recording existing submissions. To add one by hand, add the entry to `lessons.json` with `"check": "none"`, then raise the level later.
 

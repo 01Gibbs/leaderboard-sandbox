@@ -2,6 +2,8 @@
 GitHub would: each form's JSON arguments built from the YAML, then every `run:` step with GitHub's bash options.
 Run by test_workflows.py; or directly: python3 grader/tests/simulate_workflows.py
 """
+import csv
+import io
 import json
 import os
 import re
@@ -109,36 +111,43 @@ def csv_at_origin():
 
 
 def row(name):
-    return next(l for l in csv_at_origin().splitlines() if l.startswith(name + ','))
+    """A person's row at origin, by column name, so a new lesson's column moves nothing here."""
+    return next(r for r in csv.DictReader(io.StringIO(csv_at_origin())) if r['name'] == name)
+
+
+def filled(r):
+    """The non-blank cells of a row, other than the name."""
+    return {k: v for k, v in r.items() if v and k != 'name'}
 
 
 print('Facilitator journeys')
 ok, s = run_facilitator('facilitator-award.yml', {'person': 'stuart smith', 'kind': 'helped', 'amount': '2'})
 expect(ok and '✅ Gave 2 helps to Stuart Smith' in s, 'award: run succeeds and summary says what changed')
-expect(row('Stuart Smith').endswith(',1,2,,'), 'award: helped is 2 at origin')
+expect(row('Stuart Smith')['helped'] == '2', 'award: helped is 2 at origin')
 expect('facilitator-ann: Gave 2 helps' in s, 'award: recent actions list who did it')
 log = sh('git log -1 --format=%s%n%b', clone).stdout
 expect('Leaderboard: Gave 2 helps to Stuart Smith' in log and '@facilitator-ann' in log, 'award: commit message names the change and the facilitator')
 
 ok, s = run_facilitator('facilitator-award.yml', {'person': 'StuartJSmith10-dev', 'kind': 'bonus', 'amount': '-3'})
-expect(ok and row('Stuart Smith').endswith(',1,2,-3,'), 'award: negative bonus by GitHub login')
+expect(ok and row('Stuart Smith')['bonus'] == '-3', 'award: negative bonus by GitHub login')
 
 ok, s = run_facilitator('facilitator-rename.yml', {'person': 'madbpopye', 'new_name': 'Ali "The Builder" O\'Neil, $(whoami)'})
 expect(ok and '"Ali ""The Builder"" O\'Neil, $(whoami)",madbpopye' in csv_at_origin(), 'rename: quotes, commas and $(...) stay plain text')
 
 ok, s = run_facilitator('facilitator-add.yml', {'name': 'Bukky Adeyemi', 'github': ''})
 ok2, _ = run_facilitator('facilitator-award.yml', {'person': 'Bukky Adeyemi', 'kind': 'stretch', 'amount': '3'})
-expect(ok and ok2 and row('Bukky Adeyemi').startswith('Bukky Adeyemi,,,,,,3'), 'add: new person, then award to them')
+expect(ok and ok2 and filled(row('Bukky Adeyemi')) == {'stretch': '3'}, 'add: new person, then award to them')
 ok, s = run_facilitator('facilitator-add.yml', {'name': 'Asha Rao', 'github': ''})
-expect(ok and row('Asha Rao') == 'Asha Rao,,,,,,,,,', 'add: a second person without a GitHub login (the blank field arrives as null)')
+expect(ok and filled(row('Asha Rao')) == {}, 'add: a second person without a GitHub login (the blank field arrives as null)')
 
 ok, s = run_facilitator('facilitator-merge.yml', {'keep': 'Bukky Adeyemi', 'duplicate': 'bukkie-create'})
 merged = row('Bukky Adeyemi')
-expect(ok and merged == 'Bukky Adeyemi,bukkie-create,submitted,submitted,,,3,,,', 'merge: higher value of each column kept, GitHub login carried over')
+expect(ok and filled(merged) == {'github_username': 'bukkie-create', 'fizzbuzz': 'submitted', 'rest_api': 'submitted', 'stretch': '3'},
+       'merge: higher value of each column kept, GitHub login carried over')
 expect('bukkie-create,bukkie-create' not in csv_at_origin(), 'merge: duplicate row removed')
 
 ok, s = run_facilitator('facilitator-mark.yml', {'person': 'Bukky Adeyemi', 'lesson': 'container_image', 'status': 'correct'})
-expect(ok and row('Bukky Adeyemi').split(',')[5] == 'correct', 'mark: exercise marked correct')
+expect(ok and row('Bukky Adeyemi')['container_image'] == 'correct', 'mark: exercise marked correct')
 
 print('Mistakes')
 before = csv_at_origin()
@@ -160,7 +169,7 @@ expect(not crashed and csv_at_origin() == before, 'a fault (not a refusal) still
 print('Undo')
 ok, s = run_facilitator('facilitator-undo.yml', {})
 expect(ok and 'Undid: Marked Bukky Adeyemi container_image as correct' in s, 'undo: reverses the latest change and says which')
-expect(row('Bukky Adeyemi').split(',')[5] == '', 'undo: mark reverted at origin')
+expect(row('Bukky Adeyemi')['container_image'] == '', 'undo: mark reverted at origin')
 run_facilitator('facilitator-undo.yml', {})
 expect('bukkie-create,bukkie-create,submitted' in csv_at_origin(), 'undo again: merge reverted, both rows back')
 
@@ -183,10 +192,10 @@ exit 1
     hook.chmod(0o755)
 
 
-josh_before = int(row('Josh').split(',')[7] or 0)
+josh_before = int(row('Josh')['helped'] or 0)
 ok, s = run_facilitator('facilitator-award.yml', {'person': 'Josh', 'kind': 'helped', 'amount': '2'}, before_push=someone_else_pushes_first)
 expect(ok and (work / 'raced').exists(), 'race: first push rejected because someone else pushed first, run still succeeds')
-expect(int(row('Josh').split(',')[7]) == josh_before + 3, 'race: both changes land (+1 from the other facilitator, +2 from this run)')
+expect(int(row('Josh')['helped']) == josh_before + 3, 'race: both changes land (+1 from the other facilitator, +2 from this run)')
 expect(s.count('✅') == 1 and s.count('Recent actions') == 1, 'race: the run page reports the change once, not once per attempt')
 
 print('Grading run publishing after facilitator changes')

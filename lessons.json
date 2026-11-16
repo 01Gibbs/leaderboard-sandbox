@@ -22,5 +22,11 @@
     "label": "Container image",
     "repo": "AtulKumarSharma79/containerbaseimage",
     "check": "container_image"
+  },
+  {
+    "key": "library_replacement",
+    "label": "Replace a library",
+    "repo": "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary",
+    "check": "library_replacement"
   }
 ]

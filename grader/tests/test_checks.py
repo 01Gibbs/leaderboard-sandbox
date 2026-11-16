@@ -5,6 +5,7 @@ Needs a JDK (JAVA_HOME, or JAVA_HOME_<version>_X64 as set by actions/setup-java)
 the starter projects; the container test also needs Docker. Tests skip themselves when these are missing.
 Only trusted inputs are used here: the exercise starters and submissions written for these tests.
 """
+import os
 import re
 import shutil
 import subprocess
@@ -27,6 +28,7 @@ DATA = Path(__file__).resolve().parent / 'data'
 STARTERS = {
     'rest_reference': 'https://github.com/AtulKumarSharma79/containerbaseimage.git',  # a finished REST API
     'upgrade_starter': 'https://github.com/AtulKumarSharma79/Frameworkupgrade.git',
+    'library_starter': 'https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary.git',
 }
 SECURITY_CONFIG_6 = '''package com.example.onboarding.config;
 
@@ -85,6 +87,24 @@ def reference_upgrade(project):
     (project / 'src/main/java/com/example/onboarding/config/SecurityConfig.java').write_text(SECURITY_CONFIG_6)
 
 
+def reference_replacement(project, only=None):
+    """What a correct library-replacement submission does to the starter: the solution's files (from its answer
+    key repository, kept in data/ so these tests do not depend on that repository staying public)."""
+    solution = DATA / 'library_replacement' / 'solution'
+    for f in solution.rglob('*'):
+        if f.is_file() and (only is None or f.name in only):
+            shutil.copy(f, project / f.relative_to(solution))
+    if only is None:
+        (project / 'src/main/resources/log4j.properties').unlink()
+
+
+def cannot_clone(what):
+    """Offline on a laptop: skip. On GitHub Actions a failed clone must fail the run, not turn it green unchecked."""
+    if os.environ.get('GITHUB_ACTIONS'):
+        raise RuntimeError(f'cannot clone {what}: the check tests would not run')
+    raise unittest.SkipTest(f'cannot clone {what} (offline?)')
+
+
 class LocalFolder:
     """A source whose one "pull request" is a folder on this machine (a starter or a reference submission)."""
 
@@ -136,9 +156,11 @@ class GradleCheckTests(unittest.TestCase):
         for name, url in STARTERS.items():
             r = subprocess.run(['git', 'clone', '-q', '--depth', '1', url, str(cls.tmp / name)], capture_output=True)
             if r.returncode:
-                raise unittest.SkipTest('cannot clone the starter projects (offline?)')
+                cannot_clone(url)
         shutil.copytree(cls.tmp / 'upgrade_starter', cls.tmp / 'upgrade_done')
         reference_upgrade(cls.tmp / 'upgrade_done')
+        shutil.copytree(cls.tmp / 'library_starter', cls.tmp / 'library_done')
+        reference_replacement(cls.tmp / 'library_done')
 
     @classmethod
     def tearDownClass(cls):
@@ -176,6 +198,49 @@ class GradleCheckTests(unittest.TestCase):
         test.write_text(test.read_text().replace('isUnauthorized()', 'isOk()'))  # would fail if it were used
         ok, reasons = run_check('framework_upgrade', project)
         self.assertTrue(ok, reasons)
+
+    def test_library_replacement_starter_fails_with_every_reason(self):
+        ok, reasons = run_check('library_replacement', self.copy('library_starter'))
+        self.assertFalse(ok)
+        text = '\n'.join(reasons)
+        for part in ('Joda-Time', 'log4j 1.x', 'opencsv 2.3', 'log4j.properties is still there', 'joda-time-2.1.jar',
+                     'log4j-1.2.17.jar', 'opencsv-2.3.jar'):
+            self.assertIn(part, text)
+
+    def test_library_replacement_solution_passes(self):
+        ok, reasons = run_check('library_replacement', self.copy('library_done'))
+        self.assertTrue(ok, reasons)
+
+    def test_library_replacement_half_done_names_only_what_is_left(self):
+        project = self.copy('library_starter')
+        reference_replacement(project, only={'OnboardingStatusService.java'})  # Joda-Time replaced in source only
+        ok, reasons = run_check('library_replacement', project)
+        self.assertFalse(ok)
+        text = '\n'.join(reasons)
+        self.assertNotIn('still uses Joda-Time', text)
+        self.assertIn('joda-time-2.1.jar', text)  # still in build.gradle
+        self.assertIn('log4j 1.x', text)
+        self.assertIn('opencsv 2.3', text)
+
+    def test_library_replacement_ignores_edited_tests(self):
+        project = self.copy('library_done')
+        test = project / 'src/test/java/com/example/onboarding/EmployeeApiTests.java'
+        test.write_text(test.read_text().replace('@Test', '@Test @org.junit.jupiter.api.Disabled'))
+        controller = project / 'src/main/java/com/example/onboarding/controller/EmployeeController.java'
+        controller.write_text(controller.read_text().replace('Employee created: id=', 'Created employee '))  # our tests catch it
+        ok, reasons = run_check('library_replacement', project)
+        self.assertFalse(ok)
+        self.assertIn('Gradle build failed', '\n'.join(reasons))
+
+    def test_library_replacement_old_library_left_in_the_build_is_caught(self):
+        project = self.copy('library_done')
+        gradle = project / 'build.gradle'
+        gradle.write_text(gradle.read_text().replace("implementation 'com.opencsv:opencsv:5.9'",
+                                                     "implementation 'com.opencsv:opencsv:5.9'\n    implementation 'joda-time:joda-time:2.1'"))
+        ok, reasons = run_check('library_replacement', project)
+        self.assertFalse(ok)
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn('the built app still contains Joda-Time (joda-time-2.1.jar)', reasons[0])
 
     def test_level_build(self):
         self.assertTrue(run_check('build', self.copy('rest_reference'))[0])
@@ -242,6 +307,16 @@ class DockerfileRuleTests(unittest.TestCase):
         self.assertTrue(self.problems(GOOD_DOCKERFILE.replace('21-jre', '17-jre')))
 
 
+class EveryCheckIsTestedTests(unittest.TestCase):
+    """A custom check counts only once it is proven here, against a known-good and a known-bad submission."""
+
+    def test_each_check_module_is_run_by_a_test_in_this_file(self):
+        names = {f.stem for f in (GRADER / 'checks').glob('*.py')} - {'__init__', 'toolkit'}
+        source = Path(__file__).read_text()
+        untested = sorted(n for n in names if not re.search(rf"run_check\('{n}'", source))
+        self.assertEqual(untested, [], 'add tests with run_check for these checks (see the add-lesson skill, step 5)')
+
+
 def docker_running():
     return bool(shutil.which('docker')) and subprocess.run(['docker', 'info'], capture_output=True).returncode == 0
 
@@ -254,7 +329,7 @@ class ContainerCheckTests(unittest.TestCase):
             repo = Path(tmp) / 'repo'
             r = subprocess.run(['git', 'clone', '-q', '--depth', '1', STARTERS['rest_reference'], str(repo)], capture_output=True)
             if r.returncode:
-                self.skipTest('cannot clone the starter project')
+                cannot_clone(STARTERS['rest_reference'])
             (repo / 'Dockerfile').write_text(GOOD_DOCKERFILE)
             (repo / '.dockerignore').write_text('.git\n.gradle\nbuild\n')
             ok, reasons = run_check('container_image', repo)
