@@ -40,6 +40,13 @@ jobs:
           grader/run_and_push.sh "" 'python3 grader/leaderboard.py --args-json "$ARGS"' || status=$?
           end=$(openssl rand -hex 16)  # a delimiter nothing in the summary can contain
           { echo "summary<<$end"; cat "$GITHUB_STEP_SUMMARY"; echo "$end"; } >> "$GITHUB_OUTPUT"
+          # A change the leaderboard refused (a misspelt name, an unknown exercise) is an answer, not a fault: the run
+          # succeeds, says why on its page and as a warning, and changed nothing. Anything else that went wrong fails it.
+          if (( status )) && reason=$(grep -m1 '❌ Nothing was changed' "$GITHUB_STEP_SUMMARY"); then
+            reason=${reason#*❌ }; reason=${reason//%/%25}
+            echo "::warning title=Nothing was changed::${reason#Nothing was changed. }"
+            status=0
+          fi
           exit $status
       - name: Show recent actions
         if: always()

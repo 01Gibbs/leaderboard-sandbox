@@ -4,9 +4,9 @@
 #
 # It runs when a pull request on an exercise repository is opened, gets a new commit, or is closed or reopened:
 # each exercise repository's notify-leaderboard workflow (grader/exercise-repo/notify-leaderboard.yml, set up
-# with grader/setup-pr-trigger.sh) sends a `submission` event. Every run grades everything not graded yet,
-# so when several events arrive together and GitHub drops the waiting runs but one, nothing is missed. (A run
-# started by hand with "only" grades one pull request; anything else waits for the next event or the daily run.)
+# with grader/setup-pr-trigger.sh) sends a `submission` event. Runs wait their turn (queue: max) rather than
+# replace each other, so none is cancelled; every run grades everything not graded yet, so a run after a busy one
+# finds little left and finishes quickly.
 name: 'Grade submissions (automatic on every pull request)'
 
 on:
@@ -23,6 +23,7 @@ on:
 concurrency:
   group: grade
   cancel-in-progress: false
+  queue: max  # up to 100 waiting runs, one at a time, in order: a burst of pull requests cancels nothing
 
 defaults:
   run:

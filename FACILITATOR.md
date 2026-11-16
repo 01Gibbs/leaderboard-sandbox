@@ -8,7 +8,7 @@ Save opens GitHub with the change already filled in, as a new issue: sign in if 
 
 **To practise first:** run `python3 facilitator_walkthrough.py` (Windows: `py facilitator_walkthrough.py`) in a copy of this repository. It opens a guided tour of the facilitator page on a practice copy with made-up people, where every form really works and nothing reaches GitHub. For a tour of the leaderboard itself, run `python3 walkthrough.py`.
 
-**The same forms are in the Actions tab:** open the repository → **Actions** → pick a *Facilitator:* action on the left → **Run workflow** → fill in the form → **Run workflow**. After about 30 seconds the run shows a ✅ or ❌ with a one-line summary. The page and the Actions tab do exactly the same thing.
+**The same forms are in the Actions tab:** open the repository → **Actions** → pick a *Facilitator:* action on the left → **Run workflow** → fill in the form → **Run workflow**. After about 30 seconds the run finishes, and its page says what happened: ✅ and what changed, or ❌ *Nothing was changed* and why (also shown as a warning). A run that fails outright means something broke, not that you made a mistake: tell the repository owner. The page and the Actions tab do exactly the same thing.
 
 When a form asks for a **person**, use either their name as it appears on the leaderboard or their GitHub username. Upper or lower case doesn't matter. If nobody matches, nothing changes and the run suggests close matches.
 
@@ -38,4 +38,4 @@ Submitted **10**, correct **30**, each stretch task **+5**, each help **+5**, an
 - **Results only go up.** The automatic grader never lowers a result, so it never overwrites your changes. You can't mark an exercise lower than a pull request earned, because the grader would put it straight back. A pull request that is closed without merging stops counting at the next grading run: its early-PR credit passes to the next one opened, and you can then mark its exercise lower. The status it already earned stays until you do, because the grader never lowers a result.
 - **Exercise keys** for *Mark an exercise* are in [`lessons.json`](lessons.json): `fizzbuzz`, `rest_api`, `framework_upgrade`, `container_image`.
 - **Why a submission isn't *Correct* yet:** open `grader/results.json` and search for the person's GitHub username. Each pull request lists the reasons it passed or failed.
-- **A run with ❌** didn't change anything. Click it to read the reason, fix the form and run it again.
+- **❌ Nothing was changed** means the change wasn't made, for example a misspelt name. The run page (or the issue's reply) says why: fix it and send it again.
