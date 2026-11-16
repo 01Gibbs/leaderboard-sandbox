@@ -1,0 +1,25 @@
+# Sent by the facilitator page (facilitator.html), already filled in: every change waiting in its Changes box, one
+# per line. Applied by changes-from-issues.yml for collaborators with write access (`leaderboard.py batch`), then
+# answered with what happened to each line, closed and locked.
+name: 'Facilitator: Changes'
+description: 'Several leaderboard changes at once, as the facilitator page sends them.'
+title: 'Facilitator: Changes'
+labels: [facilitator]
+body:
+  - type: markdown
+    attributes:
+      value: Sent from the facilitator page. Press **Submit new issue**; each line is one change, applied in about a minute.
+  - type: input
+    id: batch
+    attributes:
+      label: 'Batch'
+      description: 'Names these changes, so the facilitator page can follow them.'
+    validations:
+      required: true
+  - type: textarea
+    id: changes
+    attributes:
+      label: 'Changes'
+      description: 'One change per line, as the facilitator page wrote it.'
+    validations:
+      required: true

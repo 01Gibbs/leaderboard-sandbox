@@ -71,6 +71,9 @@ jobs:
           body=${REPLY:-$SUMMARY}
           body=${body:-"Something went wrong before the change could be made. Nothing was changed."}
           gh issue comment "$ISSUE" -R "$REPO" --body "$body"$'\n\n'"[The run that did this]($RUN)"
-          # Made: completed. Refused (the summary says nothing was changed) or not allowed: not planned.
-          if [[ $CHANGED == success && $SUMMARY != *'Nothing was changed'* ]]; then reason=completed; else reason='not planned'; fi
+          # Something changed: completed. Refused (the summary's heading says nothing was changed) or not allowed: not
+          # planned. Then locked, so the issue stays a record and draws no more notifications.
+          heading=${SUMMARY%%$'\n'*}
+          if [[ $CHANGED == success && $heading != *'Nothing was changed'* ]]; then reason=completed; else reason='not planned'; fi
           gh issue close "$ISSUE" -R "$REPO" --reason "$reason"
+          gh issue lock "$ISSUE" -R "$REPO" --reason resolved

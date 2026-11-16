@@ -136,6 +136,26 @@ class PracticeServerTests(unittest.TestCase):
         self.assertEqual(self.dispatch('facilitator-undo.yml')['conclusion'], 'success')
         self.assertEqual(self.call('/participants.csv')[1], before)
 
+    def test_a_changes_issue_is_applied_row_by_row(self):
+        rows = [['award', 'Asha Rao', 'helped', '1'], ['award', 'Nobody Here', 'helped', '1']]
+        body = '### Batch\n\nprac1\n\n### Changes\n\n' + '\n'.join(json.dumps(r) for r in rows)
+        status, issue = self.api('/issues', {'title': 'Facilitator: Changes', 'body': body})
+        self.assertEqual((status, issue['state'], issue['state_reason'], issue['locked']), (201, 'closed', 'completed', True))
+        batch = self.api('/contents/grader/batches.json')[1]['prac1']
+        self.assertEqual([r['ok'] for r in batch['rows']], [True, False])
+        self.assertTrue(batch['rows'][0]['change'])
+
+    def test_reading_state_again_unchanged_costs_a_304(self):
+        self.dispatch('facilitator-award.yml', person='Asha Rao', kind='helped', amount='1')
+        req = urllib.request.Request(self.base + '/practice-api/repos/practice/leaderboard/contents/grader/history.json')
+        with urllib.request.urlopen(req) as r:
+            etag = r.headers['ETag']
+        req.add_header('If-None-Match', etag)
+        with self.assertRaises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen(req)
+        self.assertEqual(e.exception.code, 304)
+        e.exception.close()
+
     def test_only_facilitator_forms_can_be_run(self):
         for workflow in ('grade.yml', 'facilitator-action.yml', '..%2Fgrade.yml'):
             with self.subTest(workflow):

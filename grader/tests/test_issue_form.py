@@ -3,6 +3,7 @@
 An issue must turn into exactly the command its Actions form would run, and only for people who may change the
 repository. The templates, the parser, the page's forms and the workflows must agree.
 """
+import contextlib
 import io
 import json
 import os
@@ -70,6 +71,36 @@ class ReadingTests(unittest.TestCase):
             self.assertEqual(from_issue, facilitator_walkthrough.command(workflow, values), title)
 
 
+class BatchTests(unittest.TestCase):
+    """What the facilitator page sends: several changes in one issue."""
+
+    def test_a_changes_issue_is_one_batch_command(self):
+        rows = [['award', 'Asha Rao', 'helped', '1'], ['rename', 'benok', 'Ben "B" Okafor'], ['undo', 'c1a2b3']]
+        text = body(Batch='ab12', Changes='\n'.join(json.dumps(r) for r in rows))
+        self.assertEqual(issue_form.command('Facilitator: Changes', text), ['batch', 'ab12', json.dumps(rows)])
+
+    def test_blank_lines_are_ignored_and_a_line_that_is_not_json_goes_on_for_batch_to_refuse(self):
+        self.assertEqual(json.loads(issue_form.command('Facilitator: Changes', body(Batch='ab12', Changes='\n["undo"]\n\n'))[2]),
+                         [['undo']])
+        self.assertEqual(issue_form.command('Facilitator: Changes', body(Batch='ab12', Changes='give Asha a help')),
+                         ['batch', 'ab12', 'give Asha a help'])
+
+    def test_a_batch_from_an_issue_is_applied_like_one_from_the_command_line(self):
+        work = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, work)
+        (work / 'grader').mkdir()
+        (work / 'lessons.json').write_text('[{"key": "fizzbuzz", "label": "FizzBuzz", "repo": "o/f", "check": "none"}]')
+        (work / 'participants.csv').write_text('name,github_username,fizzbuzz\nAsha Rao,asha,\n')
+        args = issue_form.command('Facilitator: Changes', body(Batch='ab12', Changes='["award", "Asha Rao", "helped", "2"]'))
+        import leaderboard
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(leaderboard.main(['--args-json', json.dumps(args)], root=work), 0)
+        self.assertIn('1 of 1 changes made (batch ab12)', out.getvalue())
+        import roster
+        self.assertEqual(roster.Roster(work).find('Asha Rao')['helped'], '2')
+
+
 class PermissionTests(unittest.TestCase):
     EVENT = {'issue': {'title': 'Facilitator: Award points', 'user': {'login': 'pat'},
                        'body': body(**{'Person': 'Asha', 'What for': 'helped', 'How many': '2'})}}
@@ -119,7 +150,7 @@ class AgreementTests(unittest.TestCase):
     """One form, four places: the issue template, issue_form.FORMS, facilitator-forms.js and facilitator-*.yml."""
 
     def test_one_template_per_form_with_the_same_title_labels_and_fields(self):
-        names = {f.name for f in TEMPLATES.glob('facilitator-*.yml')}
+        names = {f.name for f in TEMPLATES.glob('facilitator-*.yml')} - {'facilitator-changes.yml'}  # the batch, below
         self.assertEqual(names, {f'facilitator-{name}.yml' for name, _ in issue_form.FORMS.values()})
         for title, (name, inputs) in issue_form.FORMS.items():
             with self.subTest(title):
@@ -129,6 +160,13 @@ class AgreementTests(unittest.TestCase):
                 fields = [(b['attributes']['label'], b['id']) for b in t['body'] if b['type'] == 'input' and b['id'] != 'note']
                 self.assertEqual(fields, inputs)
                 self.assertTrue(all(b['type'] in ('input', 'markdown') for b in t['body']), 'a link can only fill in text fields')
+
+    def test_the_changes_template_is_what_the_parser_reads(self):
+        t = yaml(TEMPLATES / 'facilitator-changes.yml')
+        self.assertEqual((t['name'], t['title']), ('Facilitator: Changes', 'Facilitator: Changes'))
+        fields = [(b['attributes']['label'], b['id']) for b in t['body'] if b['type'] in ('input', 'textarea')]
+        self.assertEqual(fields, issue_form.BATCH_FIELDS)
+        self.assertNotIn('render', json.dumps(t), 'a rendered textarea would wrap the rows in a code fence')
 
     def test_the_page_and_the_workflows_use_the_same_titles_labels_and_fields(self):
         sys.path.insert(0, str(REPO / 'grader' / 'tests'))

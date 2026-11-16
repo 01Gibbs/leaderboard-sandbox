@@ -77,22 +77,33 @@ def command(workflow_text, inputs):
 
 
 class PracticeGitHub:
-    """Just enough of GitHub's API for facilitator.html: dispatching a facilitator workflow, its runs, and
-    grader/history.json. A dispatched workflow runs straight away, on the practice copy."""
+    """Just enough of GitHub's API for facilitator.html: opening a facilitator issue (as pressing Submit would),
+    dispatching a facilitator workflow and its runs, and reading grader/history.json and grader/batches.json. An
+    issue or a workflow is applied straight away, on the practice copy, as changes-from-issues.yml would."""
 
     def __init__(self, root):
         self.root = Path(root)
-        self.runs = []
+        self.runs, self.issues = [], []
         self.lock = threading.Lock()
 
-    def dispatch(self, workflow, inputs):
-        path = self.root / '.github' / 'workflows' / workflow
-        if not re.fullmatch(r'facilitator-[a-z]+\.yml', workflow) or not path.is_file():
-            return 404, {'message': 'Not Found'}
+    def open_issue(self, title, body):
+        """What submitting a facilitator issue does: the same command, answered and closed straight away."""
+        import issue_form
         try:
-            argv = command(path.read_text(encoding='utf-8'), inputs or {})
-        except ValueError:
-            return 422, {'message': 'Workflow does not have a workflow_dispatch trigger'}
+            argv = issue_form.command(title, body)
+        except issue_form.NotAForm as e:
+            return 422, {'message': str(e)}
+        code, summary = self._apply(argv)
+        number = len(self.issues) + 1
+        refused = code != 0 or summary.startswith('Nothing was changed')
+        issue = {'number': number, 'title': title, 'state': 'closed', 'locked': True,
+                 'state_reason': 'not_planned' if refused else 'completed',
+                 'html_url': f'#issue-{number}', 'summary': summary}
+        self.issues.append(issue)
+        return 201, issue
+
+    def _apply(self, argv):
+        """(exit code, what it said): a leaderboard command run on the practice copy, as the workflow runs it."""
         import leaderboard  # the copy's grader is the same code; import late so the copy exists first
         out, err = io.StringIO(), io.StringIO()
         with self.lock, contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
@@ -103,12 +114,23 @@ class PracticeGitHub:
             finally:
                 os.environ.pop('GITHUB_ACTOR', None)
                 os.environ.update({k: v for k, v in env.items() if v is not None})
-            run_id = len(self.runs) + 1
-            self.runs.append({
-                'id': run_id, 'workflow': workflow, 'event': 'workflow_dispatch', 'actor': {'login': ACTOR},
-                'status': 'completed', 'conclusion': 'success' if code == 0 else 'failure',
-                'created_at': datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'),
-                'html_url': f'#run-{run_id}', 'summary': (out.getvalue() or err.getvalue()).strip()})
+        return code, (out.getvalue() or err.getvalue()).strip()
+
+    def dispatch(self, workflow, inputs):
+        path = self.root / '.github' / 'workflows' / workflow
+        if not re.fullmatch(r'facilitator-[a-z]+\.yml', workflow) or not path.is_file():
+            return 404, {'message': 'Not Found'}
+        try:
+            argv = command(path.read_text(encoding='utf-8'), inputs or {})
+        except ValueError:
+            return 422, {'message': 'Workflow does not have a workflow_dispatch trigger'}
+        code, summary = self._apply(argv)
+        run_id = len(self.runs) + 1
+        self.runs.append({
+            'id': run_id, 'workflow': workflow, 'event': 'workflow_dispatch', 'actor': {'login': ACTOR},
+            'status': 'completed', 'conclusion': 'success' if code == 0 else 'failure',
+            'created_at': datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'),
+            'html_url': f'#run-{run_id}', 'summary': summary})
         return 204, None
 
     def workflow_runs(self, workflow):
@@ -125,9 +147,11 @@ class Handler(SimpleHTTPRequestHandler):
         self.github = github  # set first: the parent constructor handles the request straight away
         super().__init__(*args, **kwargs)
 
-    def send_json(self, status, body=None):
+    def send_json(self, status, body=None, headers=None):
         data = json.dumps(body).encode() if body is not None else b''
         self.send_response(status)
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
         if body is not None:
             self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(data)))
@@ -155,11 +179,18 @@ class Handler(SimpleHTTPRequestHandler):
             if m := re.fullmatch(r'/actions/runs/(\d+)', sub):
                 run = self.github.run(int(m.group(1)))
                 return self.send_json(200, run) if run else self.send_json(404, {'message': 'Not Found'})
-            if sub == '/contents/grader/history.json':
-                history = root / 'grader' / 'history.json'
-                if not history.exists():
+            if m := re.fullmatch(r'/contents/grader/(history|batches)\.json', sub):
+                path = root / 'grader' / f'{m.group(1)}.json'
+                if not path.exists():
                     return self.send_json(404, {'message': 'Not Found'})
-                return self.send_json(200, json.loads(history.read_text(encoding='utf-8')))
+                text = path.read_text(encoding='utf-8')
+                etag = '"%x"' % (hash(text) & 0xffffffff)
+                if self.headers.get('If-None-Match') == etag:  # as GitHub answers a conditional request
+                    self.send_response(304)
+                    self.send_header('ETag', etag)
+                    self.end_headers()
+                    return None
+                return self.send_json(200, json.loads(text), {'ETag': etag})
             return self.send_json(404, {'message': 'Not Found'})
         if path.startswith(API):
             return self.send_json(404, {'message': 'Not Found'})
@@ -167,13 +198,16 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         sub = self.api_path()
-        m = re.fullmatch(r'/actions/workflows/([\w.-]+)/dispatches', sub or '')
-        if not m:
-            return self.send_json(404, {'message': 'Not Found'})
         try:
             body = json.loads(self.rfile.read(int(self.headers.get('Content-Length') or 0)) or b'{}')
         except ValueError:
             return self.send_json(400, {'message': 'Problems parsing JSON'})
+        if sub == '/issues':
+            status, reply = self.github.open_issue(body.get('title', ''), body.get('body', ''))
+            return self.send_json(status, reply)
+        m = re.fullmatch(r'/actions/workflows/([\w.-]+)/dispatches', sub or '')
+        if not m:
+            return self.send_json(404, {'message': 'Not Found'})
         status, reply = self.github.dispatch(m.group(1), body.get('inputs') or {})
         self.send_json(status, reply)
 
