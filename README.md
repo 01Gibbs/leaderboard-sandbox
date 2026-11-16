@@ -25,17 +25,32 @@ The grader never lowers a result, so a facilitator's changes are never overwritt
 ## Points
 Submitted **10**, correct **30**, each stretch credit **+5**, each time helping a colleague **+5**, plus any bonus points a facilitator gives. The first **3** pull requests on each exercise earn their authors a stretch credit each (the `pr_stretch` column, worked out by the grader on every run; don't edit it). Equal points share a rank; within it, people with more correct exercises are listed first. They live in one place, the `RULES` block at the top of `scoring.js`, which the page and the grader both read.
 
+## Coming from the original leaderboard
+This repository grew out of [AtulKumarSharma79/Leaderboard](https://github.com/AtulKumarSharma79/Leaderboard), where `participants.csv` was edited by hand. Each thing done there has a place here:
+
+| There | Here |
+|---|---|
+| Run `sync_participants.py` to add pull request authors and early-PR bonuses | Automatic: each exercise repository tells the grader when a pull request changes, and it adds the author, grades the work and works out `pr_stretch` |
+| Mark a status `correct` by editing the CSV | The checks decide from the pull request itself. For an exercise without a check, a facilitator uses **Mark an exercise** on the facilitator page |
+| Add `stretch` or `helped` by editing the CSV | **Award points** on the facilitator page (or edit the CSV: direct edits are kept, and undo leaves them alone) |
+| Exercise names and points in `index.html` (`TRACKS`, `PTS`) | `lessons.json` (one entry per exercise) and the `RULES` block in `scoring.js` |
+| Workshop dates, next week's plan and kudos in `dashboard.json` | The same file, unchanged |
+| `start.bat`, or the file picker when `index.html` is opened from disk | `python3 walkthrough.py --real` (Windows: `py walkthrough.py --real`) serves the real files; `python3 -m http.server 8000` serves the plain page |
+
+A status here comes from the grader's checks, so a hand edit that marks a failing pull request `correct` is not carried over: the reasons are in `grader/results.json`, and a new commit is graded again within a minute.
+
 ## One-time setup (repository owner)
 1. **Publish the page:** Settings → Pages → *Source* → **GitHub Actions**. The *Publish the page* workflow deploys it after every change. The site appears at `https://<owner>.github.io/<repository>/`.
 2. **Let the workflows save changes, and only them:** the forms and the grader push their changes to `main` with a deploy key, so `main` can require a pull request from everyone else.
    1. On your computer: `ssh-keygen -t ed25519 -N "" -C leaderboard-bot -f leaderboard-bot`.
    2. Settings → Deploy keys → **Add deploy key**: paste `leaderboard-bot.pub`, tick **Allow write access**.
    3. Settings → Secrets and variables → Actions → **New repository secret** `LEADERBOARD_DEPLOY_KEY`: paste `leaderboard-bot` (the private key). Then delete both files.
-   4. Settings → Rules → Rulesets → **New branch ruleset** for the default branch: *Restrict deletions*, *Block force pushes*, *Require a pull request before merging* with **0** required approvals (GitHub never counts an author's own approval, so any higher number stops you merging your own pull requests), and *Require status checks to pass*: `fast` and `slow`, the two jobs of *Test the grader*, without *Require branches to be up to date* (the grader commits to main every few hours). Add **Deploy keys** to the bypass list → set *Enforcement* to **Active**.
+   4. Settings → Rules → Rulesets → **New branch ruleset** for the default branch: *Restrict deletions*, *Block force pushes*, *Require a pull request before merging* with **0** required approvals (GitHub never counts an author's own approval, so any higher number stops you merging your own pull requests), and *Require status checks to pass*: `fast` and `slow`, the two jobs of *Test the grader*, without *Require branches to be up to date* (the grader commits to main whenever a pull request changes). Add **Deploy keys** to the bypass list → set *Enforcement* to **Active**.
 
    Pushes made with the deploy key also start *Publish the page*, which is how the page updates after every change.
 3. **Give facilitators access:** Settings → Collaborators → add each facilitator with **Write** access. That is what lets them run the forms.
 4. **Run it once:** Actions → *Grade submissions* → **Run workflow**. The first run builds every existing submission and takes 20 to 40 minutes. After that, it runs by itself and only grades new commits.
+5. **Connect each exercise repository:** run `grader/setup-pr-trigger.sh` (you need admin access to the exercise repositories). It walks you through a token and adds a small workflow to each, so a pull request there is graded within a minute. A repository that isn't connected is graded once a day.
 
 The page, `participants.csv` and the grading reasons are public: anyone with the link can see every name and score.
 
