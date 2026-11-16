@@ -1,8 +1,11 @@
 """The roster: participants.csv and every change to it.
 
 Two things change scores, and both go through Roster: facilitator actions (add, award, mark, rename, merge,
-undo) and graded results (apply_results). The rules that protect people's points live here:
-  - a graded result only ever raises a status, so it never overwrites a facilitator's change;
+undo) and graded results (Submissions). The rules that protect people's points live here:
+  - graded results always hold: every change Roster saves brings in every graded result, so no action, undo
+    or workflow has to remember to apply them;
+  - a graded result only ever raises a status, so it never overwrites a facilitator's change, and a
+    facilitator cannot mark a status below what a pull request has earned;
   - merging keeps the higher value of every column, so nobody loses points;
   - every facilitator action records the cells it changed, so undo can change exactly those back.
 """
@@ -171,12 +174,12 @@ class Roster:
     # ---------- facilitator actions (each returns a one-line summary) ----------
 
     def _record(self, sheet, description):
-        """Write the change and log which cells it changed."""
+        """Log which cells the action changed, then save it with graded results brought in."""
         history = self.history()
         history.append({'at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'by': actor(),
                         'action': description, 'changes': sheet.changes()})
+        self._save(sheet)  # first: if it fails, no history entry is left for a change that never happened
         self.history_file.write_text(json.dumps(history[-HISTORY_LIMIT:], indent=2) + '\n')
-        sheet.save()
         return description
 
     def add(self, name, github=''):
@@ -217,6 +220,11 @@ class Roster:
             raise ActionError(f'Status must be one of: {", ".join(STATUSES)}.')
         row = sheet.find(who)
         before = norm_status(row.get(lesson))
+        earned = self._earned(row, lesson)
+        if RANK[status] < RANK[earned]:
+            raise ActionError(f'{row["name"]}\'s pull request on {lesson} is graded {earned}, so it cannot be marked {status}: '
+                              'the grader would put it straight back. If it should not count, close the pull request '
+                              'without merging and mark it once it has been graded again.')
         row[lesson] = '' if status == 'none' else status
         note = ' The automatic grader never lowers a status, so a pull request can raise this again.' if RANK[status] < RANK[before] else ''
         return self._record(sheet, f'Marked {row["name"]} {lesson} as {status} (was {before}).{note}')
@@ -258,14 +266,12 @@ class Roster:
                     keep[h] = d.get(h, '')
             sheet.rows.remove(d)
         keep[LOGIN] = ' '.join(accounts)
-        summary = self._record(sheet, f'Merged {", ".join(d["name"] for d in drops)} into {keep["name"]}')
-        self.apply_results()  # the kept row now has every account's early-PR bonus
-        return summary
+        return self._record(sheet, f'Merged {", ".join(d["name"] for d in drops)} into {keep["name"]}')
 
     def undo(self):
         """Reverse the latest action: change back exactly the cells it changed, re-add rows it removed and remove
         rows it added. A cell someone has changed again since is left as it is and reported. Graded results
-        are then applied again, so anything the grader added since is kept."""
+        still hold, so anything the grader added is kept."""
         history = self.history()
         if not history:
             raise ActionError('There is nothing to undo.')
@@ -294,19 +300,30 @@ class Roster:
                     current[col] = old
                 else:
                     kept.append(f'{current["name"]}\'s {col} was changed again since, so it stays {current.get(col) or "empty"}')
-        sheet.save()
+        self._save(sheet)
         self.history_file.write_text(json.dumps(history, indent=2) + '\n')
-        self.apply_results()
         return f'Undid: {last["action"]} (by {last["by"]} at {last["at"]})' + ''.join(f'\nKept: {k}.' for k in kept)
 
     # ---------- graded results ----------
 
-    def apply_results(self):
-        """Raise each person's exercise status to the best result of their pull requests (Submissions),
-        adding a row for anyone new, and set everyone's early-PR bonus. Never lowers a status.
-        Returns (changes, warnings) as lines of text."""
+    def apply_results(self, graded=None):
+        """Bring graded results onto the board, first taking `graded` (a results.json from a grading run) as
+        grader/results.json if given. Returns (changes, warnings) as lines of text."""
+        if graded:
+            Submissions(self.root).replace_with(graded)
+        return self._save(self._sheet())
+
+    def _earned(self, row, lesson):
+        """The best status the row's pull requests on `lesson` have earned."""
+        accounts = {l.lower() for l in logins(row)}
+        return max((s for login, _, s in Submissions(self.root).best_statuses({lesson}) if login.lower() in accounts),
+                   key=RANK.get, default='none')
+
+    def _save(self, sheet):
+        """Save the sheet with every graded result brought in: each person's exercise status raised to the best
+        result of their pull requests (never lowered), a row added for anyone new, and everyone's early-PR
+        bonus set. Returns (changes, warnings) as lines of text."""
         subs = Submissions(self.root)
-        sheet = self._sheet()
         by_login, warnings = sheet.by_login()
         keys = set(sheet.lesson_keys)
 

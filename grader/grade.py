@@ -1,7 +1,7 @@
 """Grading: find each lesson's pull requests and grade every commit not graded yet.
 
 Results are recorded in Submissions (grader/results.json), which also decides whether an earlier result
-still counts; Roster.apply_results then moves them onto the leaderboard. The rules people rely on live here:
+still counts; the Roster brings them onto the leaderboard. The rules people rely on live here:
   - a grader error (not the participant's fault) is recorded as passed=None and retried next run;
   - one repository being unreachable skips that repository, not the run.
 
@@ -93,6 +93,7 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
         except (urllib.error.URLError, OSError) as e:  # rate limit, outage, renamed repo: try again next run
             log(f'Skipping {lesson.repo} this run: cannot list pull requests ({e})')
             continue
+        subs.keep_only(lesson, prs)  # a pull request closed without merging no longer counts
         for pr in prs:
             name = submissions.key(lesson, pr)
             if only and name != only:

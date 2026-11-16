@@ -70,4 +70,4 @@ jobs:
           name: results
           path: ${{ runner.temp }}/graded
       - name: Update participants.csv
-        run: grader/run_and_push.sh "Update leaderboard from graded submissions" 'cp "$RUNNER_TEMP/graded/results.json" grader/results.json && python3 grader/leaderboard.py apply'
+        run: grader/run_and_push.sh "Update leaderboard from graded submissions" 'python3 grader/leaderboard.py apply "$RUNNER_TEMP/graded/results.json"'

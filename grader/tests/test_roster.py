@@ -119,6 +119,13 @@ class MarkRenameAddTests(Sandbox):
         self.assertEqual(self.row('Stuart Smith')['fizzbuzz'], '')
         self.assertIn('never lowers', out)
 
+    def test_mark_cannot_lower_what_a_pull_request_earned(self):
+        self.results(('StuartJSmith10-dev', 'fizzbuzz', True))
+        code, _, err = self.cli('mark', 'Stuart Smith', 'fizzbuzz', 'submitted')
+        self.assertEqual(code, 1)
+        self.assertIn('pull request', err)
+        self.assertEqual(self.csv_text(), CSV)
+
     def test_mark_unknown_lesson_lists_valid_ones(self):
         code, _, err = self.cli('mark', 'Stuart Smith', 'docker', 'correct')
         self.assertEqual(code, 1)
@@ -276,6 +283,44 @@ class UndoTests(Sandbox):
         for _ in range(5):
             self.cli('award', 'Stuart Smith', 'bonus')
         self.assertEqual(len(self.roster().history()), 3)
+
+
+class GradedResultsAlwaysHoldTests(Sandbox):
+    """Whatever a facilitator does, the board afterwards includes every graded result: nobody has to remember
+    to apply them."""
+
+    def test_every_action_brings_in_results_graded_since(self):
+        self.results(('newcomer', 'rest_api', True, 'New Comer'), ('StuartJSmith10-dev', 'rest_api', False))
+        for action in (('award', 'Stuart Smith', 'helped'), ('rename', 'Stuart Smith', 'Stu'), ('add', 'Pat', 'pat'),
+                       ('mark', 'bukkie-create', 'manual', 'correct')):
+            with self.subTest(action[0]):
+                (self.dir / 'participants.csv').write_text(CSV)
+                self.assertEqual(self.cli(*action)[0], 0)
+                self.assertEqual(self.row('newcomer')['rest_api'], 'correct')
+                self.assertEqual(self.row('StuartJSmith10-dev')['rest_api'], 'submitted')
+                self.assertEqual(self.row('newcomer')['pr_stretch'], '1')
+
+    def test_undoing_an_action_keeps_graded_results(self):
+        self.cli('add', 'Pat', 'newcomer')
+        self.results(('newcomer', 'rest_api', True))
+        self.cli('award', 'Pat', 'helped')
+        self.cli('undo')
+        self.assertEqual((self.row('newcomer')['helped'], self.row('newcomer')['rest_api']), ('', 'correct'))
+
+    def test_undo_does_not_take_back_what_the_grader_added(self):
+        self.results(('newcomer', 'rest_api', True))
+        self.cli('award', 'Stuart Smith', 'helped')
+        self.cli('undo')
+        self.assertEqual(self.row('newcomer')['rest_api'], 'correct')
+        self.assertEqual(self.row('Stuart Smith')['helped'], '')
+
+    def test_apply_takes_the_grading_jobs_results_file(self):
+        graded = self.dir / 'graded.json'
+        self.results(('newcomer', 'rest_api', True))
+        (self.dir / 'grader' / 'results.json').rename(graded)
+        self.assertEqual(self.cli('apply', str(graded))[0], 0)
+        self.assertEqual(self.row('newcomer')['rest_api'], 'correct')
+        self.assertEqual(json.loads((self.dir / 'grader' / 'results.json').read_text()), json.loads(graded.read_text()))
 
 
 class ApplyTests(Sandbox):
