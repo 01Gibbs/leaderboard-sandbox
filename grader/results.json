@@ -5,6 +5,7 @@
     "StuartJSmith10-dev": "StuartJSmith10-dev",
     "agomes24": "alexia",
     "aindroid": "Ainhoa Moreno",
+    "antonypaul001": "antonypaul001",
     "arpitmaheshwari213": "Arpit Maheshwari",
     "bukkie-create": "bukkie-create",
     "gaizen-lab": "gaizen-lab",
@@ -349,6 +350,90 @@
       "task": "rest_api",
       "url": "https://github.com/AtulKumarSharma79/Onboardingtracker/pull/9",
       "version": "2d35f1e22630"
+    },
+    "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#1": {
+      "check": "library_replacement",
+      "checked_at": "2026-11-16T14:57:04+00:00",
+      "created_at": "2026-11-16T10:21:46Z",
+      "login": "aindroid",
+      "passed": false,
+      "reasons": [
+        "src/main/resources/log4j.properties is still there: move the logging settings to application.properties and delete it"
+      ],
+      "sha": "bd3ca98626a00fb7bb6f29b00d94f85a30449c91",
+      "task": "library_replacement",
+      "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/1",
+      "version": "d50711827b19"
+    },
+    "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#2": {
+      "check": "library_replacement",
+      "checked_at": "2026-11-16T14:56:53+00:00",
+      "created_at": "2026-11-16T12:36:22Z",
+      "login": "j-r-wil",
+      "passed": true,
+      "reasons": [
+        "old libraries gone, tests pass unchanged: same API, CSV and log message"
+      ],
+      "sha": "217796893e16a5eb1cf2e4d4a23fedb92566644e",
+      "task": "library_replacement",
+      "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/2",
+      "version": "d50711827b19"
+    },
+    "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#3": {
+      "check": "library_replacement",
+      "checked_at": "2026-11-16T14:56:41+00:00",
+      "created_at": "2026-11-16T13:09:36Z",
+      "login": "StuartJSmith10-dev",
+      "passed": true,
+      "reasons": [
+        "old libraries gone, tests pass unchanged: same API, CSV and log message"
+      ],
+      "sha": "434906bb77b558437a126a4933c2eff391f8c34c",
+      "task": "library_replacement",
+      "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/3",
+      "version": "d50711827b19"
+    },
+    "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#4": {
+      "check": "library_replacement",
+      "checked_at": "2026-11-16T14:56:30+00:00",
+      "created_at": "2026-11-16T13:34:43Z",
+      "login": "antonypaul001",
+      "passed": true,
+      "reasons": [
+        "old libraries gone, tests pass unchanged: same API, CSV and log message"
+      ],
+      "sha": "4b68e17aba981855e673f424f98debfc5e7e7579",
+      "task": "library_replacement",
+      "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/4",
+      "version": "d50711827b19"
+    },
+    "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#5": {
+      "check": "library_replacement",
+      "checked_at": "2026-11-16T14:56:18+00:00",
+      "created_at": "2026-11-16T13:49:52Z",
+      "login": "tami-tapioca",
+      "passed": true,
+      "reasons": [
+        "old libraries gone, tests pass unchanged: same API, CSV and log message"
+      ],
+      "sha": "1e6b660eff8e32915fe2816a8abd762a5d0e7cbc",
+      "task": "library_replacement",
+      "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/5",
+      "version": "d50711827b19"
+    },
+    "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#6": {
+      "check": "library_replacement",
+      "checked_at": "2026-11-16T14:56:06+00:00",
+      "created_at": "2026-11-16T14:51:02Z",
+      "login": "Ihashm1",
+      "passed": true,
+      "reasons": [
+        "old libraries gone, tests pass unchanged: same API, CSV and log message"
+      ],
+      "sha": "b600be3808a1b969d49d4087803aed2e923ac925",
+      "task": "library_replacement",
+      "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/6",
+      "version": "d50711827b19"
     },
     "meswright/excersize-1#1": {
       "check": "fizzbuzz",
