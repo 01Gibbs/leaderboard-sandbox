@@ -11,7 +11,8 @@ const RULES = /* rules:start */ {
   },
   "baseColumns": ["name", "github_username"],
   "counts": ["stretch", "helped", "bonus"],
-  "earlyBonus": { "column": "pr_stretch", "firstSubmissions": 3, "countsAs": "stretch" },
+  "earlyBonus": { "column": "pr_stretch", "firstSubmissions": 3 },
+  "labels": { "none": "Not submitted", "submitted": "Submitted", "correct": "Correct" },
   "headerAliases": { "github": "github_username", "githubusername": "github_username", "prstretch": "pr_stretch",
                      "frameworkupgrade": "framework_upgrade", "restapi": "rest_api" },
   "delimiters": [",", ";", "\t"]

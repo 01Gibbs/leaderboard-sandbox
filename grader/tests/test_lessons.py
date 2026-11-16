@@ -72,6 +72,14 @@ class LoadingTests(Sandbox):
             self.load()
         self.assertEqual(sum('must be text' in p for p in e.exception.problems), 3)
 
+    def test_a_key_cannot_be_a_column_the_board_already_has(self):
+        for key in ('pr_stretch', 'github', 'restapi', 'stretch'):
+            with self.subTest(key):
+                self.write([{'key': key, 'label': 'X', 'repo': 'o/r', 'check': 'none'}])
+                with self.assertRaises(lessons.LessonsInvalid) as e:
+                    self.load()
+                self.assertIn(f'"{key}" is already used', str(e.exception))
+
     def test_missing_check_means_none(self):
         self.write([{'key': 'a', 'label': 'A', 'repo': 'o/a'}])
         self.assertEqual(self.load()[0].check, 'none')
