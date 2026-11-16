@@ -90,7 +90,7 @@ aside { border-left: 1px solid var(--line); background: var(--surface); display:
 </head>
 <body>
 <header>
-  <h1>Leaderboard walkthrough</h1>
+  <h1 id="heading">Leaderboard walkthrough</h1>
   <nav id="chapters" aria-label="Chapters"></nav>
 </header>
 <main>
@@ -117,9 +117,17 @@ aside { border-left: 1px solid var(--line); background: var(--surface); display:
 <script src="../scoring.js"></script>
 <script type="module">
 const $ = (id) => document.getElementById(id);
+// ?tour=facilitator is the facilitator walkthrough (facilitator_walkthrough.py): the facilitator page, on a practice copy.
+const FACILITATOR = new URLSearchParams(location.search).get('tour') === 'facilitator';
+if (FACILITATOR) {
+  document.title = 'Facilitator Walkthrough';
+  $('heading').textContent = 'Facilitator walkthrough';
+  $('board').title = 'The facilitator page, on a practice copy';
+  $('board').src = '../facilitator.html?practice';
+}
 try {
   // Imported here, not at the top, so opening this file by double-clicking shows the message below.
-  const [{ steps }, { startTour }] = await Promise.all([import('./steps.js'), import('./tour.js')]);
+  const [{ steps }, { startTour }] = await Promise.all([import(FACILITATOR ? './facilitator-steps.js' : './steps.js'), import('./tour.js')]);
   const res = await fetch('context.json', { cache: 'no-store' });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const ctx = await res.json();
@@ -131,7 +139,8 @@ try {
 } catch (e) {
   if (location.protocol === 'file:') {
     $('title').textContent = 'Start the walkthrough from a terminal';
-    $('error').innerHTML = 'In the leaderboard folder, run <code>python3 walkthrough.py</code> (Windows: <code>py walkthrough.py</code>). It opens this page for you.';
+    const script = FACILITATOR ? 'facilitator_walkthrough.py' : 'walkthrough.py';
+    $('error').innerHTML = `In the leaderboard folder, run <code>python3 ${script}</code> (Windows: <code>py ${script}</code>). It opens this page for you.`;
   } else {
     console.error(e);
     $('title').textContent = 'The walkthrough could not start';

@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Facilitator</title>
+<style>
+/* The facilitator page: every facilitator action as a form, started as its GitHub workflow (facilitator-*.yml). */
+:root {
+  color-scheme: light dark;
+  --bg: #f5f6f3; --surface: #ffffff; --fg: #1a2420; --muted: #5b6862; --line: #dde2dc;
+  --accent: #3a4bc0; --accent-soft: #e8ebfb; --ok: #1f7a4d; --ok-soft: #e3f3ea; --bad: #b3261e; --bad-soft: #fbe9e7;
+  --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111715; --surface: #19211e; --fg: #e5ebe7; --muted: #94a29a; --line: #29332e;
+    --accent: #99a6ff; --accent-soft: #232a52; --ok: #6fd49f; --ok-soft: #173126; --bad: #ff8a80; --bad-soft: #3a1d1b;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font); }
+a { color: var(--accent); }
+code { font: 0.9em ui-monospace, "SF Mono", Consolas, monospace; background: var(--accent-soft); border-radius: 4px; padding: 1px 5px; }
+button, input, select { font: inherit; color: inherit; }
+button { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); font-weight: 600; }
+input, select { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+header h1 { font-size: 18px; margin: 0; margin-right: auto; }
+#who { color: var(--muted); font-size: 14px; }
+main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 20px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+.panel h2 { font-size: 16px; margin: 0 0 6px; }
+.muted, .hint { color: var(--muted); }
+.hint { font-size: 13px; margin: 2px 0 0; font-weight: 400; }
+.banner { border-radius: 10px; padding: 10px 14px; background: var(--accent-soft); }
+#connect form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-top: 10px; }
+#connect label.check { display: flex; gap: 6px; align-items: center; font-size: 14px; grid-column: 1 / -1; }
+#connect label.check input { width: auto; }
+#connect ol { margin: 8px 0 0; padding-left: 20px; }
+#forms { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+#forms form { display: flex; flex-direction: column; gap: 10px; }
+#forms .help { margin: 0; color: var(--muted); font-size: 14px; }
+#forms label { display: flex; flex-direction: column; gap: 3px; font-size: 14px; font-weight: 600; }
+#forms .preview { font-size: 14px; min-height: 1.5em; margin: 0; }
+#forms button[type=submit] { align-self: flex-start; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+ul.list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+ul.list li { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere; }
+ul.list small { color: var(--muted); display: block; }
+.state { font-weight: 600; }
+.state.running { color: var(--accent); }
+.state.ok { color: var(--ok); }
+.state.bad { color: var(--bad); }
+li.ok { background: var(--ok-soft); }
+li.bad { background: var(--bad-soft); }
+#error { border-radius: 10px; padding: 10px 14px; background: var(--bad-soft); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Facilitator</h1>
+  <span id="who"></span>
+  <a href="index.html">Leaderboard</a>
+  <button type="button" id="signout" hidden>Forget my token</button>
+</header>
+<main>
+  <p id="practice" class="banner" hidden data-tour="practice"><b>Practice mode.</b> These are made-up people on a copy of the
+    leaderboard on your own computer. Nothing you do here changes the real one.</p>
+  <p id="error" role="alert" hidden></p>
+
+  <section id="connect" class="panel" data-tour="connect" hidden>
+    <h2>Connect to GitHub</h2>
+    <p class="muted">The forms start the leaderboard's facilitator workflows on GitHub, as you. That needs a token, made once:</p>
+    <ol>
+      <li>Open <a id="tokenLink" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">a new fine-grained token</a>.</li>
+      <li>Repository access: <b>Only select repositories</b> → <b id="repoName">this leaderboard</b>.</li>
+      <li>Permissions: <b>Actions: Read and write</b> and <b>Contents: Read-only</b>. Nothing else.</li>
+      <li>Generate it, copy it, and paste it here.</li>
+    </ol>
+    <form id="tokenForm">
+      <input id="token" type="password" autocomplete="off" placeholder="github_pat_…" aria-label="Token" required>
+      <button type="submit" class="primary">Connect</button>
+      <label class="check"><input type="checkbox" id="remember"> Remember it on this device (otherwise it is forgotten when you close the tab)</label>
+    </form>
+    <p class="hint">The token stays in this browser and is sent only to GitHub.</p>
+  </section>
+
+  <section id="forms" data-tour="forms" aria-label="Facilitator actions"></section>
+
+  <div class="cols">
+    <section class="panel" data-tour="activity">
+      <h2>Started from this page</h2>
+      <p class="muted" id="noRuns">Nothing yet. Each change shows here until GitHub has saved it.</p>
+      <ul class="list" id="runs"></ul>
+    </section>
+    <section class="panel" data-tour="history">
+      <h2>Recent changes</h2>
+      <p class="hint">By anyone, newest first. <b>Undo</b> reverses the top one.</p>
+      <ul class="list" id="history"></ul>
+    </section>
+  </div>
+</main>
+<datalist id="people"></datalist>
+
+<script src="scoring.js"></script>
+<script src="facilitator-forms.js"></script>
+<script>
+// Each form starts its facilitator-*.yml workflow through GitHub's API (workflow_dispatch), with the inputs that
+// workflow takes; the workflow makes the change and saves it, exactly as the Actions tab does. The page then
+// follows the run until GitHub says how it went. People and exercises for the pickers come from the same
+// participants.csv and lessons.json the leaderboard shows.
+//
+// ?practice talks to facilitator_walkthrough.py's stand-in for GitHub instead, on a copy with made-up people.
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const PRACTICE = params.has('practice');
+const API = PRACTICE ? new URL('practice-api', location.href).href : 'https://api.github.com';
+const REPO = PRACTICE ? 'practice/leaderboard' : (params.get('repo') || repoFromLocation());
+const TOKEN_KEY = 'lb-facilitator-token';
+let token = '', me = '', lessons = [], people = [];
+
+function repoFromLocation() {
+  // GitHub Pages serves owner/name at owner.github.io/name/
+  const owner = (location.hostname.match(/^([\w-]+)\.github\.io$/) || [])[1];
+  const name = location.pathname.split('/').filter(Boolean)[0];
+  return owner && name && !name.endsWith('.html') ? `${owner}/${name}` : null;
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function showError(text) { $('error').textContent = text || ''; $('error').hidden = !text; }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ---- the token: sessionStorage unless the facilitator asks to be remembered ---- */
+function storedToken() {
+  for (const store of ['sessionStorage', 'localStorage']) {
+    try { const t = window[store].getItem(TOKEN_KEY); if (t) return t; } catch (e) {}
+  }
+  return '';
+}
+function storeToken(t, remember) {
+  for (const store of ['sessionStorage', 'localStorage']) {
+    try { window[store].removeItem(TOKEN_KEY); } catch (e) {}
+  }
+  if (!t) return;
+  try { window[remember ? 'localStorage' : 'sessionStorage'].setItem(TOKEN_KEY, t); } catch (e) {}
+}
+
+/* ---- GitHub ---- */
+async function gh(path, opts = {}) {
+  const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(opts.headers || {}) };
+  if (token) headers.Authorization = 'Bearer ' + token;
+  if (opts.body) headers['Content-Type'] = 'application/json';
+  const res = await fetch(API.replace(/\/$/, '') + path, { ...opts, headers, cache: 'no-store' });
+  if (!res.ok) {
+    let message = '';
+    try { message = (await res.json()).message || ''; } catch (e) {}
+    const err = new Error(`GitHub said ${res.status}${message ? ': ' + message : ''}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.status === 204 ? null : res.headers.get('Content-Type')?.includes('json') ? res.json() : res.text();
+}
+
+async function connect(t) {
+  token = t;
+  const [user] = await Promise.all([gh('/user'), gh(`/repos/${REPO}`)]);
+  me = user.login;
+  $('who').textContent = PRACTICE ? 'Practising' : 'Signed in as @' + me;
+  $('connect').hidden = true;
+  $('signout').hidden = PRACTICE;
+  setFormsEnabled(true);
+  loadHistory();
+}
+
+/* ---- people and exercises, for the pickers ---- */
+async function loadBoard() {
+  const [csv, list] = await Promise.all([
+    fetch('participants.csv', { cache: 'no-store' }).then((r) => r.ok ? r.text() : ''),
+    fetch('lessons.json', { cache: 'no-store' }).then((r) => r.ok ? r.json() : []),
+  ]);
+  lessons = list;
+  // Read the way the leaderboard reads it (scoring.js), keeping each row's GitHub logins too.
+  const table = parseCSV(csv), head = (table[0] || []).map(normHeader);
+  const cell = (r, k) => (head.indexOf(k) < 0 ? '' : r[head.indexOf(k)] || '').trim();
+  people = table.slice(1).map((r) => ({ name: cell(r, 'name').slice(0, 80), logins: cell(r, 'github_username') })).filter((p) => p.name);
+  $('people').replaceChildren(...people.map((p) => {
+    const o = el('option'); o.value = p.name; if (p.logins) o.label = p.name + ' (@' + p.logins.split(/[\s,;|]+/).join(', @') + ')';
+    return o;
+  }));
+  document.querySelectorAll('select[data-kind=lesson]').forEach(fillLessons);
+}
+function fillLessons(select) {
+  const was = select.value;
+  select.replaceChildren(el('option', '', 'Choose an exercise'), ...lessons.map((l) => {
+    const o = el('option', '', l.label); o.value = l.key; return o;
+  }));
+  select.firstChild.value = '';
+  select.value = was;
+}
+function onBoard(who) {
+  const w = who.trim().replace(/^@/, '').toLowerCase();
+  return people.some((p) => p.name.toLowerCase() === w || p.logins.toLowerCase().split(/[\s,;|]+/).includes(w));
+}
+
+/* ---- the forms ---- */
+function field(f) {
+  const label = el('label', '', f.label);
+  let input;
+  if (f.kind === 'choice' || f.kind === 'lesson') {
+    input = el('select');
+    input.dataset.kind = f.kind;
+    if (f.kind === 'choice') input.append(...f.options.map((o) => { const e = el('option', '', o); e.value = o; return e; }));
+    else fillLessons(input);
+  } else {
+    input = el('input');
+    input.type = 'text';
+    input.autocomplete = 'off';
+    if (f.kind === 'person') input.setAttribute('list', 'people');
+    if (f.value) input.value = f.value;
+  }
+  input.name = f.input;
+  input.required = !!f.required;
+  label.append(input);
+  if (f.hint) label.append(el('span', 'hint', f.hint));
+  return label;
+}
+const UNITS = { helped: ['help', 'helps'], stretch: ['stretch task', 'stretch tasks'], bonus: ['bonus point', 'bonus points'] };
+function preview(form, values) {
+  const v = (k) => values[k] || '…';
+  const n = Math.abs(parseInt(values.amount, 10)), unit = UNITS[values.kind] || ['', ''];
+  return {
+    award: () => `${values.amount?.trim().startsWith('-') ? 'Take' : 'Give'} ${n || '…'} ${unit[n === 1 ? 0 : 1]} ${values.amount?.trim().startsWith('-') ? 'from' : 'to'} ${v('person')}.`,
+    mark: () => `Mark ${v('person')}'s ${(lessons.find((l) => l.key === values.lesson) || {}).label || '…'} as ${v('status')}.`,
+    add: () => `Add ${v('name')}${values.github ? ' (@' + values.github.replace(/^@/, '') + ')' : ''}.`,
+    rename: () => `Show ${v('person')} as ${v('new_name')}.`,
+    merge: () => `Fold ${v('duplicate')} into ${v('keep')}.`,
+    undo: () => 'Undo the top change under Recent changes.',
+  }[form.id]().replace(/…\.$/, '…');
+}
+function buildForms() {
+  $('forms').replaceChildren(...FORMS.map((form) => {
+    const panel = el('form', 'panel');
+    panel.dataset.tour = 'form-' + form.id;
+    panel.noValidate = false;
+    panel.append(el('h2', '', form.title), el('p', 'help', form.help), ...form.fields.map(field));
+    const say = el('p', 'preview muted');
+    const go = el('button', 'primary', form.id === 'undo' ? 'Undo' : 'Save');
+    go.type = 'submit';
+    panel.append(say, go);
+    const values = () => Object.fromEntries(form.fields.map((f) => [f.input, panel.elements[f.input].value.trim()]));
+    const update = () => { say.textContent = preview(form, values()); };
+    panel.addEventListener('input', update);
+    update();
+    panel.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      showError('');
+      const inputs = values();
+      const unknown = form.fields.filter((f) => f.kind === 'person' && inputs[f.input] && !onBoard(inputs[f.input]));
+      if (unknown.length && !confirm(`${unknown.map((f) => inputs[f.input]).join(' and ')} is not on the board as a name or GitHub username. Send it anyway?`)) return;
+      if (form.id === 'undo' && !confirm('Undo the top change under Recent changes?')) return;
+      go.disabled = true;
+      try {
+        await run(form, inputs, preview(form, inputs));
+        if (form.id !== 'undo') form.fields.forEach((f) => { if (f.kind === 'text' && !f.value) panel.elements[f.input].value = ''; });
+        update();
+      } catch (err) {
+        showError(err.status === 401 || err.status === 403
+          ? 'GitHub refused: the token is missing, expired, or lacks "Actions: Read and write" on ' + REPO + '. ' + err.message
+          : String(err.message || err));
+      } finally {
+        go.disabled = false;
+      }
+    });
+    return panel;
+  }));
+}
+function setFormsEnabled(on) {
+  document.querySelectorAll('#forms button, #forms input, #forms select').forEach((e) => { e.disabled = !on; });
+}
+
+/* ---- running a workflow and following it ---- */
+async function run(form, inputs, description) {
+  const item = el('li'), state = el('span', 'state running', 'Starting… '), link = el('a');
+  item.append(state, el('span', '', description), link);
+  $('runs').prepend(item);
+  $('noRuns').hidden = true;
+  const started = Date.now();
+  await gh(`/repos/${REPO}/actions/workflows/${form.workflow}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs }) });
+  state.textContent = 'Waiting for GitHub… ';
+  const found = await findRun(form.workflow, started);
+  if (!found) {
+    state.textContent = 'Started. ';
+    link.href = `https://github.com/${REPO}/actions/workflows/${form.workflow}`; link.textContent = 'See it on GitHub';
+    return;
+  }
+  link.href = found.html_url;  // also how findRun knows this run is taken
+  if (!PRACTICE) { link.textContent = ' Open the run'; link.target = '_blank'; link.rel = 'noopener'; }
+  let r = found;
+  for (let i = 0; r.status !== 'completed' && i < 120; i++) {
+    state.textContent = 'Saving… ';
+    await sleep(PRACTICE ? 300 : 4000);
+    r = await gh(`/repos/${REPO}/actions/runs/${r.id}`);
+  }
+  const ok = r.conclusion === 'success';
+  item.className = ok ? 'ok' : 'bad';
+  state.className = 'state ' + (ok ? 'ok' : 'bad');
+  state.textContent = ok ? 'Done. ' : 'Not changed. ';
+  if (r.summary) item.append(el('small', '', r.summary));  // the practice server says why; on GitHub, open the run
+  else if (!ok) item.append(el('small', '', 'The run page says why. Nothing was changed.'));
+  if (ok && !PRACTICE) item.append(el('small', '', 'The leaderboard shows it in a minute or two.'));
+  loadHistory();
+  loadBoard();
+}
+async function findRun(workflow, since) {
+  // GitHub does not say which run a dispatch started: take the newest run of that workflow started by this
+  // person since the click.
+  for (let i = 0; i < 20; i++) {
+    await sleep(PRACTICE ? 150 : 2500);
+    const { workflow_runs: runs } = await gh(`/repos/${REPO}/actions/workflows/${workflow}/runs?event=workflow_dispatch&per_page=10`);
+    const mine = runs.filter((r) => (!me || r.actor?.login === me) && Date.parse(r.created_at) >= since - 60000
+      && !document.querySelector(`#runs a[href="${CSS.escape(r.html_url)}"]`));
+    if (mine.length) return mine[0];
+  }
+  return null;
+}
+
+/* ---- recent changes, from grader/history.json ---- */
+async function loadHistory() {
+  try {
+    const text = await gh(`/repos/${REPO}/contents/grader/history.json?ref=main`, { headers: { Accept: 'application/vnd.github.raw+json' } });
+    const history = typeof text === 'string' ? JSON.parse(text) : text;
+    $('history').replaceChildren(...history.slice(-8).reverse().map((h) => {
+      const li = el('li', '', h.action);
+      li.append(el('small', '', `${h.by}, ${new Date(h.at).toLocaleString()}`));
+      return li;
+    }));
+  } catch (e) {
+    $('history').replaceChildren(el('li', 'muted', e.status === 404 ? 'No facilitator changes yet.' : 'Could not read the recent changes.'));
+  }
+}
+
+/* ---- start ---- */
+(async function start() {
+  buildForms();
+  setFormsEnabled(false);
+  try { await loadBoard(); } catch (e) { showError('Could not read the leaderboard: ' + e.message); }
+  if (!REPO) {
+    showError('Open this page from the leaderboard\'s GitHub Pages address, or add ?repo=owner/name to the address.');
+    return;
+  }
+  $('repoName').textContent = REPO;
+  if (PRACTICE) { $('practice').hidden = false; return connect('').catch((e) => showError(e.message)); }
+  $('tokenForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError('');
+    const t = $('token').value.trim();
+    try {
+      await connect(t);
+      storeToken(t, $('remember').checked);
+      $('token').value = '';
+    } catch (err) {
+      token = '';
+      showError(err.status === 401 ? 'GitHub did not accept that token. Check you copied all of it, and that it has not expired.'
+        : err.status === 404 ? `The token cannot see ${REPO}. Give it access to that repository.` : String(err.message || err));
+    }
+  });
+  $('signout').addEventListener('click', () => { storeToken(''); location.reload(); });
+  const saved = storedToken();
+  if (saved) {
+    try { await connect(saved); return; } catch (e) { storeToken(''); showError('Your saved token no longer works; connect again.'); }
+  }
+  $('connect').hidden = false;
+})();
+</script>
+</body>
+</html>

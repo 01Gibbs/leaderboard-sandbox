@@ -40,10 +40,12 @@ class DashboardShapeTests(unittest.TestCase):
 
 
 class PublishedFilesTests(unittest.TestCase):
-    def test_pages_publishes_every_file_the_page_loads_and_nothing_else(self):
+    def test_pages_publishes_every_file_the_pages_load_and_nothing_else(self):
         loaded = set(re.findall(r'<script src="([^":]+)"', PAGE)) | set(re.findall(r"_FILE = '([^']+)'", PAGE))
+        facilitator = (REPO / 'facilitator.html').read_text()  # the facilitator page, published alongside
+        loaded |= set(re.findall(r'<script src="([^":]+)"', facilitator)) | set(re.findall(r"fetch\('([^':]+)'", facilitator))
         copy = re.search(r'cp (.+) _site/', (REPO / '.github' / 'workflows' / 'pages.yml').read_text()).group(1)
-        self.assertEqual(set(copy.split()), loaded | {'index.html'})
+        self.assertEqual(set(copy.split()), loaded | {'index.html', 'facilitator.html'})
 
 
 if __name__ == '__main__':
