@@ -288,8 +288,10 @@ until gh auth status >/dev/null 2>&1; do
   step "Log in: in another terminal run  gh auth login  and follow its steps."
   pause "Press Enter once you are logged in"
 done
-say "Which repository is the leaderboard? It receives the events. Usually the one that publishes the page."
-ask LEADERBOARD_REPO "Leaderboard repository (owner/name):"
+if [[ -z ${LEADERBOARD_REPO:-} ]]; then  # setup-leaderboard.sh passes it on
+  say "Which repository is the leaderboard? It receives the events. Usually the one that publishes the page."
+  ask LEADERBOARD_REPO "Leaderboard repository (owner/name):"
+fi
 until gh api "repos/$LEADERBOARD_REPO" >/dev/null 2>&1; do
   warn "Can't see $LEADERBOARD_REPO. Check the spelling."
   ask LEADERBOARD_REPO "Leaderboard repository (owner/name):"
