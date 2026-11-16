@@ -15,7 +15,7 @@ Pick the lowest level that decides "correct" honestly. Every level counts any pu
 
 | `check` | Correct when | You write |
 |---|---|---|
-| `none` | a facilitator marks it (Actions → *Facilitator: Mark an exercise*) | nothing |
+| `none` | a facilitator marks it (facilitator page: pick the person, **Mark correct**) | nothing |
 | `build` | the submission's Gradle project builds | nothing |
 | `tests` | our tests pass against the submission | nothing, when the exercise repository ships the tests a participant must make pass: `python3 grader/leaderboard.py pin-tests <key>` copies them into `grader/fixtures/<key>/` and records `tests_commit`. Otherwise, test files in `grader/fixtures/<key>/`, at the same paths as in the project (they overwrite the submission's copies) |
 | custom | anything else: calling the running app, inspecting a Dockerfile, planted-bug tests | a module `grader/checks/<key>.py` |
@@ -38,4 +38,4 @@ The existing custom checks in `grader/checks/` (`rest_api.py`, `framework_upgrad
 
 7. **Connect the repository** so its pull requests start grading: the user runs `grader/setup-pr-trigger.sh` (a wizard; it needs them in a browser and admin access to the exercise repository, so never run it yourself). Done when the exercise repository has `.github/workflows/notify-leaderboard.yml`; until then that lesson is graded only by the daily run.
 
-8. **Hand over:** tell the user what level the lesson is on, what it does not check, and that real grading happens on the next pull request change (or *Actions → Grade submissions → Run workflow*). For `none`, remind them facilitators mark results with *Facilitator: Mark an exercise*.
+8. **Hand over:** tell the user what level the lesson is on, what it does not check, and that real grading happens on the next pull request change (or *Actions → Grade submissions → Run workflow*). For `none`, remind them facilitators mark results on the facilitator page (pick the person, **Mark correct**).
