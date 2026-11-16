@@ -46,5 +46,38 @@
         "change": "c465ac2"
       }
     ]
+  },
+  "e2e-124929-undo": {
+    "at": "2026-11-16T12:50:14+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "undo",
+          "c465ac2"
+        ],
+        "ok": true,
+        "message": "Undid: Renamed E2E Batch 124929 to E2E Batch 124929 R (by 01Gibbs at 2026-11-16T12:49:45+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c7f66c7"
+        ],
+        "ok": true,
+        "message": "Undid: Gave 2 helps to E2E Batch 124929 (helped: 0 -> 2) (by 01Gibbs at 2026-11-16T12:49:45+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "cf313c9"
+        ],
+        "ok": true,
+        "message": "Undid: Added E2E Batch 124929 (by 01Gibbs at 2026-11-16T12:49:45+00:00)",
+        "change": null
+      }
+    ]
   }
 }
