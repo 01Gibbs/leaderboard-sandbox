@@ -1,0 +1,50 @@
+{
+  "e2e-124929": {
+    "at": "2026-11-16T12:49:45+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "add",
+          "E2E Batch 124929",
+          ""
+        ],
+        "ok": true,
+        "message": "Added E2E Batch 124929",
+        "change": "cf313c9"
+      },
+      {
+        "args": [
+          "award",
+          "E2E Batch 124929",
+          "helped",
+          "2"
+        ],
+        "ok": true,
+        "message": "Gave 2 helps to E2E Batch 124929 (helped: 0 -> 2)",
+        "change": "c7f66c7"
+      },
+      {
+        "args": [
+          "award",
+          "Nobody 124929",
+          "helped",
+          "1"
+        ],
+        "ok": false,
+        "message": "Nothing was changed. Nobody called \"Nobody 124929\" is on the leaderboard. To add someone new, use \"add\".",
+        "change": null
+      },
+      {
+        "args": [
+          "rename",
+          "E2E Batch 124929",
+          "E2E Batch 124929 R"
+        ],
+        "ok": true,
+        "message": "Renamed E2E Batch 124929 to E2E Batch 124929 R",
+        "change": "c465ac2"
+      }
+    ]
+  }
+}
