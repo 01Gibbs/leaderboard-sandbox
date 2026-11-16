@@ -350,39 +350,5 @@
         }
       }
     ]
-  },
-  {
-    "id": "cf3a85a",
-    "at": "2026-11-16T13:05:44+00:00",
-    "by": "01Gibbs",
-    "action": "Renamed E2E Check 124929a to E2E Check 124929a R",
-    "changes": [
-      {
-        "before": {
-          "name": "E2E Check 124929a",
-          "github_username": "",
-          "fizzbuzz": "",
-          "rest_api": "",
-          "framework_upgrade": "",
-          "stretch": "",
-          "pr_stretch": "",
-          "helped": "2",
-          "container_image": "correct",
-          "bonus": ""
-        },
-        "after": {
-          "name": "E2E Check 124929a R",
-          "github_username": "",
-          "fizzbuzz": "",
-          "rest_api": "",
-          "framework_upgrade": "",
-          "stretch": "",
-          "pr_stretch": "",
-          "helped": "2",
-          "container_image": "correct",
-          "bonus": ""
-        }
-      }
-    ]
   }
 ]
