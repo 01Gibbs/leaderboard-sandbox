@@ -1,0 +1,29 @@
+# Tells the workshop leaderboard that a pull request here changed, so it is graded within minutes.
+#
+# Lives in an exercise repository as .github/workflows/notify-leaderboard.yml; grader/setup-pr-trigger.sh in
+# the leaderboard repository puts it there and fills in the leaderboard's name. It needs the secret
+# LEADERBOARD_TOKEN: a fine-grained token allowed "Contents: read and write" on the leaderboard repository only.
+# GitHub requires that permission to accept the event, so the token could also change the leaderboard's files:
+# give it a short expiry and revoke it after the workshop.
+#
+# pull_request_target runs this repository's own copy of this file, never a participant's edited one, and
+# nothing here checks out or runs their code, so it is safe for pull requests from forks.
+name: Notify the leaderboard
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, closed]
+
+permissions: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask the leaderboard to grade
+        env:
+          GH_TOKEN: ${{ secrets.LEADERBOARD_TOKEN }}
+          LEADERBOARD: __LEADERBOARD_REPO__
+          PR: ${{ github.repository }}#${{ github.event.pull_request.number }}
+        run: gh api "repos/$LEADERBOARD/dispatches" -f event_type=submission -f "client_payload[pr]=$PR"

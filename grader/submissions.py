@@ -1,11 +1,14 @@
 """Submissions: grader/results.json, one entry per pull request, and everything it means for scores.
 
-grade.grade_all records here; Roster.apply_results and the walkthrough read from here. What an entry means:
+grade.grade_all records here; Roster and the walkthrough read from here. What an entry means:
   - passed True: the check passed, so the lesson is correct;
   - passed False: the check failed, so the lesson is submitted;
   - passed None: not graded (a grader error, a lesson a facilitator marks by hand, or a --no-run), so the
     lesson is submitted, and an automated lesson is graded again next run;
-  - a result counts until the pull request gets a new commit or its lesson changes (Lesson.version).
+  - a result counts until the pull request gets a new commit or its lesson changes (Lesson.version);
+  - a pull request counts while GitHub lists it as a submission: one closed without merging is forgotten, and
+    so loses its place among the first opened (the early-PR bonus). A status it already raised on the board
+    stays, because the board never lowers one (Roster).
 """
 import json
 import re
@@ -59,11 +62,20 @@ class Submissions:
 
     def __init__(self, root):
         self.file = Path(root) / 'grader' / 'results.json'
-        self._data = json.loads(self.file.read_text(encoding='utf-8')) if self.file.exists() else {}
+        self._load(self.file, 'grader/results.json')
+
+    def _load(self, path, name):
+        self._data = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
         if problems := _check(self._data):
-            raise ResultsInvalid('grader/results.json has problems:\n  ' + '\n  '.join(problems))
+            raise ResultsInvalid(f'{name} has problems:\n  ' + '\n  '.join(problems))
         self._subs = self._data.setdefault('submissions', {})
         self.names = self._data.setdefault('people', {})  # GitHub login -> profile name
+
+    def replace_with(self, path):
+        """Take a grading run's results.json as this one, and save it. A file with problems is refused
+        (ResultsInvalid) and nothing changes."""
+        self._load(Path(path), "the grading run's results.json")
+        self.save()
 
     def save(self):
         self.file.write_text(json.dumps(self._data, indent=2, sort_keys=True) + '\n', encoding='utf-8')
@@ -107,6 +119,12 @@ class Submissions:
             entry |= {'passed': previous.get('passed') if same_commit else None,
                       'reasons': previous.get('reasons', []) if same_commit else []}
         self._subs[key(lesson, pr)] = entry
+
+    def keep_only(self, lesson, prs):
+        """Forget the lesson's pull requests that are not in `prs`, every submission its repository has now."""
+        listed = {key(lesson, pr) for pr in prs}
+        for k in [k for k, s in self._subs.items() if s.get('task') == lesson.key and k not in listed]:
+            del self._subs[k]
 
     @staticmethod
     def _entry(lesson, pr):

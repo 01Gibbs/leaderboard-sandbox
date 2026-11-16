@@ -96,7 +96,7 @@ class RulesTests(unittest.TestCase):
     def test_the_page_does_not_hard_code_the_rules(self):
         html = (ROOT / 'index.html').read_text()
         self.assertTrue('<script src="scoring.js"></script>' in html, 'index.html must load scoring.js')
-        for duplicate in ("'passed'", 'in review', 'submitted: 10', '<b>30</b>', 'function parseCSV', 'function normStatus'):
+        for duplicate in ("'passed'", 'in review', 'submitted: 10', '<b>30</b>', 'function parseCSV', 'function normStatus', 'Not submitted'):
             self.assertFalse(duplicate in html, f'index.html repeats a rule that belongs in scoring.js: {duplicate}')
 
 

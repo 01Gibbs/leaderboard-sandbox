@@ -207,6 +207,34 @@ class GradingTests(Sandbox):
         self.grade()
         self.assertEqual(seen, [[], ['o/alpha#1']])
 
+    def test_a_pull_request_closed_without_merging_stops_counting(self):
+        self.github.add('o/alpha', 1, 'ann', 'a1')
+        self.github.add('o/alpha', 2, 'bob', 'b1')
+        self.grade()
+        self.github.prs['o/alpha'] = [p for p in self.github.prs['o/alpha'] if p.login != 'ann']  # GitHub no longer lists it
+        self.grade()
+        self.assertEqual(sorted(self.results()['submissions']), ['o/alpha#2'])
+
+    def test_a_repository_that_cannot_be_listed_keeps_its_submissions(self):
+        self.github.add('o/alpha', 1, 'ann', 'a1')
+        self.grade()
+        self.github.down.add('o/alpha')
+        self.grade()
+        self.assertIn('o/alpha#1', self.results()['submissions'])
+
+    def test_a_withdrawn_pull_request_gives_up_its_early_bonus(self):
+        self.lessons([('alpha', 'o/alpha', 'stand_in_pass')])
+        for n, login in enumerate(['ann', 'bob', 'cat', 'dan'], 1):
+            self.github.add('o/alpha', n, login, f's{n}', created_at=f'2026-11-01T09:00:0{n}Z')
+        self.grade()
+        roster.Roster(self.dir).apply_results()
+        self.assertEqual(roster.Roster(self.dir).find('dan')['pr_stretch'], '')
+        self.github.prs['o/alpha'] = [p for p in self.github.prs['o/alpha'] if p.login != 'ann']
+        self.grade()
+        roster.Roster(self.dir).apply_results()
+        board = roster.Roster(self.dir)
+        self.assertEqual((board.find('ann')['pr_stretch'], board.find('dan')['pr_stretch']), ('', '1'))
+
     def test_graded_results_reach_the_leaderboard(self):
         self.github.add('o/alpha', 1, 'ann', 'a1')
         self.github.add('o/beta', 1, 'ann', 'b1')

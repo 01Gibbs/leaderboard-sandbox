@@ -200,10 +200,32 @@ expect(ok and 'New Person,newperson,,correct' in text, 'publish: new participant
 expect(row('Josh') == josh_now, 'publish: facilitator change made during grading survives')
 expect('Update leaderboard from graded submissions' in sh('git log -1 --format=%s', clone).stdout, 'publish: commit title')
 
-print('Grading schedule')
+print('What starts grading')
 triggers = grade_wf['true']  # YAML 1.1 reads the key `on:` as true
-expect(triggers['schedule'] == [{'cron': '0 */4 * * *'}], 'grade: runs by itself every 4 hours')
+expect(triggers['repository_dispatch'] == {'types': ['submission']}, 'grade: runs when an exercise repository says a pull request changed')
+expect(len(triggers['schedule']) == 1 and re.fullmatch(r'\d+ \d+ \* \* \*', triggers['schedule'][0]['cron']), 'grade: once a day as a backstop')
 expect('workflow_dispatch' in triggers, 'grade: a facilitator can also start it by hand')
+expect(grade_wf['concurrency'] == {'group': 'grade', 'cancel-in-progress': False}, 'grade: one run at a time, a running one never cancelled')
+checkout = next(st for st in grade_wf['jobs']['grade']['steps'] if st.get('uses', '').startswith('actions/checkout'))
+expect(checkout['with'].get('ref') == 'main', 'grade: a run that waited starts from the latest results, not the commit its event fired on')
+
+hook = yaml(SRC / 'grader' / 'exercise-repo' / 'notify-leaderboard.yml')
+hook_triggers = hook['true']
+expect(list(hook_triggers) == ['pull_request_target']
+       and set(hook_triggers['pull_request_target']['types']) == {'opened', 'synchronize', 'reopened', 'closed'},
+       'hook: fires when a pull request is opened, gets a commit, or is closed or reopened')
+hook_steps = [st for j in hook['jobs'].values() for st in j['steps']]
+expect(hook['permissions'] == {} and not any('uses' in st for st in hook_steps) and not any('${{' in st.get('run', '') for st in hook_steps),
+       "hook: no permissions, never checks out a participant's code, no expressions inside the shell")
+fake_bin = work / 'fake-bin'
+fake_bin.mkdir()
+(fake_bin / 'gh').write_text(f'#!/bin/bash\nprintf "%s\\n" "$@" > {work}/gh-args\n')
+(fake_bin / 'gh').chmod(0o755)
+sh(hook_steps[0]['run'], work, {'PATH': f'{fake_bin}:{os.environ["PATH"]}', 'LEADERBOARD': 'o/board', 'PR': 'o/ex#3'})
+expect((work / 'gh-args').read_text().split('\n')[:5] == ['api', 'repos/o/board/dispatches', '-f', 'event_type=submission', '-f'],
+       'hook: sends the submission event grade.yml listens for, to the leaderboard repository')
+expect('__LEADERBOARD_REPO__' in (SRC / 'grader' / 'exercise-repo' / 'notify-leaderboard.yml').read_text(),
+       'hook: the leaderboard repository is filled in when it is installed')
 
 print('Saving past branch protection, and page publishing')
 # main requires a pull request; only the deploy key may push to it. Its pushes also start "Publish the page",

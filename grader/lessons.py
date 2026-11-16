@@ -18,7 +18,8 @@ import rules
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent  # this leaderboard repository
-RESERVED = tuple(rules.BASE_COLUMNS + rules.COUNTS + rules.GENERATED)  # participants.csv columns that are not lessons
+# participants.csv columns that are not lessons, and header spellings read as one of them
+RESERVED = tuple(rules.BASE_COLUMNS + rules.COUNTS + rules.GENERATED + list(rules.RULES['headerAliases']))
 FIELDS = ('key', 'label', 'repo', 'check', 'tests_commit')  # what a lesson in lessons.json may have
 # Used by every check, so a change to any of these regrades every automated lesson.
 SHARED_CODE = [HERE / 'executor.py'] + [HERE / 'checks' / f'{m}.py' for m in checks.SHARED]

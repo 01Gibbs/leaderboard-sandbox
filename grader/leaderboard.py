@@ -9,7 +9,7 @@ this is the same thing from a terminal. A person is named by their GitHub login 
   undo                                    reverse the latest of the actions above
   history  [count]                        list recent actions
   grade    [--no-run] [--only owner/repo#N]   grade new pull requests (normally run by GitHub Actions)
-  apply                                   write graded results into participants.csv
+  apply    [results.json]                 write graded results into participants.csv (from a grading run's file)
   pin-tests <lesson> [commit]             grade a lesson with its exercise repository's own tests, as they are at
                                           that full commit id (default: the latest), copied into grader/fixtures/<lesson>/
 """
@@ -55,7 +55,8 @@ def parser():
     c = sub.add_parser('grade', help='grade new pull requests')
     c.add_argument('--no-run', action='store_true', help='record submissions without running checks')
     c.add_argument('--only', help='grade one pull request, e.g. AtulKumarSharma79/Frameworkupgrade#3')
-    sub.add_parser('apply', help='write graded results into participants.csv')
+    c = sub.add_parser('apply', help='write graded results into participants.csv')
+    c.add_argument('results', nargs='?', help="a grading run's results.json to take first")
     c = sub.add_parser('pin-tests', help="grade a lesson with its exercise repository's own tests")
     c.add_argument('lesson')
     c.add_argument('commit', nargs='?')
@@ -85,7 +86,7 @@ def run(argv, root):
     if a.cmd == 'grade':
         grade.grade_all(root, no_run=a.no_run, only=a.only)
         return None
-    changes, warnings = board.apply_results()
+    changes, warnings = board.apply_results(a.results)
     print('\n'.join([f'Warning: {w}' for w in warnings] + changes) or 'No changes')
     return None
 
