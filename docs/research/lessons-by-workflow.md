@@ -2,6 +2,8 @@
 
 *Research note, 16 November 2026. Audience: project lead and facilitators. Builds on `adding-lessons.md` (12 Nov), which covers why we pin upstream tests and why GitHub Classroom is not an option. That note's step 1, `pin-tests`, now exists.*
 
+> **Status (16 Nov 2026).** Not built yet. The four blockers it found in the code still stand (lessons added by a workflow would not be saved; two lessons on one repository would share results; lesson settings are not in its version; tests can be switched off in `build.gradle`).
+
 **Short answer:**
 
 1. A **"Facilitator: Add a lesson"** form fits the existing pattern: one workflow, one issue form and one `leaderboard.py add-lesson` command. It can choose `tests`, `build` or `none` by itself. It must **never** choose or write a custom check. When no generic level fits, it adds the lesson at `none` and says so. Two small code changes are needed. `run_and_push.sh` must also stage `lessons.json` and `grader/fixtures/`. Results must stop being keyed by `repo#N` alone before two lessons can share a repository.

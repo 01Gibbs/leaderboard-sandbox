@@ -147,7 +147,7 @@ class WorkflowOutputTests(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which('ruby') and shutil.which('node'), 'needs Ruby (the YAML) and Node.js (the page\'s forms)')
 class AgreementTests(unittest.TestCase):
-    """One form, four places: the issue template, issue_form.FORMS, facilitator-forms.js and facilitator-*.yml."""
+    """One form, three places: the issue template, issue_form.FORMS and facilitator-*.yml."""
 
     def test_one_template_per_form_with_the_same_title_labels_and_fields(self):
         names = {f.name for f in TEMPLATES.glob('facilitator-*.yml')} - {'facilitator-changes.yml'}  # the batch, below
@@ -168,11 +168,7 @@ class AgreementTests(unittest.TestCase):
         self.assertEqual(fields, issue_form.BATCH_FIELDS)
         self.assertNotIn('render', json.dumps(t), 'a rendered textarea would wrap the rows in a code fence')
 
-    def test_the_page_and_the_workflows_use_the_same_titles_labels_and_fields(self):
-        sys.path.insert(0, str(REPO / 'grader' / 'tests'))
-        from test_facilitator_page import forms
-        page = {f['title']: (f['id'], [(x['label'], x['input']) for x in f['fields']]) for f in forms()}
-        self.assertEqual(page, issue_form.FORMS)
+    def test_each_form_runs_its_workflows_command(self):
         for name, _ in issue_form.FORMS.values():
             self.assertRegex((WORKFLOWS / f'facilitator-{name}.yml').read_text(), rf'args: \'\["{name}"')
 

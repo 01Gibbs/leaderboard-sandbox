@@ -17,7 +17,8 @@ const LEVELS = {
 };
 const levelOf = (check) => LEVELS[check] || LEVELS.custom;
 
-// The facilitator forms, in the order shown. Any other workflow is for maintainers and is not listed.
+// The same changes as forms in the Actions tab, in the order shown (the facilitator page is the usual way). Any other
+// workflow is for maintainers and is not listed.
 const FORM_HELP = {
   'facilitator-award.yml': 'Points for helping a colleague, stretch tasks, or bonus points. A minus sign takes them away.',
   'facilitator-mark.yml': 'Mark an exercise Correct that you checked by hand.',
@@ -118,7 +119,8 @@ export function steps(ctx) {
         </ol>
         <h3>And separately, facilitators</h3>
         <ol class="flow side">
-          <li><b>A facilitator fills in a form</b><span>in the Actions tab on GitHub: points, names, merges, undo</span></li>
+          <li><b>A facilitator picks a person and acts</b><span>on the facilitator page: points, results, names, merges, undo</span></li>
+          <li><b>Send, then Submit once on GitHub</b><span>every waiting change goes as one issue; only collaborators’ are made</span></li>
           <li><b>The same file is updated</b><span>and the page follows</span></li>
         </ol>`,
       text: '<p>Two things change scores: the automatic grader, and facilitators. Both write to one file, and the page reads it.</p><p>The grader only ever raises a result, so it never overwrites a facilitator’s change.</p>',
@@ -152,35 +154,42 @@ export function steps(ctx) {
           <li><b>Let the forms save changes</b><span>a deploy key with write access, its private key as the LEADERBOARD_DEPLOY_KEY secret, and a ruleset that lets only it push to main</span></li>
           <li><b>Add facilitators</b><span>Settings \u2192 Collaborators, with Write access</span></li>
           <li><b>Grade once</b><span>Actions \u2192 Grade submissions \u2192 Run workflow (the first run takes 20 to 40 minutes)</span></li>
-        </ol>`,
+          <li><b>Connect the exercise repositories</b><span>so each pull request is graded within a minute</span></li>
+        </ol>
+        <p><code>grader/setup-leaderboard.sh</code> does all of this with the GitHub CLI, asking before each step, then hands over to <code>grader/setup-pr-trigger.sh</code> for the exercise repositories.</p>`,
       text: `<p>After that, everything runs by itself. Details are in ${fileLink(ctx, 'README.md')}.</p>`,
     },
 
     // ---------- 3. For facilitators ----------
     {
       chapter: 'For facilitators',
-      title: 'The forms',
+      title: 'The facilitator page',
       stage: `
-        <h2>Facilitator forms</h2>
-        <p>On GitHub: ${link(actionsUrl, 'the Actions tab')} → pick a form on the left → <b>Run workflow</b>.</p>
-        <table>${facilitatorForms.map((f) => `<tr><th>${link(f.url, f.name.replace(/^Facilitator: /, ''))}</th><td>${esc(FORM_HELP[f.file])}</td></tr>`).join('')}</table>`,
-      text: '<p>Everything a facilitator does is one of these forms. You need <b>Write</b> access to the repository to run them.</p><p>For a person, type their name as on the board or their GitHub username. If nobody matches, nothing changes and it suggests close names.</p>',
+        <h2>The facilitator page</h2>
+        <p>${ctx.repo ? link(ctx.repo.pages_url + 'facilitator.html', ctx.repo.pages_url + 'facilitator.html') : 'The leaderboard’s address, followed by <code>facilitator.html</code>'}</p>
+        <ol class="flow">
+          <li><b>Pick a person</b><span>press / and type a name or GitHub username</span></li>
+          <li><b>Act</b><span>+1 help, +1 stretch, or More: bonus, take away, set a result, rename, same person as…</span></li>
+          <li><b>Changes wait in a box</b><span>for as many people as you like; tick Select several for a group</span></li>
+          <li><b>Send</b><span>GitHub opens with them all filled in: press Submit new issue, once</span></li>
+        </ol>`,
+      text: '<p>Only the leaderboard’s collaborators can make changes: GitHub checks who submitted, so there is nothing to set up but a GitHub account with <b>Write</b> access.</p><p>To practise on made-up people first, run <code>python3 facilitator_walkthrough.py</code>: it tours the page on a copy where everything really works and nothing reaches GitHub.</p>',
     },
     {
       chapter: 'For facilitators',
-      title: 'After you run a form',
+      title: 'After you send',
       stage: `
-        <h2>After you run a form</h2>
+        <h2>After you send</h2>
         <ol class="flow">
-          <li><b>About 30 seconds later the run shows ✅ or ❌</b><span>click it for a one-line summary of what changed</span></li>
-          <li><b>❌ means nothing changed</b><span>the summary says why, e.g. a misspelled name</span></li>
+          <li><b>About a minute later each change shows Done</b><span>and leaves the Changes box</span></li>
+          <li><b>Or Not done, with the reason</b><span>e.g. a misspelled name; Try again or Dismiss</span></li>
           <li><b>The page updates a minute or two later</b><span>for everyone</span></li>
         </ol>
         <h3>Recent changes</h3>
         ${ctx.recent_actions.length
           ? `<ul class="plain">${ctx.recent_actions.map((h) => `<li><b>${esc(h.by)}</b>: ${esc(h.action)} <small>${esc(h.at)}</small></li>`).join('')}</ul>`
           : '<p class="muted">No facilitator changes yet.</p>'}`,
-      text: '<p><b>Undo</b> reverses only what the last change touched, and keeps anything changed since. Two facilitators saving at the same moment is fine: both changes land.</p>',
+      text: '<p><b>Undo</b> next to any change under Recent changes reverses just that change, and keeps anything changed since. Two facilitators sending at the same moment is fine: both land.</p>',
     },
     {
       chapter: 'For facilitators',
@@ -188,12 +197,21 @@ export function steps(ctx) {
       stage: `
         <h2>Common questions</h2>
         <dl>
-          <dt>Someone shows up under a GitHub username</dt><dd><b>Rename a person</b>. The username stays linked, so their pull requests keep counting.</dd>
-          <dt>Someone appears twice</dt><dd><b>Merge duplicate people</b>. Nobody loses points: the higher value of every column is kept.</dd>
+          <dt>Someone shows up under a GitHub username</dt><dd>Pick them, then <b>More → Rename…</b>. The username stays linked, so their pull requests keep counting.</dd>
+          <dt>Someone appears twice</dt><dd>Pick the row to keep, then <b>More → Same person as…</b>: it shows the row as it will be. Nobody loses points: the higher value of every column is kept.</dd>
           <dt>Why isn’t a submission Correct yet?</dt><dd>Open ${fileLink(ctx, 'grader/results.json')} and search for their GitHub username: each pull request lists its reasons. Grading runs whenever a pull request changes, or now with <b>Grade submissions</b>.</dd>
-          <dt>I made a mistake</dt><dd><b>Undo last change</b>.</dd>
+          <dt>I made a mistake</dt><dd><b>Undo</b> next to that change under Recent changes.</dd>
         </dl>`,
       text: `<p>The full guide is ${fileLink(ctx, 'FACILITATOR.md')}.</p>`,
+    },
+    {
+      chapter: 'For facilitators',
+      title: 'The same changes in the Actions tab',
+      stage: `
+        <h2>The same changes, as forms</h2>
+        <p>If the facilitator page is not to hand: ${link(actionsUrl, 'the Actions tab')} → pick a form on the left → <b>Run workflow</b>. One change per run; about 30 seconds later the run says what happened.</p>
+        <table>${facilitatorForms.map((f) => `<tr><th>${link(f.url, f.name.replace(/^Facilitator: /, ''))}</th><td>${esc(FORM_HELP[f.file])}</td></tr>`).join('')}</table>`,
+      text: '<p>For a person, type their name as on the board or their GitHub username. If nobody matches, nothing changes and the run suggests close names.</p>',
     },
 
     // ---------- 4. Workshop repos ----------

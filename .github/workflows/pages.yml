@@ -32,7 +32,7 @@ jobs:
           ref: main  # the latest scores, even when started by hand from another branch
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6.0.0
       - name: Collect only the files the page loads
-        run: mkdir _site && cp index.html facilitator.html facilitator-forms.js scoring.js participants.csv lessons.json dashboard.json _site/
+        run: mkdir _site && cp index.html facilitator.html scoring.js participants.csv lessons.json dashboard.json _site/
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
         with:
           path: _site

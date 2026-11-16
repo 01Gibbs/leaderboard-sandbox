@@ -7,7 +7,7 @@ runs this file with the issue's event, and only for issues from the owner, an or
 the same people who can run the Facilitator forms in the Actions tab; GitHub's Collaborators list decides) and
 gives facilitator-action.yml the same command the Actions form would. Nothing from the issue reaches a shell.
 
-FORMS, the templates, facilitator-forms.js and the facilitator-*.yml workflows must agree on titles, labels and
+FORMS, the templates and the facilitator-*.yml workflows must agree on titles, labels and
 fields; grader/tests/test_issue_form.py fails if they don't.
 """
 import json

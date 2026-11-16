@@ -1,5 +1,6 @@
-"""Leaderboard commands. Facilitators normally run these from the Actions tab on GitHub (see FACILITATOR.md);
-this is the same thing from a terminal. A person is named by their GitHub login or their name.
+"""Leaderboard commands. Facilitators normally make these changes from the facilitator page, which sends them as
+one GitHub issue (`batch`), or from the forms in the Actions tab (see FACILITATOR.md); this is the same thing from a
+terminal. A person is named by their GitHub login or their name.
 
   add      "Name" [github-login]          put someone on the board who has not opened a pull request
   award    <person> stretch|helped|bonus [amount]   add points (a negative amount takes them away)
