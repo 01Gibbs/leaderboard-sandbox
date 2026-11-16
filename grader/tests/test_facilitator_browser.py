@@ -296,6 +296,27 @@ class FacilitatorJourneyTests(unittest.TestCase):
         self.assertTrue(page.url.startswith(self.base), 'still on the facilitator page')
         expect(page.locator('#queue li.waiting')).to_have_count(1)
 
+    def test_grade_now_in_practice_says_what_it_would_do(self):
+        self.page.get_by_role('button', name='Grade now').click()
+        expect(self.page.locator('#gradeHint')).to_contain_text('press Run workflow')
+
+    def test_on_the_real_page_grade_now_opens_grade_submissions(self):
+        page = self.browser.new_page()
+        self.addCleanup(page.close)
+        run = {'status': 'completed', 'conclusion': 'success', 'created_at': '2026-11-16T10:00:00Z',
+               'updated_at': '2026-11-16T10:05:00Z', 'html_url': 'https://github.com/someone/board/actions/runs/1'}
+        page.context.route('https://github.com/**', lambda route: route.fulfill(body='GitHub', content_type='text/html'))
+        page.context.route('https://api.github.com/**', lambda route: route.fulfill(
+            status=200, content_type='application/json', body=json.dumps({'workflow_runs': [run]}))
+            if '/actions/workflows/grade.yml/runs' in route.request.url else route.fulfill(status=404, body='{}'))
+        page.goto(self.base + '/facilitator.html?repo=someone/board')
+        expect(page.locator('#gradeLast')).to_contain_text('Last graded')
+        expect(page.locator('#gradeLast').get_by_role('link', name='see the run')).to_have_attribute('href', run['html_url'])
+        with page.expect_popup() as popup:
+            page.get_by_role('button', name='Grade now').click()
+        popup.value.wait_for_url('https://github.com/someone/board/actions/workflows/grade.yml')
+        expect(page.locator('#gradeHint')).to_contain_text('Run workflow')
+
     def test_on_the_real_page_send_opens_one_filled_in_issue_in_one_tab(self):
         page = self.browser.new_page()
         self.addCleanup(page.close)

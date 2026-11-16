@@ -66,6 +66,12 @@ export function steps(ctx) {
     },
     {
       chapter: 'Changes',
+      title: 'Grade new pull requests now',
+      target: 'grading',
+      text: '<p>New pull requests are graded once a day by themselves. After a burst of them, press <b>Grade now</b>: GitHub opens <i>Grade submissions</i>, and you press <b>Run workflow</b>. About 5 to 20 minutes later the scores here and on the leaderboard follow.</p>',
+    },
+    {
+      chapter: 'Changes',
       title: 'Undo just one change',
       target: 'history',
       text: '<p>Every change, by anyone, newest first. <b>Undo</b> next to one adds “Undo: …” to the Changes box; send it, and only that change is reversed. Later changes stay, and a cell someone changed again since is left alone.</p>',

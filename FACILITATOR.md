@@ -24,7 +24,7 @@ Everything is done in your browser. You don't need to install anything.
 | Mark an exercise correct that you checked by hand | **Mark correct** next to the exercise | *Facilitator: Mark an exercise* |
 | Add someone who hasn't opened a pull request yet | Type their name; **Add** appears when nobody matches | *Facilitator: Add a person* |
 | Reverse a mistake | **Undo** next to that change, under *Recent changes* | *Facilitator: Undo last change* (the latest only) |
-| Grade new pull requests right now | | *Grade submissions* (it also runs by itself whenever a pull request changes) |
+| Grade new pull requests right now | **Grade now**, then **Run workflow** on GitHub | *Grade submissions* (it also runs by itself once a day) |
 
 Then **Send** once for everything waiting in the Changes box.
 

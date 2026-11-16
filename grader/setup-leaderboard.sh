@@ -321,13 +321,14 @@ else
 fi
 pause
 
-stage "Grade each pull request as it happens"
-say "Each exercise repository can tell the leaderboard when a pull request changes, so it is graded in a minute"
-say "instead of once a day. That needs a token you make and a small workflow in each exercise repository."
-if confirm "Connect the exercise repositories now (grader/setup-pr-trigger.sh)?"; then
+stage "Optional: grade each pull request as it happens"
+say "Pull requests are graded once a day, and whenever a facilitator presses Grade now: nothing more is needed."
+say "If you own the exercise repositories, each can also tell the leaderboard when a pull request changes, so it"
+say "is graded in a minute. That needs a token you make, renewed when it expires, and a small workflow in each."
+if confirm "Connect the exercise repositories now (grader/setup-pr-trigger.sh)? Most people skip this."; then
   LEADERBOARD_REPO=$REPO bash grader/setup-pr-trigger.sh
 else
-  SKIPPED+=("connect the exercise repositories: grader/setup-pr-trigger.sh")
+  :  # optional: grading still runs daily and on Grade now
 fi
 
 finish
