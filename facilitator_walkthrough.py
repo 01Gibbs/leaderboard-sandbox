@@ -57,7 +57,7 @@ def practice_copy(dest):
     for name in COPY:
         src = ROOT / name
         if src.is_dir():
-            shutil.copytree(src, dest / name, ignore=shutil.ignore_patterns('__pycache__', 'tests', 'fixtures', 'results.json', 'history.json', '.cache'))
+            shutil.copytree(src, dest / name, ignore=shutil.ignore_patterns('__pycache__', 'tests', 'fixtures', 'results.json', 'history.json', 'batches.json', '.cache'))
         elif src.exists():
             (dest / name).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(src, dest / name)

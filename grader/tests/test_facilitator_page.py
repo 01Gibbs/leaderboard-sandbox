@@ -102,6 +102,10 @@ class PracticeServerTests(unittest.TestCase):
         self.assertEqual(self.api(f'/actions/workflows/{workflow}/dispatches', {'ref': 'main', 'inputs': inputs})[0], 204)
         return self.api(f'/actions/workflows/{workflow}/runs')[1]['workflow_runs'][0]
 
+    def test_starts_with_none_of_the_real_changes(self):
+        for name in ('history', 'batches'):  # the real repository's, whatever they hold, stay out of practice
+            self.assertEqual(self.api(f'/contents/grader/{name}.json')[0], 404, name)
+
     def test_serves_the_page_and_example_people(self):
         self.assertEqual(self.call('/facilitator.html')[0], 200)
         self.assertIn(b'Asha Rao', self.call('/participants.csv')[1])
