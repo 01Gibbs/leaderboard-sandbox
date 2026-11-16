@@ -36,4 +36,6 @@ The existing custom checks in `grader/checks/` (`rest_api.py`, `framework_upgrad
 
 6. **Record current submissions:** `python3 grader/leaderboard.py grade --no-run && python3 grader/leaderboard.py apply`. Done when `git diff participants.csv` shows the new column and the expected people as `submitted`. Commit on a branch and open a pull request: main only takes changes through one.
 
-7. **Hand over:** tell the user what level the lesson is on, what it does not check, and that real grading happens on the next scheduled run (or *Actions → Grade submissions → Run workflow*). For `none`, remind them facilitators mark results with *Facilitator: Mark an exercise*.
+7. **Connect the repository** so its pull requests start grading: the user runs `grader/setup-pr-trigger.sh` (a wizard; it needs them in a browser and admin access to the exercise repository, so never run it yourself). Done when the exercise repository has `.github/workflows/notify-leaderboard.yml`; until then that lesson is graded only by the daily run.
+
+8. **Hand over:** tell the user what level the lesson is on, what it does not check, and that real grading happens on the next pull request change (or *Actions → Grade submissions → Run workflow*). For `none`, remind them facilitators mark results with *Facilitator: Mark an exercise*.

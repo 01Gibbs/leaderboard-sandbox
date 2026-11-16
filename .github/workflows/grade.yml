@@ -1,11 +1,19 @@
 # Pulls pull requests from the exercise repositories into the leaderboard and grades them.
 # Participant code runs only in the `grade` job, which has a read-only token and no stored credentials.
 # The `publish` job never runs participant code; it merges the results and commits them.
-name: 'Grade submissions (automatic every 4 hours)'
+#
+# It runs when a pull request on an exercise repository is opened, gets a new commit, or is closed or reopened:
+# each exercise repository's notify-leaderboard workflow (grader/exercise-repo/notify-leaderboard.yml, set up
+# with grader/setup-pr-trigger.sh) sends a `submission` event. Every run grades everything not graded yet,
+# so when several events arrive together and GitHub drops the waiting runs but one, nothing is missed. (A run
+# started by hand with "only" grades one pull request; anything else waits for the next event or the daily run.)
+name: 'Grade submissions (automatic on every pull request)'
 
 on:
+  repository_dispatch:
+    types: [submission]
   schedule:
-    - cron: '0 */4 * * *'  # 00:00, 04:00, 08:00... UTC; GitHub may start it a few minutes late
+    - cron: '17 3 * * *'  # once a day, a backstop for any event missed (a repository without the hook, an expired token)
   workflow_dispatch:
     inputs:
       only:
@@ -29,6 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          ref: main  # not the commit the event fired on: a run that waited must see the results saved before it
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
@@ -42,6 +51,12 @@ jobs:
             21
       - name: Create a separate user to run submissions as
         run: sudo useradd --create-home --shell /bin/bash grader-sandbox
+      - name: Say what started this run
+        if: github.event_name == 'repository_dispatch'
+        env:
+          PR: ${{ github.event.client_payload.pr }}
+        run: |
+          echo "Started because a pull request changed: ${PR:-unknown}" >> "$GITHUB_STEP_SUMMARY"
       - name: Grade new commits
         env:
           GH_TOKEN: ${{ github.token }}

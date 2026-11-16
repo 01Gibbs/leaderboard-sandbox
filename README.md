@@ -10,12 +10,12 @@ A public leaderboard for the workshop. Participants submit each exercise as a pu
 ## How it works
 
 ```
-participant opens a PR ──► "Grade submissions" (every 4 hours) ──► participants.csv ──► public page
+participant opens a PR ──► "Grade submissions" (within a minute) ──► participants.csv ──► public page
                                                                         ▲
 facilitator fills in a form in the Actions tab (award, merge, undo...) ─┘
 ```
 
-1. **Submissions.** Every 4 hours (or straight away, when a facilitator runs it), the *Grade submissions* workflow lists the pull requests on each lesson's repository (listed in [`lessons.json`](lessons.json)). Each author is a participant: anyone new gets a row, named from their GitHub profile, and the exercise shows as *Submitted*. Pull requests from the repository's owner, from bots, and ones closed without merging are not submissions.
+1. **Submissions.** Whenever a pull request on a lesson's repository (listed in [`lessons.json`](lessons.json)) is opened, gets a new commit, or is closed, that repository tells the leaderboard and the *Grade submissions* workflow runs. It also runs once a day as a backstop, and straight away when a facilitator runs it. Each exercise repository is set up once with `grader/setup-pr-trigger.sh`, which adds a small workflow and a token there (see [`grader/exercise-repo/notify-leaderboard.yml`](grader/exercise-repo/notify-leaderboard.yml)). The workflow lists the pull requests on each lesson's repository. Each author is a participant: anyone new gets a row, named from their GitHub profile, and the exercise shows as *Submitted*. Pull requests from the repository's owner, from bots, and ones closed without merging are not submissions (one closed after it was graded gives up its early-PR credit; the status it earned stays until a facilitator marks it lower).
 2. **Grading.** Each pull request's latest commit is checked once, with the grader's own tests (so editing the tests in a pull request does not help). If it passes, the exercise shows as *Correct*. The reason for every pass or fail is kept in `grader/results.json`.
 3. **Facilitator changes** (points, names, merges, undo) are forms in the Actions tab. Each one logs the rows it changed, before and after, in `grader/history.json`, so undo can change back exactly the cells it touched. Changes made at the same moment all land: each run applies its change to the latest version and retries if someone else saved first.
 4. **The page** (`index.html`, served by GitHub Pages) reads `participants.csv`, `lessons.json` and `dashboard.json` (title, workshops, next week's plan, kudos), and updates a minute or two after any change.
