@@ -35,6 +35,13 @@ CASES = {
                   'Ann,ann,maybe,CORRECT,y,-3,abc,7.5\n',
     'missing_and_extra_columns': 'name,fizzbuzz,notes,stretch\nAnn,correct,"likes, commas",2\nBob\n',
     'stray_quotes_and_no_final_newline': 'name,github,fizzbuzz\nAnn "the" Smith,ann,correct\nBo,bo,"submitted',
+    # Found by mutation testing (grader/tests/mutate.py): line endings and delimiters the cases above never had.
+    'crlf_on_every_row': 'name,github,fizzbuzz\r\nAnn,ann,correct\r\nBob,bob,submitted\r\nCy,cy,\r\n',
+    'old_mac_cr_only': 'name,github,fizzbuzz\rAnn,ann,correct\rBob,bob,submitted',
+    'blank_lines_between_rows': 'name,github,fizzbuzz\n\nAnn,ann,correct\n\r\n\nBob,bob,\n',
+    'last_cell_empty_no_newline': 'name,github,fizzbuzz,stretch\nAnn,ann,correct,2\nBob,bob,submitted,',
+    'one_column_no_final_newline': 'name\nAnn\nBob',
+    'header_line_alone_decides_delimiter': 'name;github;fizzbuzz\n"Rao, A, B, C";asha;correct\nBo;bo,x,y,z;submitted\n',
 }
 
 PRIMITIVES_HARNESS = r'''

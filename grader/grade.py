@@ -3,7 +3,9 @@
 Results are recorded in Submissions (grader/results.json), which also decides whether an earlier result
 still counts; the Roster brings them onto the leaderboard. The rules people rely on live here:
   - a grader error (not the participant's fault) is recorded as passed=None and retried next run;
-  - one repository being unreachable skips that repository, not the run.
+  - one repository being unreachable skips that repository, not the run;
+  - a check module that cannot be loaded (a mistake in it) skips that check's lessons, not the run, with or
+    without --no-run (a result's version includes its check's code, so even recording one needs the check).
 
 Pull requests come from a source: GitHub in production, an in-memory one in tests.
 """
@@ -88,6 +90,11 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
     subs = submissions.Submissions(root)
     unreachable = set()  # logins whose profile could not be read this run
     for lesson in lessons.load(root):
+        try:
+            _ = lesson.runner  # load the check now: a broken module skips this lesson, not every lesson
+        except Exception as e:
+            log(f'Skipping {lesson.key} this run: cannot load its check "{lesson.check}" ({type(e).__name__}: {e})')
+            continue
         try:
             prs = source.pull_requests(lesson.repo)
         except (urllib.error.URLError, OSError) as e:  # rate limit, outage, renamed repo: try again next run

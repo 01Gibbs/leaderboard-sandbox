@@ -7,7 +7,7 @@ name: Test the grader
 on:
   pull_request:
   push:
-    paths: ['grader/**', '!grader/*.json', 'lessons.json', 'dashboard.json', '.github/**', 'walkthrough/**', 'walkthrough.py', 'index.html', 'scoring.js']
+    paths: ['grader/**', '!grader/*.json', 'lessons.json', 'dashboard.json', '.github/**', 'walkthrough/**', 'walkthrough.py', 'index.html', 'scoring.js', 'facilitator.html', 'facilitator-forms.js', 'facilitator_walkthrough.py']
   workflow_dispatch:
 
 permissions:
@@ -55,6 +55,8 @@ jobs:
             17
             25
             21
+      - name: Install Playwright and Chromium (the facilitator page's browser tests)
+        run: python3 -m pip install --quiet playwright==1.65.2 && python3 -m playwright install --with-deps chromium
       - name: Create the sandbox user the grader runs submissions as
         run: sudo useradd --create-home --shell /bin/bash grader-sandbox
       - name: Check the sandbox user cannot change the grader

@@ -20,9 +20,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import exercise_tests  # noqa: E402
-import grade  # noqa: E402
-import roster  # noqa: E402
+import roster  # noqa: E402  (grade and exercise_tests load the checks, so only their commands import them)
 import submissions  # noqa: E402
 from rules import COUNTS, STATUSES  # noqa: E402
 
@@ -81,9 +79,11 @@ def run(argv, root):
     if a.cmd == 'history':
         return board.recent(a.count)
     if a.cmd == 'pin-tests':
+        import exercise_tests
         sha, count = exercise_tests.pin(root, a.lesson, a.commit)
         return f'{a.lesson} is graded with its repository\'s {count} test files as of {sha[:7]}'
     if a.cmd == 'grade':
+        import grade
         grade.grade_all(root, no_run=a.no_run, only=a.only)
         return None
     changes, warnings = board.apply_results(a.results)
@@ -97,7 +97,7 @@ def main(argv, root=ROOT):
         argv = ['' if v is None else str(v) for v in json.loads(argv[1])]  # a blank optional field arrives as null
     try:
         summary = run(argv, Path(root))
-    except (roster.ActionError, exercise_tests.PinFailed, submissions.ResultsInvalid) as e:
+    except (roster.ActionError, submissions.ResultsInvalid) as e:  # exercise_tests.PinFailed is an ActionError
         report(f'Nothing was changed. {e}', failed=True)
         return 1
     if summary and argv[:1] == ['history']:

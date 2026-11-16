@@ -31,18 +31,19 @@ class LessonsInvalid(Exception):
         super().__init__('lessons.json has problems:\n  ' + '\n  '.join(problems))
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True)  # no mutate: frozen guards against accidents; nothing relies on it
 class Lesson:
     key: str          # the participants.csv column
     label: str        # shown on the page
     repo: str         # owner/name: where participants open pull requests
-    check: str        # how "correct" is decided: 'none' or a name in checks.CHECKS (a module in grader/checks/)
+    check: str        # how "correct" is decided: 'none' or a name in checks.names() (a module in grader/checks/)
     test_files: Path  # our files for this lesson: tests copied over each submission, or a check's reference files
 
     @property
     def runner(self):
-        """The check function, or None when a facilitator marks the lesson by hand."""
-        return checks.CHECKS.get(self.check)
+        """The check function, or None when a facilitator marks the lesson by hand. Imports the check's module
+        the first time, so only grading needs it (and raises if that module is broken)."""
+        return checks.runner(self.check)
 
     @cached_property
     def version(self):
@@ -59,7 +60,7 @@ class Lesson:
             for f in sorted(self.test_files.rglob('*')):
                 if f.is_file():
                     h.update(f.relative_to(self.test_files).as_posix().encode() + f.read_bytes())
-        return h.hexdigest()[:12]
+        return h.hexdigest()[:12]  # no mutate: any length that is unlikely to collide
 
 
 def lessons_file(root=ROOT):
@@ -100,8 +101,8 @@ def load(root=ROOT):
             problems.append(f'{where}: needs a label')
         if not re.fullmatch(r'[\w.-]+/[\w.-]+', item.get('repo', '')):
             problems.append(f'{where}: repo must look like owner/name')
-        if check != 'none' and check not in checks.CHECKS:
-            problems.append(f'{where}: check must be one of none, {", ".join(checks.CHECKS)}')
+        if check != 'none' and check not in checks.names():
+            problems.append(f'{where}: check must be one of none, {", ".join(checks.names())}')
         if 'tests_commit' in item and not (check == 'tests' and re.fullmatch(r'[0-9a-f]{40}', str(item['tests_commit']))):
             problems.append(f'{where}: tests_commit must be a full commit id, on a lesson whose check is tests')
         out.append(Lesson(key, item.get('label', ''), item.get('repo', ''), check, fixtures(root) / key))
@@ -117,4 +118,6 @@ def record_pinned(root, key, commit):
     items = json.loads(path.read_text(encoding='utf-8'))
     item = next(i for i in items if i.get('key') == key)
     item['check'], item['tests_commit'] = 'tests', commit
-    path.write_text(json.dumps(items, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    text = json.dumps(items, ensure_ascii=False,
+                      indent=2)  # no mutate: indent is layout (lessons.json is written with 2)
+    path.write_text(text + '\n', encoding='utf-8')

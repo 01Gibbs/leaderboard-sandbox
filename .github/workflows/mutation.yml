@@ -1,0 +1,44 @@
+# Mutation testing (grader/tests/mutate.py): changes the grader's logic one operator or constant at a time and
+# checks a test notices. Weekly and by hand; it takes minutes per module, so it is not a required check.
+# A surviving mutant is a missing test, or a change that makes no difference (marked `# no mutate` with a reason).
+name: Mutation testing
+
+on:
+  schedule:
+    - cron: '41 4 * * 1'  # Mondays
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  mutate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { module: grader/rules.py, tests: test_rules test_roster }
+          - { module: grader/submissions.py, tests: test_submissions test_grading test_roster test_slices }
+          - { module: grader/roster.py, tests: test_roster test_slices test_regressions }
+          - { module: grader/lessons.py, tests: test_lessons test_exercise_tests }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0  (the parity tests run scoring.js)
+        with:
+          node-version: '22'
+      - name: Mutate one module and run its tests against every mutant
+        env:
+          MODULE: ${{ matrix.module }}
+          TESTS: ${{ matrix.tests }}
+        run: python3 grader/tests/mutate.py "$MODULE" --tests $TESTS

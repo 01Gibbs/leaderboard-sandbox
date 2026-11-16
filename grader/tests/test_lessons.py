@@ -4,6 +4,7 @@ Run: python3 -m unittest discover grader/tests
 """
 import json
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -80,6 +81,24 @@ class LoadingTests(Sandbox):
                     self.load()
                 self.assertIn(f'"{key}" is already used', str(e.exception))
 
+    def test_problems_name_the_lesson_by_its_place_and_key(self):
+        self.write([{'key': 'ok', 'label': 'Ok', 'repo': 'o/r'}, {'key': 5, 'label': 'X', 'repo': 'o/r'}, 'not a lesson'])
+        with self.assertRaises(lessons.LessonsInvalid) as e:
+            self.load()
+        self.assertIn('it must be a list of lessons', str(e.exception))
+        self.write([{'key': 'ok', 'label': '', 'repo': 'o/r'}, {'key': 5, 'label': 'X', 'repo': 'o/r'}])
+        with self.assertRaises(lessons.LessonsInvalid) as e:
+            self.load()
+        self.assertIn('lesson 1 (ok): needs a label', e.exception.problems)
+        self.assertIn('lesson 2: key must be text', e.exception.problems)
+
+    def test_pinning_keeps_lessons_json_as_written(self):
+        self.write([{'key': 'cafe', 'label': 'Café', 'repo': 'o/r', 'check': 'none'}])
+        lessons.record_pinned(self.dir, 'cafe', 'a' * 40)
+        text = self.file.read_text(encoding='utf-8')
+        self.assertIn('"label": "Café"', text)
+        self.assertIn('\n  {\n    "key": "cafe"', text)
+
     def test_missing_check_means_none(self):
         self.write([{'key': 'a', 'label': 'A', 'repo': 'o/a'}])
         self.assertEqual(self.load()[0].check, 'none')
@@ -113,14 +132,15 @@ class CheckTests(Sandbox):
     def test_each_check_is_a_module_named_after_it(self):
         import checks
         modules = {f.stem for f in (lessons.HERE / 'checks').glob('*.py')} - {'__init__', *checks.SHARED}
-        self.assertEqual(set(checks.CHECKS), modules)
-        for name, runner in checks.CHECKS.items():
-            self.assertEqual(runner.__module__, f'checks.{name}')
+        self.assertEqual(set(checks.names()), modules)
+        for name in checks.names():
+            self.assertEqual(checks.runner(name).__module__, f'checks.{name}')
 
     def test_a_check_imports_only_the_shared_modules_so_its_version_covers_its_code(self):
         import re
         import checks
-        for name in checks.CHECKS:
+        self.assertTrue(checks.names())
+        for name in checks.names():
             source = (lessons.HERE / 'checks' / f'{name}.py').read_text()
             used = set(re.findall(r'^from \.(\w+) import|^from checks\.(\w+) import', source, re.M))
             others = {m for pair in used for m in pair if m} - set(checks.SHARED)
@@ -194,6 +214,71 @@ class VersionTests(Sandbox):
         before = self.versions()
         self.write([{**VALID[0], 'label': 'Fizz Buzz!'}, VALID[1], VALID[2]])
         self.assertEqual(before['fizzbuzz'], self.versions()['fizzbuzz'])
+
+
+
+class CatalogueTests(unittest.TestCase):
+    """Lessons are a catalogue (keys, labels, repositories) that facilitator actions read; only grading loads a
+    lesson's check. So a broken check module cannot stop a facilitator, or grading of the other lessons."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root)
+        shutil.copytree(GRADER, self.root / 'grader', ignore=shutil.ignore_patterns('tests', 'fixtures', '__pycache__', '*.json'))
+        shutil.copy(GRADER.parent / 'scoring.js', self.root)
+        shutil.copy(GRADER.parent / 'lessons.json', self.root)
+        keys = [l['key'] for l in json.loads((self.root / 'lessons.json').read_text())]
+        (self.root / 'participants.csv').write_text('name,github_username,' + ','.join(keys) + '\nAnn,ann' + ',' * len(keys) + '\n')
+
+    def run_py(self, code):
+        r = subprocess.run([sys.executable, '-c', code], cwd=self.root / 'grader', capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout
+
+    def test_facilitator_actions_load_no_check(self):
+        out = self.run_py('import sys, leaderboard\n'
+                          'assert leaderboard.main(["award", "Ann", "helped"]) == 0\n'
+                          'assert leaderboard.main(["undo"]) == 0\n'
+                          'print(sorted(m for m in sys.modules if m.startswith("checks.") or m == "executor"))')
+        self.assertEqual(out.splitlines()[-1], '[]')
+
+    def test_a_broken_check_does_not_stop_facilitators(self):
+        (self.root / 'grader' / 'checks' / 'container_image.py').write_text('def check(ws, lesson:\n')
+        out = self.run_py('import leaderboard\nprint(leaderboard.main(["award", "Ann", "helped"]))')
+        self.assertEqual(out.splitlines()[-1], '0')
+        self.assertIn('Ann,ann', (self.root / 'participants.csv').read_text())
+
+    def test_a_broken_check_skips_only_its_own_lessons_when_grading(self):
+        checks_dir = self.root / 'grader' / 'checks'
+        (checks_dir / 'stand_in_pass.py').write_text('def check(ws, lesson):\n    return True, ["fine"]\n')
+        (checks_dir / 'broken.py').write_text('def check(ws, lesson:\n')
+        (self.root / 'lessons.json').write_text(json.dumps([
+            {'key': 'alpha', 'label': 'Alpha', 'repo': 'o/alpha', 'check': 'stand_in_pass'},
+            {'key': 'beta', 'label': 'Beta', 'repo': 'o/beta', 'check': 'broken'}]))
+        out = self.run_py(
+            'import json, grade\n'
+            'class Source:\n'
+            '    def pull_requests(self, repo): return [grade.PullRequest(1, "ann", "s1", f"https://github.com/{repo}/pull/1")]\n'
+            '    def display_name(self, login): return "Ann"\n'
+            '    def checkout(self, repo, number, dest): pass\n'
+            'log = []\n'
+            'subs = grade.grade_all("..", source=Source(), log=log.append)\n'
+            'saved = json.load(open("results.json"))["submissions"]\n'
+            'print(json.dumps({"log": log, "passed": {k: v.get("passed") for k, v in saved.items()}}))')
+        result = json.loads(out.splitlines()[-1])
+        self.assertEqual(result['passed'].get('o/alpha#1'), True)  # the other lesson is still graded
+        self.assertNotIn('o/beta#1', result['passed'])           # skipped this run, like an unreachable repository
+        self.assertTrue(any('beta' in line and 'cannot load its check' in line for line in result['log']), result['log'])
+
+    def test_an_unknown_check_is_refused_without_loading_any(self):
+        (self.root / 'lessons.json').write_text(json.dumps([{'key': 'alpha', 'label': 'Alpha', 'repo': 'o/a', 'check': 'nope'}]))
+        out = self.run_py('import sys, lessons\n'
+                          'try:\n    lessons.load("..")\nexcept lessons.LessonsInvalid as e:\n    print(e.problems[0])\n'
+                          'print(sorted(m for m in sys.modules if m.startswith("checks.")))')
+        problem, loaded = out.splitlines()[-2:]
+        names = sorted(f.stem for f in (self.root / 'grader' / 'checks').glob('*.py') if f.stem not in ('__init__', 'toolkit'))
+        self.assertIn('check must be one of none, ' + ', '.join(names), problem)
+        self.assertEqual(loaded, '[]')
 
 
 if __name__ == '__main__':

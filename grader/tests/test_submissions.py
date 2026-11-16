@@ -104,6 +104,20 @@ class RecordingTests(Sandbox):
         for part in ('o/r#1: login', 'o/r#1: passed', 'people: ann'):
             self.assertIn(part, str(e.exception))
 
+    def test_people_or_submissions_of_the_wrong_shape_is_refused(self):
+        for data in ({'people': [], 'submissions': {}}, {'people': {}, 'submissions': []}):
+            with self.subTest(data):
+                (self.dir / 'grader' / 'results.json').write_text(json.dumps(data))
+                with self.assertRaises(ResultsInvalid):
+                    self.subs()
+
+    def test_saved_with_sorted_keys_so_a_change_is_a_small_diff(self):
+        (self.dir / 'grader' / 'results.json').write_text(json.dumps({'submissions': {}, 'people': {'zed': 'Z', 'amy': 'A'}}))
+        self.subs().save()
+        text = (self.dir / 'grader' / 'results.json').read_text()
+        self.assertLess(text.index('"amy"'), text.index('"zed"'))
+        self.assertLess(text.index('"people"'), text.index('"submissions"'))
+
     def saved_after(self, s):
         s.save()
         return self.saved()

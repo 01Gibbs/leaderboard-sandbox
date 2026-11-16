@@ -341,15 +341,17 @@ async function loadHistory() {
   try {
     const text = await gh(`/repos/${REPO}/contents/grader/history.json?ref=main`, { headers: { Accept: 'application/vnd.github.raw+json' } });
     const history = typeof text === 'string' ? JSON.parse(text) : text;
+    if (!history.length) return noHistory('No facilitator changes yet.');  // every change has been undone
     $('history').replaceChildren(...history.slice(-8).reverse().map((h) => {
       const li = el('li', '', h.action);
       li.append(el('small', '', `${h.by}, ${new Date(h.at).toLocaleString()}`));
       return li;
     }));
   } catch (e) {
-    $('history').replaceChildren(el('li', 'muted', e.status === 404 ? 'No facilitator changes yet.' : 'Could not read the recent changes.'));
+    noHistory(e.status === 404 ? 'No facilitator changes yet.' : 'Could not read the recent changes.');
   }
 }
+function noHistory(text) { $('history').replaceChildren(el('li', 'muted', text)); }
 
 /* ---- start ---- */
 (async function start() {
