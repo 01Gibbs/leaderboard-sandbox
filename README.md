@@ -10,13 +10,13 @@ A public leaderboard for the workshop. Participants submit each exercise as a pu
 ## How it works
 
 ```
-participant opens a PR ──► "Grade submissions" (within a minute) ──► participants.csv ──► public page
+participant opens a PR ──► "Grade submissions" (daily, or Grade now) ──► participants.csv ──► public page
                                                                         ▲
 facilitator page: pick a person, act, Send ──► one GitHub issue ────────┘
                   (or a form in the Actions tab)
 ```
 
-1. **Submissions.** Whenever a pull request on a lesson's repository (listed in [`lessons.json`](lessons.json)) is opened, gets a new commit, or is closed, that repository tells the leaderboard and the *Grade submissions* workflow runs. It also runs once a day as a backstop, and straight away when a facilitator runs it. Each exercise repository is set up once with `grader/setup-pr-trigger.sh`, which adds a small workflow and a token there (see [`grader/exercise-repo/notify-leaderboard.yml`](grader/exercise-repo/notify-leaderboard.yml)). The workflow lists the pull requests on each lesson's repository. Each author is a participant: anyone new gets a row, named from their GitHub profile, and the exercise shows as *Submitted*. Pull requests from the repository's owner, from bots, and ones closed without merging are not submissions (one closed after it was graded gives up its early-PR credit; the status it earned stays until a facilitator marks it lower).
+1. **Submissions.** The *Grade submissions* workflow grades pull requests on each lesson's repository (listed in [`lessons.json`](lessons.json)). It runs once a day by itself, and straight away when a facilitator presses **Grade now** on the facilitator page (which opens the workflow on GitHub for them to press **Run workflow**). Nothing is needed in the exercise repositories, so lessons in repositories you do not own work too. Optionally, an exercise repository's owner can connect it with `grader/setup-pr-trigger.sh`, which adds a small workflow and a token there (see [`grader/exercise-repo/notify-leaderboard.yml`](grader/exercise-repo/notify-leaderboard.yml)): its pull requests are then graded within a minute of changing. Why this way: [docs/research/grading-without-exercise-repo-access.md](docs/research/grading-without-exercise-repo-access.md). The workflow lists the pull requests on each lesson's repository. Each author is a participant: anyone new gets a row, named from their GitHub profile, and the exercise shows as *Submitted*. Pull requests from the repository's owner, from bots, and ones closed without merging are not submissions (one closed after it was graded gives up its early-PR credit; the status it earned stays until a facilitator marks it lower).
 2. **Grading.** Each pull request's latest commit is checked once, with the grader's own tests (so editing the tests in a pull request does not help). If it passes, the exercise shows as *Correct*. The reason for every pass or fail is kept in `grader/results.json`.
 3. **Facilitator changes** (points, names, merges, undo) are made from the facilitator page (`facilitator.html`), which sends each as a filled-in GitHub issue that only collaborators' changes are made from, or from the same forms in the Actions tab. Each one logs the rows it changed, before and after, in `grader/history.json`, so undo can change back exactly the cells it touched. Changes made at the same moment all land: each run applies its change to the latest version and retries if someone else saved first.
 4. **The page** (`index.html`, served by GitHub Pages) reads `participants.csv`, `lessons.json` and `dashboard.json` (title, workshops, next week's plan, kudos), and updates a minute or two after any change.
@@ -38,10 +38,10 @@ This repository grew out of [AtulKumarSharma79/Leaderboard](https://github.com/A
 | Workshop dates, next week's plan and kudos in `dashboard.json` | The same file, unchanged |
 | `start.bat`, or the file picker when `index.html` is opened from disk | `python3 walkthrough.py --real` (Windows: `py walkthrough.py --real`) serves the real files; `python3 -m http.server 8000` serves the plain page |
 
-A status here comes from the grader's checks, so a hand edit that marks a failing pull request `correct` is not carried over: the reasons are in `grader/results.json`, and a new commit is graded again within a minute.
+A status here comes from the grader's checks, so a hand edit that marks a failing pull request `correct` is not carried over: the reasons are in `grader/results.json`, and a new commit is graded again at the next grading run.
 
 ## One-time setup (repository owner)
-**The quick way:** in a clone of the repository, run `grader/setup-leaderboard.sh` (needs the GitHub CLI, logged in as the owner). It does every step below with `gh`, asking before each one, skips what is already done, and finishes by connecting the exercise repositories (`grader/setup-pr-trigger.sh`). The steps, if you prefer Settings:
+**The quick way:** in a clone of the repository, run `grader/setup-leaderboard.sh` (needs the GitHub CLI, logged in as the owner). It does every step below with `gh`, asking before each one, skips what is already done, and finally offers to connect the exercise repositories (`grader/setup-pr-trigger.sh`), which is optional. The steps, if you prefer Settings:
 
 1. **Publish the page:** Settings → Pages → *Source* → **GitHub Actions**. The *Publish the page* workflow deploys it after every change. The site appears at `https://<owner>.github.io/<repository>/`.
 2. **Let the workflows save changes, and only them:** the forms and the grader push their changes to `main` with a deploy key, so `main` can require a pull request from everyone else.
@@ -54,7 +54,7 @@ A status here comes from the grader's checks, so a hand edit that marks a failin
 3. **Give facilitators access:** Settings → Collaborators → add each facilitator with **Write** access. That is what lets them run the forms.
 4. **Run workflows for collaborators only:** Settings → Actions → General → *Approval for running fork pull request workflows from contributors* → **Require approval for all external contributors**. Then nobody outside the Collaborators list starts a workflow here: their pull requests wait for a collaborator to approve the run, and their issues start nothing (`changes-from-issues.yml` checks GitHub's author association).
 5. **Run it once:** Actions → *Grade submissions* → **Run workflow**. The first run builds every existing submission and takes 20 to 40 minutes. After that, it runs by itself and only grades new commits.
-6. **Connect each exercise repository:** run `grader/setup-pr-trigger.sh` (you need admin access to the exercise repositories). It walks you through a token and adds a small workflow to each, so a pull request there is graded within a minute. A repository that isn't connected is graded once a day.
+6. **Optional: connect the exercise repositories you own:** run `grader/setup-pr-trigger.sh` (you need admin access to them). It walks you through a token and adds a small workflow to each, so a pull request there is graded within a minute. Without it, pull requests are graded once a day, or when a facilitator presses **Grade now**.
 
 The page, `participants.csv` and the grading reasons are public: anyone with the link can see every name and score.
 

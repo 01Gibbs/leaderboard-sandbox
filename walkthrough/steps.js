@@ -26,7 +26,7 @@ const FORM_HELP = {
   'facilitator-merge.yml': 'Someone appears twice: keep one row. The higher value of every column is kept.',
   'facilitator-add.yml': 'Add someone who has not opened a pull request yet.',
   'facilitator-undo.yml': 'Reverse the latest change. Run it again to go back further.',
-  'grade.yml': 'Grade new pull requests now, for a repository not yet connected or to retry one.',
+  'grade.yml': 'Grade new pull requests now (the facilitator page’s Grade now opens this). It also runs once a day.',
 };
 
 function fileLink(ctx, path, text) {
@@ -113,7 +113,7 @@ export function steps(ctx) {
         <h2>From pull request to points</h2>
         <ol class="flow">
           <li><b>A participant opens a pull request</b><span>on the exercise repo, from their fork</span></li>
-          <li><b>Each pull request starts the grader</b><span>on GitHub, not on anyone’s computer: within a minute it finds new commits and checks each one</span></li>
+          <li><b>The grader runs</b><span>on GitHub, not on anyone’s computer: once a day, or when a facilitator presses Grade now; it finds new commits and checks each one</span></li>
           <li><b>Scores are saved</b><span>in participants.csv, one row per person</span></li>
           <li><b>The page updates</b><span>a minute or two later</span></li>
         </ol>
@@ -154,9 +154,8 @@ export function steps(ctx) {
           <li><b>Let the forms save changes</b><span>a deploy key with write access, its private key as the LEADERBOARD_DEPLOY_KEY secret, and a ruleset that lets only it push to main</span></li>
           <li><b>Add facilitators</b><span>Settings \u2192 Collaborators, with Write access</span></li>
           <li><b>Grade once</b><span>Actions \u2192 Grade submissions \u2192 Run workflow (the first run takes 20 to 40 minutes)</span></li>
-          <li><b>Connect the exercise repositories</b><span>so each pull request is graded within a minute</span></li>
         </ol>
-        <p><code>grader/setup-leaderboard.sh</code> does all of this with the GitHub CLI, asking before each step, then hands over to <code>grader/setup-pr-trigger.sh</code> for the exercise repositories.</p>`,
+        <p><code>grader/setup-leaderboard.sh</code> does all of this with the GitHub CLI, asking before each step. Nothing is needed in the exercise repositories; their owner can optionally connect them with <code>grader/setup-pr-trigger.sh</code> so each pull request is graded within a minute.</p>`,
       text: `<p>After that, everything runs by itself. Details are in ${fileLink(ctx, 'README.md')}.</p>`,
     },
 
@@ -199,7 +198,7 @@ export function steps(ctx) {
         <dl>
           <dt>Someone shows up under a GitHub username</dt><dd>Pick them, then <b>More → Rename…</b>. The username stays linked, so their pull requests keep counting.</dd>
           <dt>Someone appears twice</dt><dd>Pick the row to keep, then <b>More → Same person as…</b>: it shows the row as it will be. Nobody loses points: the higher value of every column is kept.</dd>
-          <dt>Why isn’t a submission Correct yet?</dt><dd>Open ${fileLink(ctx, 'grader/results.json')} and search for their GitHub username: each pull request lists its reasons. Grading runs whenever a pull request changes, or now with <b>Grade submissions</b>.</dd>
+          <dt>Why isn’t a submission Correct yet?</dt><dd>Open ${fileLink(ctx, 'grader/results.json')} and search for their GitHub username: each pull request lists its reasons. Grading runs once a day, or now with <b>Grade now</b> on the facilitator page.</dd>
           <dt>I made a mistake</dt><dd><b>Undo</b> next to that change under Recent changes.</dd>
         </dl>`,
       text: `<p>The full guide is ${fileLink(ctx, 'FACILITATOR.md')}.</p>`,
@@ -251,7 +250,7 @@ export function steps(ctx) {
         <ol class="flow">
           <li><b>Add one entry</b><span>with <code>"check": "none"</code> to start</span></li>
           <li><b>A column appears</b><span>on the leaderboard and in participants.csv</span></li>
-          <li><b>Pull requests count</b><span>as Submitted within minutes, once the repository is connected with <code>grader/setup-pr-trigger.sh</code></span></li>
+          <li><b>Pull requests count</b><span>as Submitted at the next grading: once a day, or now with Grade now</span></li>
           <li><b>Raise the level later</b><span>if automating it is worth it</span></li>
         </ol>`,
       text: `<p>${fileLink(ctx, 'lessons.json')} is the one place a workshop repo is connected to the leaderboard: the page, the grader, the facilitator forms and this tour all read it.</p>
