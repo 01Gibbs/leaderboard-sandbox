@@ -13,13 +13,14 @@ from pathlib import Path
 
 import executor
 import lessons
+import roster
 from checks.toolkit import SKIP_DIRS, CheckFailed, gradle_project
 
 GENERIC = ('none', 'build', 'tests')  # levels pinning may replace; a custom check is never replaced silently
 
 
-class PinFailed(Exception):
-    pass
+class PinFailed(roster.ActionError):
+    """Pinning cannot be done, with a message saying why. Nothing has been changed."""
 
 
 def pin(root, key, commit=None, url=None):

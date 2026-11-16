@@ -36,13 +36,14 @@ class Lesson:
     key: str          # the participants.csv column
     label: str        # shown on the page
     repo: str         # owner/name: where participants open pull requests
-    check: str        # how "correct" is decided: 'none' or a name in checks.CHECKS (a module in grader/checks/)
+    check: str        # how "correct" is decided: 'none' or a name in checks.names() (a module in grader/checks/)
     test_files: Path  # our files for this lesson: tests copied over each submission, or a check's reference files
 
     @property
     def runner(self):
-        """The check function, or None when a facilitator marks the lesson by hand."""
-        return checks.CHECKS.get(self.check)
+        """The check function, or None when a facilitator marks the lesson by hand. Imports the check's module
+        the first time, so only grading needs it (and raises if that module is broken)."""
+        return checks.runner(self.check)
 
     @cached_property
     def version(self):
@@ -100,8 +101,8 @@ def load(root=ROOT):
             problems.append(f'{where}: needs a label')
         if not re.fullmatch(r'[\w.-]+/[\w.-]+', item.get('repo', '')):
             problems.append(f'{where}: repo must look like owner/name')
-        if check != 'none' and check not in checks.CHECKS:
-            problems.append(f'{where}: check must be one of none, {", ".join(checks.CHECKS)}')
+        if check != 'none' and check not in checks.names():
+            problems.append(f'{where}: check must be one of none, {", ".join(checks.names())}')
         if 'tests_commit' in item and not (check == 'tests' and re.fullmatch(r'[0-9a-f]{40}', str(item['tests_commit']))):
             problems.append(f'{where}: tests_commit must be a full commit id, on a lesson whose check is tests')
         out.append(Lesson(key, item.get('label', ''), item.get('repo', ''), check, fixtures(root) / key))
