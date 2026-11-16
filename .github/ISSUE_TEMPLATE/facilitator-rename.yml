@@ -1,0 +1,21 @@
+# Sent by the facilitator page (facilitator.html), already filled in. Applied by changes-from-issues.yml
+# for collaborators with write access, then answered and closed. Fields match facilitator-rename.yml (tests).
+name: 'Facilitator: Rename a person'
+description: 'Show a real name instead of a GitHub username.'
+title: 'Facilitator: Rename a person'
+labels: [facilitator]
+body:
+  - type: input
+    id: person
+    attributes:
+      label: 'Person'
+      description: 'Their name or GitHub username, as on the leaderboard.'
+    validations:
+      required: true
+  - type: input
+    id: new_name
+    attributes:
+      label: 'Name to show'
+      description: 'The name to show on the leaderboard.'
+    validations:
+      required: true

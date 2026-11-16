@@ -70,8 +70,8 @@ class PageTests(unittest.TestCase):
         for f in ('facilitator.html', 'facilitator-forms.js', 'scoring.js', 'participants.csv', 'lessons.json'):
             self.assertRegex(publish, rf'cp [^\n]*\b{re.escape(f)}\b', f)
 
-    def test_the_token_is_only_sent_to_github(self):
-        self.assertIn("'https://api.github.com'", PAGE)
+    def test_the_page_asks_for_no_token_and_talks_only_to_github(self):
+        self.assertNotRegex(PAGE, r'(?i)authorization|type="password"|localStorage\.setItem\(.*token')
         self.assertEqual(re.findall(r'https?://(?!github\.com|api\.github\.com)[\w.-]+', PAGE), [])
 
 

@@ -2,6 +2,8 @@
 
     python3 grader/tests/e2e_github.py --repo 01Gibbs/leaderboard-sandbox            (about 10 minutes)
     python3 grader/tests/e2e_github.py --repo 01Gibbs/leaderboard-sandbox --grade    (also a grading run)
+    python3 grader/tests/e2e_github.py --repo 01Gibbs/leaderboard-sandbox --issues   (send changes as issues instead,
+                                                                                    as the facilitator page does)
 
 It starts each facilitator-*.yml workflow with the same API call facilitator.html makes, finds the run the way the
 page does, waits for it, and checks main's participants.csv changed as it should. A mistake must fail and change
@@ -70,6 +72,26 @@ class GitHub:
                 return mine[0]
         raise AssertionError(f'{workflow}: no {event} run appeared')
 
+    def send_issue(self, workflow, inputs):
+        """What a facilitator does from the page: open the form's issue (as GitHub writes a submitted form), then
+        wait until changes-from-issues.yml answers and closes it. Returns a run-like dict for step()."""
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+        import issue_form
+        title, (_, fields) = next((t, f) for t, f in issue_form.FORMS.items() if f'facilitator-{f[0]}.yml' == workflow)
+        body = '\n\n'.join(f'### {label}\n\n{inputs.get(field) or issue_form.NO_RESPONSE}' for label, field in fields) or '### Note (optional)\n\n_No response_'
+        issue = self.call('POST', f'/repos/{self.repo}/issues', {'title': issue_form.TITLE_PREFIX + title, 'body': body})
+        for _ in range(60):
+            time.sleep(5)
+            issue = self.call('GET', f'/repos/{self.repo}/issues/{issue["number"]}')
+            if issue['state'] == 'closed':
+                break
+        else:
+            raise AssertionError(f'issue #{issue["number"]} was not answered')
+        comments = self.call('GET', f'/repos/{self.repo}/issues/{issue["number"]}/comments')
+        reply = comments[-1]['body'] if comments else ''
+        ok = issue.get('state_reason') == 'completed' and '❌' not in reply
+        return {'conclusion': 'success' if ok else 'failure', 'html_url': issue['html_url'], 'reply': reply}
+
     def finish(self, run, every=5):
         while run['status'] != 'completed':
             time.sleep(every)
@@ -89,6 +111,7 @@ def main(argv):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument('--repo', required=True)
     p.add_argument('--grade', action='store_true', help='also send a submission event and wait for the grading run')
+    p.add_argument('--issues', action='store_true', help='send each change as an issue, as the facilitator page does')
     a = p.parse_args(argv)
     token = os.environ.get('GH_TOKEN') or subprocess.run(['gh', 'auth', 'token'], capture_output=True, text=True).stdout.strip()
     gh = GitHub(a.repo, token)
@@ -102,7 +125,7 @@ def main(argv):
 
     def step(title, workflow, inputs, expect_success, check):
         nonlocal made
-        run = gh.run_form(workflow, inputs, me)
+        run = gh.send_issue(workflow, inputs) if a.issues else gh.run_form(workflow, inputs, me)
         ok = run['conclusion'] == 'success'
         made += ok
         sheet = rows(gh.file('participants.csv'))

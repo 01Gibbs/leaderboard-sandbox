@@ -1,0 +1,21 @@
+# Sent by the facilitator page (facilitator.html), already filled in. Applied by changes-from-issues.yml
+# for collaborators with write access, then answered and closed. Fields match facilitator-add.yml (tests).
+name: 'Facilitator: Add a person'
+description: 'Add someone who has not opened a pull request yet.'
+title: 'Facilitator: Add a person'
+labels: [facilitator]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: 'Full name'
+      description: 'As it should appear on the leaderboard.'
+    validations:
+      required: true
+  - type: input
+    id: github
+    attributes:
+      label: 'GitHub username'
+      description: 'If you know it. Their pull requests then count for this row.'
+    validations:
+      required: false

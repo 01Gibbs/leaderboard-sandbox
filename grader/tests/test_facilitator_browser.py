@@ -13,6 +13,7 @@ import shutil
 import sys
 import threading
 import unittest
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -145,13 +146,25 @@ class FacilitatorJourneyTests(unittest.TestCase):
         expect(item).to_have_class('bad')
         expect(item).to_contain_text('Nobody called "Nobody Here"')
 
-    def test_the_real_page_asks_for_a_token_before_anything(self):
+    def test_on_the_real_page_save_opens_the_filled_in_issue_on_github(self):
         page = self.browser.new_page()
         self.addCleanup(page.close)
+        page.route('https://github.com/**', lambda route: route.fulfill(body='GitHub'))  # never leave this computer
+        page.route('https://api.github.com/**', lambda route: route.fulfill(status=404, body='{}'))
         page.goto(self.base + '/facilitator.html?repo=someone/board')
-        expect(page.locator('#connect')).to_be_visible()
-        expect(page.locator('#repoName')).to_have_text('someone/board')
-        expect(page.locator('[data-tour="form-award"] button[type=submit]')).to_be_disabled()
+        expect(page.locator('#how')).to_be_visible()
+        form = page.locator('[data-tour="form-award"]')
+        form.locator('[name=person]').fill('Asha Rao')
+        form.locator('[name=amount]').fill('2')
+        expect(form.get_by_role('link', name='or run it in Actions')).to_have_attribute(
+            'href', 'https://github.com/someone/board/actions/workflows/facilitator-award.yml')
+        with page.expect_popup() as popup:
+            form.locator('button[type=submit]').click()
+        url = popup.value.url
+        self.assertTrue(url.startswith('https://github.com/someone/board/issues/new?'), url)
+        query = dict(urllib.parse.parse_qsl(url.split('?', 1)[1]))
+        self.assertEqual(query, {'template': 'facilitator-award.yml', 'person': 'Asha Rao', 'kind': 'helped', 'amount': '2'})
+        expect(page.locator('#runs li').first).to_contain_text('Opened on GitHub')
 
 
 if __name__ == '__main__':

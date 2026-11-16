@@ -33,17 +33,16 @@ export function steps(ctx) {
     },
     {
       chapter: 'The page',
-      title: 'Connecting, on the real page',
+      title: 'On the real page, Save opens GitHub',
       stage: `
-        <h2>One token, made once</h2>
-        <p class="lead">On the real page the forms run as you, on GitHub. The first time, the page asks for a token:</p>
+        <h2>One more click, on GitHub</h2>
+        <p class="lead">On the real page, Save opens GitHub with your change already filled in, as a new issue.</p>
         <ol class="flow">
-          <li><b>New fine-grained token</b><span>github.com → Settings → Developer settings (the page links straight to it)</span></li>
-          <li><b>Only this repository</b><span>Repository access → Only select repositories → the leaderboard</span></li>
-          <li><b>Two permissions</b><span>Actions: Read and write. Contents: Read-only. Nothing else.</span></li>
-          <li><b>Paste it</b><span>tick “Remember it” on your own computer only</span></li>
+          <li><b>Save</b><span>on this page: GitHub opens in a new tab</span></li>
+          <li><b>Submit new issue</b><span>on GitHub, signed in as yourself</span></li>
+          <li><b>About a minute</b><span>the change is made, and the issue is answered with what happened and closed</span></li>
         </ol>`,
-      text: '<p>The token stays in your browser and is sent only to GitHub. You need to be allowed to change the leaderboard repository; ask its owner if GitHub refuses.</p><p><b>Forget my token</b>, top right, removes it.</p>',
+      text: '<p>Only the leaderboard’s collaborators can make changes: GitHub checks who submitted the issue. Anyone else is told so, and nothing changes. The repository owner adds collaborators under Settings → Collaborators.</p><p>No token, nothing to set up. Each form also links to the same form in the repository’s Actions tab.</p>',
     },
 
     // ---------- 2. Points and results ----------
