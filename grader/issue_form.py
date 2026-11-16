@@ -2,7 +2,8 @@
 
 An issue made from one of .github/ISSUE_TEMPLATE/facilitator-*.yml says which form it is in its title
 ("Facilitator: Award points") and has one "### <label>" section per field. The changes-from-issues.yml workflow
-runs this file with the issue's event. It checks the author may change this repository (write, maintain or admin:
+runs this file with the issue's event, and only for issues from the owner, an organisation member or a collaborator
+(anyone else's issue starts no run). It checks the author may change this repository (write, maintain or admin:
 the same people who can run the Facilitator forms in the Actions tab; GitHub's Collaborators list decides) and
 gives facilitator-action.yml the same command the Actions form would. Nothing from the issue reaches a shell.
 

@@ -1,4 +1,6 @@
-# Facilitator changes sent as GitHub issues. The facilitator page's Save opens one of
+# Facilitator changes sent as GitHub issues. Only the repository's collaborators get a run at all: an issue from
+# anyone else starts nothing (GitHub's author_association says who is a collaborator, and grader/issue_form.py then
+# asks for their permission, which must be write, maintain or admin). The facilitator page's Save opens one of
 # .github/ISSUE_TEMPLATE/facilitator-*.yml already filled in; submitting it starts this. grader/issue_form.py
 # checks the author may change this repository (write, maintain or admin: the Collaborators list decides) and turns
 # the form into the same command the Actions form runs; facilitator-action.yml makes and saves the change. The issue
@@ -17,7 +19,10 @@ defaults:
 
 jobs:
   read:
-    if: "startsWith(github.event.issue.title, 'Facilitator: ')"
+    # A facilitator form, opened by the owner, an organisation member or a collaborator; anyone else starts nothing.
+    if: >-
+      startsWith(github.event.issue.title, 'Facilitator: ')
+      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association)
     runs-on: ubuntu-24.04
     permissions:
       contents: read

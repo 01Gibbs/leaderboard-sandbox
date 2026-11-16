@@ -42,7 +42,7 @@ export function steps(ctx) {
           <li><b>Submit new issue</b><span>on GitHub, signed in as yourself</span></li>
           <li><b>About a minute</b><span>the change is made, and the issue is answered with what happened and closed</span></li>
         </ol>`,
-      text: '<p>Only the leaderboard’s collaborators can make changes: GitHub checks who submitted the issue. Anyone else is told so, and nothing changes. The repository owner adds collaborators under Settings → Collaborators.</p><p>No token, nothing to set up. Each form also links to the same form in the repository’s Actions tab.</p>',
+      text: '<p>Only the leaderboard’s collaborators can make changes: GitHub checks who submitted the issue, and an issue from anyone else changes nothing. The repository owner adds collaborators under Settings → Collaborators.</p><p>No token, nothing to set up. Each form also links to the same form in the repository’s Actions tab.</p>',
     },
 
     // ---------- 2. Points and results ----------

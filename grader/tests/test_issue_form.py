@@ -138,6 +138,15 @@ class AgreementTests(unittest.TestCase):
         for name, _ in issue_form.FORMS.values():
             self.assertRegex((WORKFLOWS / f'facilitator-{name}.yml').read_text(), rf'args: \'\["{name}"')
 
+    def test_only_collaborators_issues_start_a_run(self):
+        read = yaml(WORKFLOWS / 'changes-from-issues.yml')['jobs']['read']['if']
+        self.assertIn("startsWith(github.event.issue.title, 'Facilitator: ')", read)
+        allowed = json.loads(re.search(r"fromJSON\('(\[.*?\])'\)", read).group(1))
+        self.assertEqual(set(allowed), {'OWNER', 'MEMBER', 'COLLABORATOR'})
+        self.assertIn('github.event.issue.author_association', read)
+        answer = yaml(WORKFLOWS / 'changes-from-issues.yml')['jobs']['answer']['if']
+        self.assertIn("needs.read.result == 'success'", answer)  # so a skipped read answers nothing either
+
     def test_the_workflow_reads_the_issue_only_through_python(self):
         wf = (WORKFLOWS / 'changes-from-issues.yml').read_text()
         for run in re.findall(r'run: (?:\|\n)?((?:.*\n)+?)(?=\s+- |\Z|\n\s*\n)', wf):
