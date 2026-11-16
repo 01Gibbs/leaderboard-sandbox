@@ -7,7 +7,8 @@ undo) and graded results (Submissions). The rules that protect people's points l
   - a graded result only ever raises a status, so it never overwrites a facilitator's change, and a
     facilitator cannot mark a status below what a pull request has earned;
   - merging keeps the higher value of every column, so nobody loses points;
-  - every facilitator action records the cells it changed, so undo can change exactly those back.
+  - every facilitator action records the cells it changed, with an id, so undo can change exactly those back:
+    the latest change, or any one change by its id, leaving later changes alone.
 """
 import csv
 import difflib
@@ -15,6 +16,7 @@ import io
 import json
 import os
 import re
+import secrets
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,6 +27,7 @@ from rules import BASE_COLUMNS, COUNTS, EARLY_BONUS, GENERATED, RANK, STATUSES, 
 
 LOGIN = BASE_COLUMNS[1]  # the github_username column
 
+BATCH_LIMIT = 200  # no mutate: any cap will do
 HISTORY_LIMIT = 100  # no mutate: any cap will do; test_history_is_capped checks the capping
 BOM = '\ufeff'
 
@@ -136,10 +139,13 @@ class _Sheet:
 class Roster:
     """participants.csv of the leaderboard repository at `root`, with its lessons, history and graded results."""
 
+    batch = None  # (batch id, row number) while a batch is being applied: recorded with each change
+
     def __init__(self, root):
         root = Path(root)
         self.csv_file = root / 'participants.csv'
         self.history_file = root / 'grader' / 'history.json'
+        self.batches_file = root / 'grader' / 'batches.json'
         self.root = root
 
     # ---------- reading ----------
@@ -173,11 +179,32 @@ class Roster:
 
     # ---------- facilitator actions (each returns a one-line summary) ----------
 
+    @staticmethod
+    def _new_id(history):
+        """An id no change has had: random, so one undone and gone is never reused for another (the facilitator
+        page may still show the old one)."""
+        taken = {h.get('id') for h in history}
+        while (i := 'c' + secrets.token_hex(3)) in taken:
+            pass
+        return i
+
+    @classmethod
+    def _with_ids(cls, history):
+        """History with an id on every entry. Entries from before ids get one here."""
+        for h in history:
+            if not h.get('id'):
+                h['id'] = cls._new_id(history)
+        return history
+
     def _record(self, sheet, description):
-        """Log which cells the action changed, then save it with graded results brought in."""
-        history = self.history()
-        history.append({'at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'by': actor(),
-                        'action': description, 'changes': sheet.changes()})
+        """Log which cells the action changed, with a new id (and its batch and row, inside a batch), then save
+        it with graded results brought in."""
+        history = self._with_ids(self.history())
+        entry = {'id': self._new_id(history), 'at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'by': actor(),
+                 'action': description, 'changes': sheet.changes()}
+        if self.batch:
+            entry['batch'], entry['row'] = self.batch
+        history.append(entry)
         self._save(sheet)  # first: if it fails, no history entry is left for a change that never happened
         self.history_file.write_text(json.dumps(history[-HISTORY_LIMIT:], indent=2) + '\n')  # no mutate: indent is layout
         return description
@@ -268,14 +295,23 @@ class Roster:
         keep[LOGIN] = ' '.join(accounts)
         return self._record(sheet, f'Merged {", ".join(d["name"] for d in drops)} into {keep["name"]}')
 
-    def undo(self):
-        """Reverse the latest action: change back exactly the cells it changed, re-add rows it removed and remove
-        rows it added. A cell someone has changed again since is left as it is and reported. Graded results
-        still hold, so anything the grader added is kept."""
-        history = self.history()
-        if not history:
-            raise ActionError('There is nothing to undo.')
-        last = history.pop()
+    def undo(self, change_id=None):
+        """Reverse one change: the latest, or the one with `change_id`, wherever it is in history. Change back
+        exactly the cells it changed, re-add rows it removed and remove rows it added. A cell someone has changed
+        again since is left as it is and reported; a person added is not removed once a facilitator has changed
+        them since. Graded results still hold, so anything the grader added is kept. The change leaves history,
+        so it cannot be undone twice."""
+        history = self._with_ids(self.history())
+        if change_id is None:
+            if not history:
+                raise ActionError('There is nothing to undo.')
+            last = history.pop()
+        else:
+            last = next((h for h in history if h['id'] == change_id), None)
+            if last is None:
+                raise ActionError(f'No change {change_id} to undo: it has been undone already, or it is older than '
+                                  f'the last {HISTORY_LIMIT} changes.')
+            history.remove(last)
         sheet = self._sheet()
         kept = []
         # Handle removals and edits before re-adding rows, so a re-added row is not mistaken for the edited one.
@@ -289,6 +325,11 @@ class Roster:
                 kept.append(f'{after["name"]} is no longer on the board')
                 continue
             if before is None:  # the action added this row
+                changed = [c for c in ('name', LOGIN, *COUNTS)
+                           if sheet.canon(c, current.get(c, '')) != sheet.canon(c, after.get(c, ''))]
+                if changed:
+                    raise ActionError(f'{after["name"]} has been changed since they were added ({", ".join(changed)}). '
+                                      'Undo those changes first, or leave them on the board.')
                 sheet.rows.remove(current)
                 continue
             for col, old in before.items():
@@ -303,6 +344,19 @@ class Roster:
         self._save(sheet)
         self.history_file.write_text(json.dumps(history, indent=2) + '\n')  # no mutate: indent is layout
         return f'Undid: {last["action"]} (by {last["by"]} at {last["at"]})' + ''.join(f'\nKept: {k}.' for k in kept)
+
+    # ---------- batches ----------
+
+    def batches(self):
+        """grader/batches.json: {batch id: {at, by, rows: [{args, ok, message, change}]}}, the newest last."""
+        return json.loads(self.batches_file.read_text()) if self.batches_file.exists() else {}
+
+    def record_batch(self, batch_id, rows):
+        """Keep what happened to each row of a batch, for the facilitator page; only the latest 200 batches."""
+        batches = self.batches()
+        batches[batch_id] = {'at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'by': actor(), 'rows': rows}
+        kept = dict(list(batches.items())[-BATCH_LIMIT:])
+        self.batches_file.write_text(json.dumps(kept, indent=2) + '\n')  # no mutate: indent is layout
 
     # ---------- graded results ----------
 

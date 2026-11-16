@@ -6,7 +6,8 @@ this is the same thing from a terminal. A person is named by their GitHub login 
   mark     <person> <lesson> correct|submitted|none  set an exercise result by hand
   rename   <person> "New name"            show a real name instead of a GitHub login
   merge    <keep> <duplicate> [...]       combine rows for one person, keeping the higher value of each column
-  undo                                    reverse the latest of the actions above
+  undo     [change id]                    reverse the latest of the actions above, or one by its id (history lists ids)
+  batch    <batch id> '<json list>'       several of the changes above, each recorded and undoable on its own
   history  [count]                        list recent actions
   grade    [--no-run] [--only owner/repo#N]   grade new pull requests (normally run by GitHub Actions)
   apply    [results.json]                 write graded results into participants.csv (from a grading run's file)
@@ -16,6 +17,7 @@ this is the same thing from a terminal. A person is named by their GitHub login 
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -25,6 +27,13 @@ import submissions  # noqa: E402
 from rules import COUNTS, STATUSES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
+BATCHABLE = ('add', 'award', 'mark', 'rename', 'merge', 'undo')
+BATCH_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9-]{1,63}')
+
+
+class BatchRefused(roster.ActionError):
+    """Every row of a batch was refused. Nothing changed, but what happened to each row is saved, so this ends
+    the run cleanly (exit 0) while still saying ❌."""
 
 
 def parser():
@@ -47,7 +56,8 @@ def parser():
     c = sub.add_parser('merge', help='combine duplicate rows')
     c.add_argument('keep')
     c.add_argument('duplicates', nargs='+')
-    sub.add_parser('undo', help='reverse the latest action')
+    c = sub.add_parser('undo', help='reverse the latest action, or one by its id')
+    c.add_argument('id', nargs='?', help='a change id from history, e.g. c12')
     c = sub.add_parser('history', help='list recent actions')
     c.add_argument('count', nargs='?', type=int, default=10)
     c = sub.add_parser('grade', help='grade new pull requests')
@@ -55,15 +65,20 @@ def parser():
     c.add_argument('--only', help='grade one pull request, e.g. AtulKumarSharma79/Frameworkupgrade#3')
     c = sub.add_parser('apply', help='write graded results into participants.csv')
     c.add_argument('results', nargs='?', help="a grading run's results.json to take first")
+    c = sub.add_parser('batch', help='several changes at once, each recorded and undoable on its own')
+    c.add_argument('id', help='names the batch, so the facilitator page can find what happened to each row')
+    c.add_argument('rows', help='a JSON list of commands, each a list such as ["award", "Asha Rao", "helped", "1"]')
     c = sub.add_parser('pin-tests', help="grade a lesson with its exercise repository's own tests")
     c.add_argument('lesson')
     c.add_argument('commit', nargs='?')
     return p
 
 
-def run(argv, root):
+def run(argv, root, board=None):
     a = parser().parse_args(argv)
-    board = roster.Roster(root)
+    board = board or roster.Roster(root)
+    if a.cmd == 'batch':
+        return run_batch(board, a.id, a.rows, root)
     if a.cmd == 'add':
         return board.add(a.name, a.github)
     if a.cmd == 'award':
@@ -75,7 +90,7 @@ def run(argv, root):
     if a.cmd == 'merge':
         return board.merge(a.keep, a.duplicates)
     if a.cmd == 'undo':
-        return board.undo()
+        return board.undo(a.id)
     if a.cmd == 'history':
         return board.recent(a.count)
     if a.cmd == 'pin-tests':
@@ -91,12 +106,54 @@ def run(argv, root):
     return None
 
 
+def run_batch(board, batch_id, text, root):
+    """Apply each row in order: a refused row does not stop the others. Every change made records its batch and
+    row, and grader/batches.json records each row's outcome and change id (for undo)."""
+    if not BATCH_ID.fullmatch(batch_id):
+        raise roster.ActionError(f'"{batch_id}" is not a batch id: 2 to 64 letters, digits and dashes.')
+    try:
+        rows = json.loads(text)
+    except ValueError:
+        raise roster.ActionError('The batch is not a JSON list.') from None
+    if not (isinstance(rows, list) and rows and all(isinstance(r, list) and r for r in rows)):
+        raise roster.ActionError('The batch must be a list of commands, each a list such as ["award", "Asha Rao", "helped", "1"].')
+    rows = [['' if v is None else str(v) for v in r] for r in rows]
+    for r in rows:
+        if r[0] not in BATCHABLE:
+            raise roster.ActionError(f'"{r[0]}" cannot go in a batch. Only: {", ".join(BATCHABLE)}.')
+    if batch_id in board.batches():
+        raise roster.ActionError(f'Batch {batch_id} was applied already.')
+    outcomes = []
+    for n, r in enumerate(rows, 1):
+        board.batch = (batch_id, n)
+        try:
+            message, change = run(r, root, board), None
+            latest = board.history()[-1:] or [{}]
+            if latest[0].get('batch') == batch_id and latest[0].get('row') == n:
+                change = latest[0]['id']
+            outcomes.append({'args': r, 'ok': True, 'message': message, 'change': change})
+        except (roster.ActionError, argparse.ArgumentError, SystemExit) as e:
+            outcomes.append({'args': r, 'ok': False, 'message': f'Nothing was changed. {e}', 'change': None})
+        finally:
+            board.batch = None
+    board.record_batch(batch_id, outcomes)
+    made = sum(o['ok'] for o in outcomes)
+    lines = '\n'.join(('✅ ' if o['ok'] else '❌ ') + o['message'].removeprefix('Nothing was changed. ').splitlines()[0]
+                      for o in outcomes)
+    if not made:
+        raise BatchRefused(f'0 of {len(rows)} changes made (batch {batch_id}).\n{lines}')
+    return f'{made} of {len(rows)} changes made (batch {batch_id}).\n{lines}'
+
+
 def main(argv, root=ROOT):
     # Workflows pass their form inputs as one JSON array, so no input is ever read by a shell.
     if argv[:1] == ['--args-json']:
         argv = ['' if v is None else str(v) for v in json.loads(argv[1])]  # a blank optional field arrives as null
     try:
         summary = run(argv, Path(root))
+    except BatchRefused as e:
+        report(f'Nothing was changed: {e}', failed=True)
+        return 0  # each row's outcome is saved, so the workflow commits it
     except (roster.ActionError, submissions.ResultsInvalid) as e:  # exercise_tests.PinFailed is an ActionError
         report(f'Nothing was changed. {e}', failed=True)
         return 1

@@ -23,7 +23,7 @@ for attempt in 1 2 3 4 5; do
     exit 1
   fi
   echo "$output"
-  for f in participants.csv grader/results.json grader/history.json; do
+  for f in participants.csv grader/results.json grader/history.json grader/batches.json; do
     if [[ -e $f ]]; then git add "$f"; fi
   done
   if git diff --cached --quiet; then
