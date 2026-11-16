@@ -2,6 +2,8 @@
 
 *Research note, 16 November 2026. Audience: project lead and facilitators.*
 
+> **Status (16 Nov 2026).** Gaps 1 to 8, 10, 11 and 13 are addressed. README.md, the add-lesson skill and [docs/TAKEOVER.md](../TAKEOVER.md) now cover them. On GitHub Actions a starter that cannot be cloned fails the run, and `EveryCheckIsTestedTests` fails while a check has no test. Since this note, connecting exercise repositories is optional: grading runs daily or on **Grade now**, so gap 10 no longer applies. Gap 9 is noted in TAKEOVER.md. Gap 12 (custom roles) only matters in an organisation and is left as it is.
+
 This note is for someone who did not build the leaderboard, such as Atul hosting his own copy. It answers three questions from the code as it is on `main`. It builds on two earlier notes and does not repeat them:
 
 - [`adding-lessons.md`](adding-lessons.md) explains why tests are pinned from the exercise repository, and why GitHub Classroom is not an option.
