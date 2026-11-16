@@ -327,8 +327,6 @@ say "If you own the exercise repositories, each can also tell the leaderboard wh
 say "is graded in a minute. That needs a token you make, renewed when it expires, and a small workflow in each."
 if confirm "Connect the exercise repositories now (grader/setup-pr-trigger.sh)? Most people skip this."; then
   LEADERBOARD_REPO=$REPO bash grader/setup-pr-trigger.sh
-else
-  :  # optional: grading still runs daily and on Grade now
 fi
 
 finish
