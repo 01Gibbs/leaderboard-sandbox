@@ -1,18 +1,20 @@
 # Facilitator guide
 
-Everything is done from the repository on GitHub. You don't need to install anything.
+Everything is done in your browser. You don't need to install anything.
 
-For a guided tour first, run `python3 walkthrough.py` (Windows: `py walkthrough.py`) in a copy of this repository. It opens in your browser.
+**To make a change:** open the **facilitator page**: the leaderboard's address followed by `facilitator.html` (for example `https://01gibbs.github.io/leaderboard-sandbox/facilitator.html`). Fill in a form and press **Save**. The page shows *Saving…*, then *Done* or *Not changed* with the reason, and lists recent changes by anyone. The public page updates a minute or two later.
 
-**To make a change:** open the repository → **Actions** tab → pick a *Facilitator:* action on the left → **Run workflow** (top right) → fill in the form → **Run workflow**.
+The first time, the page asks for a GitHub token, so the forms can run as you. It explains how to make one: a fine-grained token for this repository only, with **Actions: Read and write** and **Contents: Read-only**. It stays in your browser. You need to be allowed to change this repository.
 
-After about 30 seconds, the run shows a ✅ or ❌ with a one-line summary of what changed. Click the run to see it. The public page updates a minute or two later.
+**To practise first:** run `python3 facilitator_walkthrough.py` (Windows: `py facilitator_walkthrough.py`) in a copy of this repository. It opens a guided tour of the facilitator page on a practice copy with made-up people, where every form really works and nothing reaches GitHub. For a tour of the leaderboard itself, run `python3 walkthrough.py`.
+
+**The same forms are in the Actions tab:** open the repository → **Actions** → pick a *Facilitator:* action on the left → **Run workflow** → fill in the form → **Run workflow**. After about 30 seconds the run shows a ✅ or ❌ with a one-line summary. The page and the Actions tab do exactly the same thing.
 
 When a form asks for a **person**, use either their name as it appears on the leaderboard or their GitHub username. Upper or lower case doesn't matter. If nobody matches, nothing changes and the run suggests close matches.
 
 ## I want to…
 
-| …do this | Use | Fill in |
+| …do this | Form (on the page, or *Facilitator:* in Actions) | Fill in |
 |---|---|---|
 | Give points for helping a colleague | **Facilitator: Award points** | person, *helped*, how many times |
 | Give points for a stretch task | **Facilitator: Award points** | person, *stretch*, how many tasks |
