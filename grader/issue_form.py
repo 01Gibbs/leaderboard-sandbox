@@ -1,4 +1,4 @@
-"""Facilitator changes sent as GitHub issues: what the facilitator page's Save opens, already filled in.
+"""Facilitator changes sent as GitHub issues: what the facilitator page's Send opens, already filled in.
 
 An issue made from one of .github/ISSUE_TEMPLATE/facilitator-*.yml says which form it is in its title
 ("Facilitator: Award points") and has one "### <label>" section per field. The changes-from-issues.yml workflow

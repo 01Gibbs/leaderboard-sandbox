@@ -265,13 +265,50 @@ class UndoOneChangeTests(Sandbox):
         self.assertIn('Pat Lee has been changed since they were added', err)
         self.assertEqual(self.csv_text(), before)
 
-    def test_an_add_is_undone_though_the_grader_has_raised_a_result_since(self):
+    def test_an_add_is_not_undone_once_the_person_has_graded_pull_requests(self):
+        # The grader would add them straight back from their results.
         self.cli('add', 'Pat Lee', 'patlee')
         added = self.ids()[0]
         self.results(('patlee', 'manual', None))
         self.cli('apply')
-        self.assertEqual(self.cli('undo', added)[0], 0)
+        code, _, err = self.cli('undo', added)
+        self.assertEqual(code, 1)
+        self.assertIn('pull request', err)
+        self.assertIn('Pat Lee', self.csv_text())
+
+    def test_an_add_without_pull_requests_is_undone(self):
+        self.cli('add', 'Pat Lee', 'patlee')
+        self.assertEqual(self.cli('undo', self.ids()[0])[0], 0)
         self.assertNotIn('Pat Lee', self.csv_text())
+
+    def test_a_merge_is_not_undone_once_its_row_was_merged_again(self):
+        self.cli('merge', 'Bukky Adeyemi', 'bukkie-create')
+        first = self.ids()[0]
+        self.cli('merge', 'Stuart Smith', 'Bukky Adeyemi')
+        before = self.csv_text()
+        code, _, err = self.cli('undo', first)
+        self.assertEqual(code, 1)
+        self.assertIn('merged', err)
+        self.assertEqual(self.csv_text(), before)
+
+    def test_an_add_is_not_undone_once_a_facilitator_marked_a_result(self):
+        self.cli('add', 'Pat Lee', 'patlee')
+        added = self.ids()[0]
+        self.cli('mark', 'Pat Lee', 'manual', 'correct')
+        before = self.csv_text()
+        code, _, err = self.cli('undo', added)
+        self.assertEqual(code, 1)
+        self.assertIn('manual', err)
+        self.assertEqual(self.csv_text(), before)
+
+    def test_an_add_that_cannot_be_found_any_more_is_not_dropped_from_history(self):
+        self.cli('add', 'No Login')
+        added = self.ids()[0]
+        self.cli('rename', 'No Login', 'Renamed Person')
+        code, _, err = self.cli('undo', added)
+        self.assertEqual(code, 1)
+        self.assertIn('No Login', err)
+        self.assertIn(added, self.ids(), 'still in history, so it can be undone once the rename is')
 
     def test_plain_undo_still_reverses_the_latest(self):
         self.cli('award', 'Stuart Smith', 'helped')
@@ -350,14 +387,40 @@ class BatchTests(Sandbox):
         for row in (('grade',), ('apply',), ('batch', 'x', '[]'), ('history',), ('pin-tests', 'fizzbuzz')):
             with self.subTest(row[0]):
                 code, _, err = self.batch(f'bad-{row[0]}', row)
-                self.assertEqual(code, 1)
+                self.assertEqual(code, 0)  # refused as a whole, and why is saved for the page
                 self.assertIn('cannot go in a batch', err)
+                self.assertIn('cannot go in a batch', json.loads((self.dir / 'grader' / 'batches.json').read_text())[f'bad-{row[0]}']['error'])
+        self.assertEqual(self.csv_text(), CSV)
+
+    def test_a_batch_refused_as_a_whole_still_says_why_for_the_page(self):
+        for rows, reason in (('not json', 'not a JSON list'), ('[["grade"]]', 'cannot go in a batch')):
+            with self.subTest(rows):
+                batch_id = 'whole-' + str(abs(hash(rows)))[:6]
+                code, out, err = self.cli('batch', batch_id, rows)
+                self.assertEqual(code, 0, 'exit 0, so the workflow saves batches.json')
+                record = json.loads((self.dir / 'grader' / 'batches.json').read_text())[batch_id]
+                self.assertIn(reason, record['error'])
+                self.assertTrue(out.strip(), 'a first line for the commit title')
+        self.assertEqual(self.csv_text(), CSV)
+
+    def test_a_row_with_bad_arguments_says_what_is_wrong(self):
+        code, out, _ = self.batch('args1', ('award', 'Stuart Smith', 'gold'), ('award', '-h'), ('award', 'Stuart Smith', 'helped'))
+        self.assertEqual(code, 0)
+        rows = self.outcomes('args1')
+        self.assertEqual([r['ok'] for r in rows], [False, False, True])
+        self.assertIn("invalid choice: 'gold'", rows[0]['message'])
+        self.assertNotIn('usage:', out)  # no help text, so it cannot become a commit title
+        self.assertTrue(out.startswith('1 of 3 changes made'), out)
+
+    def test_every_row_refused_still_gives_a_commit_title(self):
+        code, out, _ = self.batch('title1', ('award', 'Nobody Here', 'helped', '1'))
+        self.assertEqual(code, 0)
+        self.assertTrue(out.startswith('Nothing was changed: 0 of 1 changes made'), out)
 
     def test_a_malformed_batch_changes_nothing(self):
-        for batch_id, rows in (('ok-id', 'not json'), ('ok-id', '{"award": 1}'), ('bad id!', '[["undo"]]')):
+        for batch_id, rows, code in (('ok-1', 'not json', 0), ('ok-2', '{"award": 1}', 0), ('bad id!', '[["undo"]]', 1)):
             with self.subTest(rows=rows, batch_id=batch_id):
-                code, _, _ = self.cli('batch', batch_id, rows)
-                self.assertEqual(code, 1)
+                self.assertEqual(self.cli('batch', batch_id, rows)[0], code)  # a bad id cannot be recorded: exit 1
         self.assertEqual(self.csv_text(), CSV)
 
 

@@ -240,6 +240,62 @@ class FacilitatorJourneyTests(unittest.TestCase):
         boxes = [page.locator(s).bounding_box() for s in ('#roster', '#person', '#changes')]
         self.assertTrue(boxes[0]['y'] < boxes[1]['y'] < boxes[2]['y'], 'stacked: people, then the person, then changes')
 
+    def test_a_change_cannot_be_undone_twice_from_the_page(self):
+        self.pick('Asha Rao')
+        self.page.get_by_role('button', name='Give Asha Rao a help').click()
+        self.send()
+        undo = self.page.locator('#history li').first.get_by_role('button', name=re.compile('^Undo'))
+        undo.click()
+        expect(undo).to_be_disabled()
+        expect(undo).to_have_text('Undo waiting')
+        expect(self.queued()).to_have_count(1)
+
+    def test_arrow_keys_move_through_the_people(self):
+        find = self.page.locator('#find')
+        find.focus()
+        find.press('ArrowDown')
+        find.press('ArrowDown')
+        second = self.page.locator('#people li').nth(1).get_attribute('data-name')
+        expect(find).to_have_attribute('aria-activedescendant', 'person-1')
+        find.press('Enter')
+        expect(self.page.locator('#person h2')).to_have_text(second)
+
+    def test_a_batch_refused_as_a_whole_shows_why_on_every_row(self):
+        self.page.evaluate("queueRow(['grade'], 'Grade everything'); queueRow(['award', 'Asha Rao', 'helped', '1'], 'A help')")
+        self.send()
+        failed = self.page.locator('#queue li.failed')
+        expect(failed).to_have_count(2)
+        expect(failed.first).to_contain_text('cannot go in a batch')
+
+    def test_a_change_github_never_makes_is_not_left_waiting(self):
+        page = self.open('/facilitator.html?practice&timeout=2')
+        page.route('**/practice-api/**/issues', lambda route: route.fulfill(status=201, body='{}'))  # sent, never applied
+        expect(page.locator('#people li').first).to_be_visible()
+        page.locator('#find').fill('Asha Rao')
+        page.locator('#find').press('Enter')
+        page.get_by_role('button', name='Give Asha Rao a help').click()
+        page.locator('#send').click()
+        failed = page.locator('#queue li.failed')
+        expect(failed).to_have_count(1, timeout=10000)
+        expect(failed).to_contain_text('GitHub has not made it yet')
+        failed.get_by_role('button', name='Try again').click()
+        expect(page.locator('#queue li.queued')).to_have_count(1)
+
+    def test_a_blocked_github_tab_keeps_the_changes(self):
+        page = self.browser.new_page()
+        self.addCleanup(page.close)
+        page.add_init_script('window.open = () => null')  # as a pop-up blocker does
+        page.context.route('https://api.github.com/**', lambda route: route.fulfill(status=404, body='{}'))
+        page.goto(self.base + '/facilitator.html?repo=someone/board')
+        page.locator('#find').fill('Asha Rao')
+        page.locator('#find').press('Enter')
+        page.get_by_role('button', name='Give Asha Rao a help').click()
+        page.locator('#send').click()
+        expect(page.locator('#error')).to_contain_text('stopped GitHub opening')
+        expect(page.locator('#error').get_by_role('button', name='Open GitHub')).to_be_visible()
+        self.assertTrue(page.url.startswith(self.base), 'still on the facilitator page')
+        expect(page.locator('#queue li.waiting')).to_have_count(1)
+
     def test_on_the_real_page_send_opens_one_filled_in_issue_in_one_tab(self):
         page = self.browser.new_page()
         self.addCleanup(page.close)
@@ -257,10 +313,13 @@ class FacilitatorJourneyTests(unittest.TestCase):
         github.wait_for_url(re.compile(r'^https://github\.com/someone/board/issues/new\?'))
         query = dict(urllib.parse.parse_qsl(github.url.split('?', 1)[1]))
         self.assertEqual(query['template'], 'facilitator-changes.yml')
+        self.assertRegex(query['batch'], r'^[A-Za-z0-9][A-Za-z0-9-]{1,63}$', 'an id leaderboard.py batch accepts')
         self.assertEqual([json.loads(line) for line in query['changes'].splitlines()],
                          [['award', 'Asha Rao', 'helped', '1'], ['award', 'Asha Rao', 'stretch', '1']])
         expect(page.locator('#queue li.waiting')).to_have_count(2)
-        page.get_by_role('button', name='Give Asha Rao a help').click()
+        page.locator('#find').fill('Ben Okafor')
+        page.locator('#find').press('Enter')
+        page.get_by_role('button', name='Give Ben Okafor a help').click()
         page.locator('#send').click()  # a second Send: the same GitHub tab
         github.wait_for_url(re.compile(r'batch=(?!' + re.escape(query['batch']) + ')'))
         self.assertEqual(len(page.context.pages), 2)

@@ -140,6 +140,7 @@ class Roster:
     """participants.csv of the leaderboard repository at `root`, with its lessons, history and graded results."""
 
     batch = None  # (batch id, row number) while a batch is being applied: recorded with each change
+    last_change = None  # the id of the latest change this Roster recorded
 
     def __init__(self, root):
         root = Path(root)
@@ -205,6 +206,7 @@ class Roster:
         if self.batch:
             entry['batch'], entry['row'] = self.batch
         history.append(entry)
+        self.last_change = entry['id']
         self._save(sheet)  # first: if it fails, no history entry is left for a change that never happened
         self.history_file.write_text(json.dumps(history[-HISTORY_LIMIT:], indent=2) + '\n')  # no mutate: indent is layout
         return description
@@ -298,9 +300,12 @@ class Roster:
     def undo(self, change_id=None):
         """Reverse one change: the latest, or the one with `change_id`, wherever it is in history. Change back
         exactly the cells it changed, re-add rows it removed and remove rows it added. A cell someone has changed
-        again since is left as it is and reported; a person added is not removed once a facilitator has changed
-        them since. Graded results still hold, so anything the grader added is kept. The change leaves history,
-        so it cannot be undone twice."""
+        again since is left as it is and reported. Refused, changing nothing: removing a person added once a
+        facilitator has changed them since (points, name, GitHub username or a result marked by hand) or once
+        they have graded pull requests (the grader would add them straight back), or an added person who can no
+        longer be found (renamed or merged since); and undoing a merge whose row has been merged again since.
+        Graded results still hold, so anything the grader added is kept. The change leaves history, so it cannot
+        be undone twice."""
         history = self._with_ids(self.history())
         if change_id is None:
             if not history:
@@ -314,6 +319,7 @@ class Roster:
             history.remove(last)
         sheet = self._sheet()
         kept = []
+        merge = any(c['after'] is None for c in last['changes'])  # it removed rows
         # Handle removals and edits before re-adding rows, so a re-added row is not mistaken for the edited one.
         for c in sorted(last['changes'], key=lambda c: c['before'] is not None and c['after'] is None):
             before, after = c['before'], c['after']
@@ -322,14 +328,16 @@ class Roster:
                 continue
             current = sheet.locate(after)
             if current is None:
+                if before is None:
+                    raise ActionError(f'Cannot find {after["name"]}, who this change added: renamed or merged since? '
+                                      'Undo that first.')
                 kept.append(f'{after["name"]} is no longer on the board')
                 continue
+            if merge and {lg.lower() for lg in logins(current)} != {lg.lower() for lg in logins(after)}:
+                raise ActionError(f'{after["name"]}\'s row has been merged again, or its GitHub usernames changed, since. '
+                                  'Undo that first.')
             if before is None:  # the action added this row
-                changed = [c for c in ('name', LOGIN, *COUNTS)
-                           if sheet.canon(c, current.get(c, '')) != sheet.canon(c, after.get(c, ''))]
-                if changed:
-                    raise ActionError(f'{after["name"]} has been changed since they were added ({", ".join(changed)}). '
-                                      'Undo those changes first, or leave them on the board.')
+                self._refuse_removing(sheet, current, after)
                 sheet.rows.remove(current)
                 continue
             for col, old in before.items():
@@ -351,10 +359,13 @@ class Roster:
         """grader/batches.json: {batch id: {at, by, rows: [{args, ok, message, change}]}}, the newest last."""
         return json.loads(self.batches_file.read_text()) if self.batches_file.exists() else {}
 
-    def record_batch(self, batch_id, rows):
-        """Keep what happened to each row of a batch, for the facilitator page; only the latest 200 batches."""
+    def record_batch(self, batch_id, rows, error=None):
+        """Keep what happened to each row of a batch (or why the whole batch was refused) for the facilitator page,
+        for the latest BATCH_LIMIT batches."""
         batches = self.batches()
         batches[batch_id] = {'at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'by': actor(), 'rows': rows}
+        if error:
+            batches[batch_id]['error'] = error
         kept = dict(list(batches.items())[-BATCH_LIMIT:])
         self.batches_file.write_text(json.dumps(kept, indent=2) + '\n')  # no mutate: indent is layout
 
@@ -366,6 +377,21 @@ class Roster:
         if graded:
             Submissions(self.root).replace_with(graded)
         return self._save(self._sheet())
+
+    def _refuse_removing(self, sheet, current, added):
+        """ActionError if taking away a row this person was added with would lose something: a facilitator's change
+        since (points, name, GitHub username, a result marked by hand) or graded pull requests (the grader would
+        add them straight back)."""
+        changed = [col for col in ('name', LOGIN, *COUNTS) if sheet.canon(col, current.get(col, '')) != sheet.canon(col, added.get(col, ''))]
+        changed += [lesson for lesson in sheet.lesson_keys  # a result above both what they were added with and what was graded
+                    if RANK[norm_status(current.get(lesson))] > max(RANK[norm_status(added.get(lesson))], RANK[self._earned(current, lesson)])]
+        if changed:
+            raise ActionError(f'{added["name"]} has been changed since they were added ({", ".join(changed)}). '
+                              'Undo those changes first, or leave them on the board.')
+        accounts = {lg.lower() for lg in logins(current)}
+        if any(login.lower() in accounts for login, _, _ in Submissions(self.root).best_statuses(set(sheet.lesson_keys))):
+            raise ActionError(f'{added["name"]} has graded pull requests, so the grader would add them straight back. '
+                              'Leave them on the board.')
 
     def _earned(self, row, lesson):
         """The best status the row's pull requests on `lesson` have earned."""

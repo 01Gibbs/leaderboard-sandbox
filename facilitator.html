@@ -167,9 +167,13 @@ const params = new URLSearchParams(location.search);
 const PRACTICE = params.has('practice');
 const API = PRACTICE ? new URL('practice-api', location.href).href.replace(/\/$/, '') : 'https://api.github.com';
 const REPO = PRACTICE ? 'practice/leaderboard' : (params.get('repo') || repoFromLocation());
-const MAX_ROWS = 40;  // keeps the filled-in GitHub address well under its length limit
+const MAX_ROWS = 40;
+const MAX_URL = 7000;  // GitHub refuses (414) a filled-in address that is too long: send what fits, keep the rest
+// How long to wait for GitHub before saying a change was not seen (?timeout=seconds, for the tests).
+const GIVE_UP = (parseFloat(params.get('timeout')) || (PRACTICE ? 30 : 600)) * 1000;
+const newBatchId = () => 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);  // as BATCH_ID in leaderboard.py
 const KEYS_KEY = 'lb-facilitator-keys';
-let lessons = [], people = [], history = [], selected = null, ticked = new Set(), queue = [], nextRow = 1;
+let lessons = [], people = [], history = [], selected = null, ticked = new Set(), queue = [], nextRow = 1, active = -1;
 const etags = {}, cache = {};
 
 function repoFromLocation() {
@@ -229,8 +233,9 @@ function findExact(q) {
 /* ---- roster ---- */
 function renderRoster() {
   const q = $('find').value, list = people.filter((p) => matches(p, q));
+  active = Math.min(active, list.length - 1);
   $('people').replaceChildren(...list.map((p, i) => {
-    const li = el('li');
+    const li = el('li', i === active ? 'active' : '');
     li.setAttribute('role', 'option');
     li.id = 'person-' + i;
     li.dataset.name = p.name;
@@ -247,6 +252,7 @@ function renderRoster() {
     li.addEventListener('click', () => ($('multi').checked ? toggleTick(p.name) : pick(p.name)));
     return li;
   }));
+  $('find').setAttribute('aria-activedescendant', active >= 0 && list.length ? 'person-' + active : '');
   $('count').textContent = $('multi').checked ? `${ticked.size} selected` : `${list.length} of ${people.length}`;
   const typed = q.trim();
   $('addRow').hidden = !typed || list.length > 0;  // Add appears where a search finds nobody
@@ -436,7 +442,7 @@ function award(names, kind, amount) {
 }
 function queueRow(args, text) {
   showError('');
-  if (queue.some((r) => r.state === 'queued' && JSON.stringify(r.args) === JSON.stringify(args))) return say('Already in Changes.');
+  if (queue.some((r) => ['queued', 'waiting'].includes(r.state) && JSON.stringify(r.args) === JSON.stringify(args))) return say('Already in Changes.');
   if (queue.filter((r) => r.state === 'queued').length >= MAX_ROWS) return check(`Send these ${MAX_ROWS} first.`);
   queue.push({ key: nextRow++, args, text, state: 'queued' });
   say('Added to Changes: ' + text);
@@ -452,36 +458,45 @@ function renderQueue() {
     text.append(el('small', 'state ' + state[1], state[0] + (r.reason ? ': ' + r.reason : '')));
     li.append(text);
     if (r.state === 'queued') li.append(button('Remove', () => { queue = queue.filter((x) => x !== r); renderQueue(); }, 'link'));
-    if (r.state === 'failed') li.append(button('Dismiss', () => { queue = queue.filter((x) => x !== r); renderQueue(); }, 'link'));
-    if (r.state === 'waiting' && r.url && !PRACTICE) { const a = el('a', '', 'Open again'); a.href = r.url; a.target = 'leaderboard-github'; text.append(' ', a); }
+    if (r.state === 'failed') {
+      li.append(button('Try again', () => { queue = queue.filter((x) => x !== r); queueRow(r.args, r.text); }, 'link'),
+        button('Dismiss', () => { queue = queue.filter((x) => x !== r); renderQueue(); }, 'link'));
+    }
+    if (r.state === 'waiting' && r.url && !PRACTICE) text.append(' ', button('Open again', () => showOnGitHub(r.url), 'link'));
     return li;
   }));
+  renderHistory();
   $('noChanges').hidden = queue.length > 0;
   $('send').hidden = !waiting.length;
   $('send').textContent = `Send ${waiting.length} change${waiting.length === 1 ? '' : 's'}`;
   $('sendHint').hidden = !waiting.length || PRACTICE;
   $('sendHint').textContent = 'Opens GitHub with them filled in: press Submit new issue there.';
 }
+function issueUrl(batch, rows) {
+  const issue = issueText(batch, rows);
+  return `https://github.com/${REPO}/issues/new?` + new URLSearchParams({ template: 'facilitator-changes.yml', title: issue.title, batch, changes: issue.changes });
+}
 function issueText(batch, rows) {
   return { title: 'Facilitator: Changes', batch, changes: rows.map((r) => JSON.stringify(r.args)).join('\n') };
 }
 async function send() {
-  const rows = queue.filter((r) => r.state === 'queued');
+  let rows = queue.filter((r) => r.state === 'queued');
   if (!rows.length) return;
-  const batch = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  rows.forEach((r, i) => Object.assign(r, { state: 'waiting', batch, row: i + 1 }));
+  const batch = newBatchId();
+  while (rows.length > 1 && issueUrl(batch, rows).length > MAX_URL) rows = rows.slice(0, -1);  // the rest wait for the next Send
+  rows.forEach((r, i) => Object.assign(r, { state: 'waiting', batch, row: i + 1, sentAt: Date.now() }));
   renderQueue();
   const issue = issueText(batch, rows);
   if (PRACTICE) {
     await fetch(`${API}/repos/${REPO}/issues`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: issue.title, body: `### Batch\n\n${batch}\n\n### Changes\n\n${issue.changes}` }) });
   } else {
-    const q = new URLSearchParams({ template: 'facilitator-changes.yml', title: issue.title, batch, changes: issue.changes });
-    const url = `https://github.com/${REPO}/issues/new?${q}`;
+    const url = issueUrl(batch, rows);
     rows.forEach((r) => { r.url = url; });
     showOnGitHub(url);
   }
-  say(`Sent ${rows.length} change${rows.length === 1 ? '' : 's'}.`);
+  const left = queue.filter((r) => r.state === 'queued').length;
+  say(`Sent ${rows.length} change${rows.length === 1 ? '' : 's'}.` + (left ? ` ${left} more did not fit: press Send again.` : ''));
   renderQueue();
   follow();
 }
@@ -494,7 +509,11 @@ function showOnGitHub(url) {
   if (githubTab && !githubTab.closed) githubTab.location.href = url;
   else {
     githubTab = window.open(url, '_blank');
-    if (!githubTab) { location.href = url; return; }
+    if (!githubTab) {  // pop-ups blocked: keep this page (and the Changes box), and let a click open it instead
+      $('error').replaceChildren('Your browser stopped GitHub opening in a new tab. ', button('Open GitHub', () => { showError(''); showOnGitHub(url); }, 'link'));
+      $('error').hidden = false;
+      return;
+    }
   }
   githubTab.focus();
 }
@@ -504,15 +523,20 @@ let following = false;
 async function follow() {
   if (following) return;
   following = true;
-  const started = Date.now();
   try {
-    for (let wait = PRACTICE ? 300 : 10000; queue.some((r) => r.state === 'waiting'); wait = Math.min(wait * 1.3, PRACTICE ? 1000 : 30000)) {
+    // Unchanged answers still count against GitHub's 60 reads an hour without a token (shared by everyone on the
+    // venue's network), so look after 30 s, then once a minute, and only while something waits.
+    for (let wait = PRACTICE ? 300 : 30000; queue.some((r) => r.state === 'waiting'); wait = PRACTICE ? 1000 : 60000) {
       await sleep(wait);
+      const overdue = queue.filter((r) => r.state === 'waiting' && Date.now() - r.sentAt > GIVE_UP);
+      overdue.forEach((r) => Object.assign(r, { state: 'failed', reason: 'GitHub has not made it yet. If you did not press Submit new issue, try again; '
+        + 'otherwise the issue on GitHub says why.' }));
+      if (overdue.length) renderQueue();
       let batches;
       try { batches = await readState('grader/batches.json', {}); } catch (e) { continue; }
       let landed = false;
       queue.filter((r) => r.state === 'waiting' && batches[r.batch]).forEach((r) => {
-        const o = batches[r.batch].rows[r.row - 1] || { ok: false, message: 'Not in the batch GitHub received.' };
+        const b = batches[r.batch], o = b.error ? { ok: false, message: b.error } : b.rows[r.row - 1] || { ok: false, message: 'Not in the batch GitHub received.' };
         landed = landed || o.ok;
         Object.assign(r, o.ok ? { state: 'done', change: o.change } : { state: 'failed', reason: o.message.replace(/^Nothing was changed\.\s*/, '') });
       });
@@ -520,11 +544,6 @@ async function follow() {
       if (landed) {
         await Promise.all([loadHistory(), loadBoard(true)]);
         setTimeout(fadeDone, PRACTICE ? 800 : 4000);
-      }
-      if (Date.now() - started > 15 * 60000) {
-        queue.filter((r) => r.state === 'waiting').forEach((r) => { r.reason = 'not seen yet: check the issue on GitHub, then send again if it was not submitted'; });
-        renderQueue();
-        break;
       }
     }
   } finally {
@@ -544,16 +563,21 @@ async function loadHistory() {
     $('history').replaceChildren(el('li', 'muted', 'Could not read the recent changes.'));
     return;
   }
-  $('history').replaceChildren(...(history.length ? history.slice(-10).reverse().map(historyItem) : [el('li', 'muted', 'No facilitator changes yet.')]));
+  renderHistory();
   renderPerson();
+}
+function renderHistory() {
+  $('history').replaceChildren(...(history.length ? history.slice(-10).reverse().map(historyItem) : [el('li', 'muted', 'No facilitator changes yet.')]));
 }
 function historyItem(h) {
   const li = el('li'), text = el('div', 'text');
   text.append(el('span', '', h.action), el('small', '', `${h.by}, ${new Date(h.at).toLocaleString()}`));
   li.append(text);
   if (h.id) {
-    const b = button('Undo', () => queueRow(['undo', h.id], `Undo: ${h.action}`), 'link');
-    b.setAttribute('aria-label', 'Undo: ' + h.action);
+    const sent = queue.some((r) => ['queued', 'waiting'].includes(r.state) && r.args[0] === 'undo' && r.args[1] === h.id);
+    const b = button(sent ? 'Undo waiting' : 'Undo', () => queueRow(['undo', h.id], `Undo: ${h.action}`), 'link');
+    b.disabled = sent;  // undone once only
+    b.setAttribute('aria-label', (sent ? 'Undo waiting: ' : 'Undo: ') + h.action);
     li.append(b);
   }
   return li;
@@ -570,11 +594,20 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'h') award([selected.name], 'helped', 1);
   if (e.key === 's') award([selected.name], 'stretch', 1);
 });
-$('find').addEventListener('input', () => { renderRoster(); });
+$('find').addEventListener('input', () => { active = -1; renderRoster(); });
 $('find').addEventListener('keydown', (e) => {
-  const first = $('people').querySelector('li');
+  const options = $('people').querySelectorAll('li');
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {  // move through the list, as a combobox does (WAI-ARIA APG)
+    e.preventDefault();
+    active = Math.max(0, Math.min(options.length - 1, active + (e.key === 'ArrowDown' ? 1 : -1)));
+    renderRoster();
+    $('people').querySelector('li.active')?.scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  const first = options[active >= 0 ? active : 0];
   if (e.key === 'Enter' && first) {
     e.preventDefault();
+    active = -1;
     if ($('multi').checked) return toggleTick(first.dataset.name);
     $('find').value = '';  // the whole list again, ready for the next person
     pick(first.dataset.name);

@@ -36,8 +36,8 @@ class BatchRefused(roster.ActionError):
     the run cleanly (exit 0) while still saying ❌."""
 
 
-def parser():
-    p = argparse.ArgumentParser(prog='leaderboard', description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+def parser(cls=argparse.ArgumentParser):
+    p = cls(prog='leaderboard', description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest='cmd', required=True, metavar='command')
     c = sub.add_parser('add', help='add a person')
     c.add_argument('name')
@@ -74,8 +74,8 @@ def parser():
     return p
 
 
-def run(argv, root, board=None):
-    a = parser().parse_args(argv)
+def run(argv, root, board=None, parser_class=argparse.ArgumentParser):
+    a = parser(parser_class).parse_args(argv)
     board = board or roster.Roster(root)
     if a.cmd == 'batch':
         return run_batch(board, a.id, a.rows, root)
@@ -106,33 +106,51 @@ def run(argv, root, board=None):
     return None
 
 
+class RowParser(argparse.ArgumentParser):
+    """The command line's parser for one row of a batch: a mistake becomes that row's reason, and nothing (help,
+    usage) is printed, so nothing from a row can reach the run's output or a commit title."""
+
+    def error(self, message):
+        raise roster.ActionError(message)
+
+    def exit(self, status=0, message=None):
+        raise roster.ActionError(message or 'that is not a change')
+
+    def print_help(self, file=None):
+        pass
+
+    def print_usage(self, file=None):
+        pass
+
+
 def run_batch(board, batch_id, text, root):
     """Apply each row in order: a refused row does not stop the others. Every change made records its batch and
-    row, and grader/batches.json records each row's outcome and change id (for undo)."""
+    row, and grader/batches.json records each row's outcome and change id (for undo), or why the whole batch was
+    refused, so the facilitator page can show it either way."""
     if not BATCH_ID.fullmatch(batch_id):
         raise roster.ActionError(f'"{batch_id}" is not a batch id: 2 to 64 letters, digits and dashes.')
+    if batch_id in board.batches():  # never overwrite what the page reads about the first time
+        raise roster.ActionError(f'Batch {batch_id} was applied already.')
     try:
         rows = json.loads(text)
     except ValueError:
-        raise roster.ActionError('The batch is not a JSON list.') from None
+        rows = None
     if not (isinstance(rows, list) and rows and all(isinstance(r, list) and r for r in rows)):
-        raise roster.ActionError('The batch must be a list of commands, each a list such as ["award", "Asha Rao", "helped", "1"].')
-    rows = [['' if v is None else str(v) for v in r] for r in rows]
-    for r in rows:
-        if r[0] not in BATCHABLE:
-            raise roster.ActionError(f'"{r[0]}" cannot go in a batch. Only: {", ".join(BATCHABLE)}.')
-    if batch_id in board.batches():
-        raise roster.ActionError(f'Batch {batch_id} was applied already.')
+        error = 'The batch is not a JSON list of changes, each a list such as ["award", "Asha Rao", "helped", "1"].'
+    else:
+        rows = [['' if v is None else str(v) for v in r] for r in rows]
+        wrong = next((r[0] for r in rows if r[0] not in BATCHABLE), None)
+        error = f'"{wrong}" cannot go in a batch. Only: {", ".join(BATCHABLE)}.' if wrong is not None else None
+    if error:
+        board.record_batch(batch_id, [], error=error)
+        raise BatchRefused(f'the whole batch {batch_id} was refused.\n❌ {error}')
     outcomes = []
     for n, r in enumerate(rows, 1):
-        board.batch = (batch_id, n)
+        board.batch, board.last_change = (batch_id, n), None
         try:
-            message, change = run(r, root, board), None
-            latest = board.history()[-1:] or [{}]
-            if latest[0].get('batch') == batch_id and latest[0].get('row') == n:
-                change = latest[0]['id']
-            outcomes.append({'args': r, 'ok': True, 'message': message, 'change': change})
-        except (roster.ActionError, argparse.ArgumentError, SystemExit) as e:
+            message = run(r, root, board, RowParser)
+            outcomes.append({'args': r, 'ok': True, 'message': message, 'change': board.last_change})
+        except roster.ActionError as e:
             outcomes.append({'args': r, 'ok': False, 'message': f'Nothing was changed. {e}', 'change': None})
         finally:
             board.batch = None
@@ -153,7 +171,8 @@ def main(argv, root=ROOT):
         summary = run(argv, Path(root))
     except BatchRefused as e:
         report(f'Nothing was changed: {e}', failed=True)
-        return 0  # each row's outcome is saved, so the workflow commits it
+        print(f'Nothing was changed: {str(e).splitlines()[0]}')  # the commit's title
+        return 0  # each row's outcome, or why the batch was refused, is saved: the workflow commits it
     except (roster.ActionError, submissions.ResultsInvalid) as e:  # exercise_tests.PinFailed is an ActionError
         report(f'Nothing was changed. {e}', failed=True)
         return 1
