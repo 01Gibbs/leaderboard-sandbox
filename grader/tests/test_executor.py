@@ -38,7 +38,10 @@ def alive(pid):
     # A killed child that has not been reaped yet is a zombie: gone for our purposes.
     stat = Path(f'/proc/{pid}/stat')
     if stat.exists():
-        return stat.read_text().split()[2] != 'Z'
+        try:
+            return stat.read_text().split()[2] != 'Z'
+        except FileNotFoundError:  # reaped between the two calls
+            return False
     ps = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True, text=True).stdout.strip()
     return bool(ps) and not ps.startswith('Z')
 
