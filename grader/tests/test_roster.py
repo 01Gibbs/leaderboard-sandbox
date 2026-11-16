@@ -281,6 +281,18 @@ class UndoOneChangeTests(Sandbox):
         self.assertEqual(self.cli('undo', self.ids()[0])[0], 0)
         self.assertNotIn('Pat Lee', self.csv_text())
 
+    def test_ids_are_short_enough_to_read_and_type(self):
+        self.cli('award', 'Stuart Smith', 'helped')
+        self.assertRegex(self.ids()[0], r'^c[0-9a-f]{6}$')
+
+    def test_an_award_is_undone_after_a_merge_gave_the_person_another_username(self):
+        self.cli('award', 'Bukky Adeyemi', 'stretch', '2')
+        award = self.ids()[0]
+        self.cli('merge', 'Bukky Adeyemi', 'bukkie-create')  # her row now has a username too
+        code, _, err = self.cli('undo', award)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.row('Bukky Adeyemi')['stretch'], '2')
+
     def test_a_merge_is_not_undone_once_its_row_was_merged_again(self):
         self.cli('merge', 'Bukky Adeyemi', 'bukkie-create')
         first = self.ids()[0]

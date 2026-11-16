@@ -2,6 +2,8 @@
 
 *Research note, 16 November 2026. Audience: project lead. Builds on [facilitator-ui.md](facilitator-ui.md).*
 
+> **Status (16 Nov 2026).** Option B is built (PR #29): no server and no sign-in. Send opens one `Facilitator: Changes` issue in a reused tab, `leaderboard.py batch` applies it, `grader/batches.json` records each row, and `undo <id>` reverses any one change. Option A (a GitHub App with a Cloudflare Worker) was not chosen: everything stays on GitHub Pages.
+
 **Short answer:** A static page cannot get a GitHub token by itself. GitHub's token endpoint needs the client secret for the web flow, and it does not answer browser CORS pre-flights. So "no pasted token, no Submit click" needs **one small server**. The smallest one is a **token exchange**, about 60 lines in a free Cloudflare Worker. It holds only the client secret of a **GitHub App** that is installed on the leaderboard repository alone and asks for one permission, **Actions: write**.
 
 The facilitator presses **Sign in with GitHub** once per day. After that, the page sends each batch as one `workflow_dispatch` call made *as that facilitator*. GitHub itself refuses anyone without write access, so "collaborators only" still holds without code of ours. The dispatch returns the run id, so the page can follow the run with the facilitator's token (5,000 requests/hour) and mark each row done or failed.

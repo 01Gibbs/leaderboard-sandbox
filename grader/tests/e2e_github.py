@@ -91,6 +91,11 @@ class GitHub:
                 break
         else:
             raise AssertionError(f'issue #{issue["number"]} was not answered')
+        for _ in range(12):  # the workflow closes the issue, then locks it: give the lock a moment to land
+            if issue.get('locked'):
+                break
+            time.sleep(5)
+            issue = self.call('GET', f'/repos/{self.repo}/issues/{issue["number"]}')
         comments = self.call('GET', f'/repos/{self.repo}/issues/{issue["number"]}/comments')
         return issue, comments[-1]['body'] if comments else '', json.loads(self.file('grader/batches.json') or '{}').get(batch_id)
 

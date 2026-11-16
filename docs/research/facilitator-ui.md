@@ -2,6 +2,8 @@
 
 *Research note, 16 November 2026. Audience: project lead and facilitators.*
 
+> **Status (16 Nov 2026).** Built (PR #29): the roster, person pane, More menu, add from search, merge preview, several people at once, keyboard shortcuts and the narrow-screen layout are in `facilitator.html`. Changes go as one filled-in issue per Send, as [facilitator-batching.md](facilitator-batching.md) option B describes, not one issue per action as this note assumed.
+
 **Short answer:** Rebuild `facilitator.html` as **a roster on the left and one person on the right**. A filter box narrows the roster as you type. Picking a person shows their points, exercises and counts, with **+1 help** and **+1 stretch** as one-click buttons, a **Mark correct** link on each unfinished exercise, and the rarer actions (bonus, take away, rename, merge) in a **More** menu. Ticking several people turns the same buttons into a bulk award. Add happens where a search finds nobody, and merge starts from the person you are looking at. Each action ends in an **Open on GitHub** button that opens the pre-filled issue form. A tray then follows the change until it lands, and offers **Undo** only while that change is still the latest one. All the products below use the same shape: select the subject, see its state, then choose a verb. The workflows, `FORMS` and ADR 0002 stay as they are. Only the page around them changes.
 
 ---

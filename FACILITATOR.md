@@ -8,24 +8,25 @@ Everything is done in your browser. You don't need to install anything.
 
 **To practise first:** run `python3 facilitator_walkthrough.py` (Windows: `py facilitator_walkthrough.py`) in a copy of this repository. It opens a guided tour of the facilitator page on a practice copy with made-up people, where every form really works and nothing reaches GitHub. For a tour of the leaderboard itself, run `python3 walkthrough.py`.
 
-**The same forms are in the Actions tab:** open the repository → **Actions** → pick a *Facilitator:* action on the left → **Run workflow** → fill in the form → **Run workflow**. After about 30 seconds the run finishes, and its page says what happened: ✅ and what changed, or ❌ *Nothing was changed* and why (also shown as a warning). A run that fails outright means something broke, not that you made a mistake: tell the repository owner. The page and the Actions tab do exactly the same thing.
-
-When a form asks for a **person**, use either their name as it appears on the leaderboard or their GitHub username. Upper or lower case doesn't matter. If nobody matches, nothing changes and the run suggests close matches.
+**If the facilitator page isn't to hand,** the same changes are forms in the Actions tab, one per run: open the repository → **Actions** → pick a *Facilitator:* action on the left → **Run workflow** → fill in the form → **Run workflow**. After about 30 seconds the run's page says what happened: ✅ and what changed, or ❌ *Nothing was changed* and why. For a **person**, type their name as on the leaderboard or their GitHub username; if nobody matches, nothing changes and the run suggests close matches. A run that fails outright means something broke, not that you made a mistake: tell the repository owner.
 
 ## I want to…
 
-| …do this | Form (on the page, or *Facilitator:* in Actions) | Fill in |
+| …do this | On the facilitator page (pick the person first) | In the Actions tab |
 |---|---|---|
-| Give points for helping a colleague | **Facilitator: Award points** | person, *helped*, how many times |
-| Give points for a stretch task | **Facilitator: Award points** | person, *stretch*, how many tasks |
-| Give any other points | **Facilitator: Award points** | person, *bonus*, how many points |
-| Take points away | **Facilitator: Award points** | the same, with a minus sign, e.g. `-1` |
-| Show someone's real name instead of their GitHub username | **Facilitator: Rename a person** | GitHub username, real name |
-| Fix someone who appears twice | **Facilitator: Merge duplicate people** | the row to keep, the duplicate |
-| Mark an exercise correct that you checked by hand | **Facilitator: Mark an exercise** | person, exercise key (see below), *correct* |
-| Add someone who hasn't opened a pull request yet | **Facilitator: Add a person** | name, GitHub username if known |
-| Reverse a mistake | **Facilitator: Undo last change** | nothing |
-| Grade new pull requests right now | **Grade submissions** | nothing (it also runs by itself whenever a pull request changes) |
+| Give points for helping a colleague | **+1 help** (or press `h`) | *Facilitator: Award points*, helped |
+| Give points for a stretch task | **+1 stretch** (or press `s`) | *Facilitator: Award points*, stretch |
+| Give any other points | **More → Bonus points…** | *Facilitator: Award points*, bonus |
+| Give the same to several people | Tick **Select several**, tick them, **+1 help each** | one run per person |
+| Take points away | **More → Take some away…** | *Facilitator: Award points*, with a minus sign |
+| Show someone's real name instead of their GitHub username | **More → Rename…** | *Facilitator: Rename a person* |
+| Fix someone who appears twice | Pick the row to keep, **More → Same person as…** | *Facilitator: Merge duplicate people* |
+| Mark an exercise correct that you checked by hand | **Mark correct** next to the exercise | *Facilitator: Mark an exercise* |
+| Add someone who hasn't opened a pull request yet | Type their name; **Add** appears when nobody matches | *Facilitator: Add a person* |
+| Reverse a mistake | **Undo** next to that change, under *Recent changes* | *Facilitator: Undo last change* (the latest only) |
+| Grade new pull requests right now | | *Grade submissions* (it also runs by itself whenever a pull request changes) |
+
+Then **Send** once for everything waiting in the Changes box.
 
 ## Points
 Submitted **10**, correct **30**, each stretch task **+5**, each help **+5**, and bonus points count one for one. The first 3 pull requests on each exercise earn their authors a stretch credit automatically. Equal points share a rank; within it, people with more correct exercises are listed first.

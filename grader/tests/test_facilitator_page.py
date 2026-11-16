@@ -1,4 +1,5 @@
-"""The facilitator page (facilitator.html, facilitator-forms.js) and its practice copy (facilitator_walkthrough.py).
+"""The facilitator page (facilitator.html) and its practice copy (facilitator_walkthrough.py), and the facilitator
+forms (grader/issue_form.FORMS) matching their facilitator-*.yml workflows.
 
 The page starts the facilitator-*.yml workflows, so its forms must ask for exactly their inputs. The practice
 copy must run each form the way its workflow would, and never touch this repository.
@@ -19,18 +20,12 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / 'grader'))
 import facilitator_walkthrough  # noqa: E402
+import issue_form  # noqa: E402
 
 WORKFLOWS = REPO / '.github' / 'workflows'
 FORM_WORKFLOWS = sorted(p.name for p in WORKFLOWS.glob('facilitator-*.yml') if p.name != 'facilitator-action.yml')
 PAGE = (REPO / 'facilitator.html').read_text()
 STEPS = (REPO / 'walkthrough' / 'facilitator-steps.js').read_text()
-
-
-def forms():
-    """FORMS from facilitator-forms.js, run the way the browser runs it."""
-    script = "const vm = require('vm'), fs = require('fs'); const ctx = {}; vm.createContext(ctx);" \
-             "vm.runInContext(fs.readFileSync(process.argv[1], 'utf8'), ctx); process.stdout.write(JSON.stringify(vm.runInContext('FORMS', ctx)));"
-    return json.loads(subprocess.run(['node', '-e', script, str(REPO / 'facilitator-forms.js')], capture_output=True, text=True, check=True).stdout)
 
 
 def yaml(path):
@@ -39,22 +34,18 @@ def yaml(path):
     return json.loads(out)
 
 
-@unittest.skipUnless(shutil.which('node') and shutil.which('ruby'), 'needs Node.js (the forms) and Ruby (the YAML)')
+@unittest.skipUnless(shutil.which('ruby'), 'needs Ruby (the YAML)')
 class FormsMatchTheWorkflowsTests(unittest.TestCase):
+    """issue_form.FORMS lists the facilitator forms: one per facilitator-*.yml, with exactly its inputs."""
+
     def test_one_form_per_facilitator_workflow(self):
-        self.assertEqual(sorted(f['workflow'] for f in forms()), FORM_WORKFLOWS)
+        self.assertEqual(sorted(f'facilitator-{name}.yml' for name, _ in issue_form.FORMS.values()), FORM_WORKFLOWS)
 
     def test_each_form_asks_for_exactly_its_workflows_inputs(self):
-        for form in forms():
-            with self.subTest(form['workflow']):
-                inputs = (yaml(WORKFLOWS / form['workflow'])['true']['workflow_dispatch'] or {}).get('inputs') or {}
-                fields = {f['input']: f for f in form['fields']}
-                self.assertEqual(set(fields), set(inputs))
-                for name, spec in inputs.items():
-                    if spec.get('type') == 'choice':
-                        self.assertEqual(fields[name]['options'], spec['options'], name)
-                    else:
-                        self.assertEqual(bool(fields[name].get('required')), bool(spec.get('required')), name)
+        for title, (name, fields) in issue_form.FORMS.items():
+            with self.subTest(title):
+                inputs = (yaml(WORKFLOWS / f'facilitator-{name}.yml')['true']['workflow_dispatch'] or {}).get('inputs') or {}
+                self.assertEqual([field for _, field in fields], list(inputs))
 
 
 class PageTests(unittest.TestCase):
@@ -66,7 +57,7 @@ class PageTests(unittest.TestCase):
 
     def test_the_page_is_published_with_the_leaderboard(self):
         publish = (WORKFLOWS / 'pages.yml').read_text()
-        for f in ('facilitator.html', 'facilitator-forms.js', 'scoring.js', 'participants.csv', 'lessons.json'):
+        for f in ('facilitator.html', 'scoring.js', 'participants.csv', 'lessons.json'):
             self.assertRegex(publish, rf'cp [^\n]*\b{re.escape(f)}\b', f)
 
     def test_the_page_asks_for_no_token_and_talks_only_to_github(self):
@@ -110,6 +101,10 @@ class PracticeServerTests(unittest.TestCase):
     def dispatch(self, workflow, **inputs):
         self.assertEqual(self.api(f'/actions/workflows/{workflow}/dispatches', {'ref': 'main', 'inputs': inputs})[0], 204)
         return self.api(f'/actions/workflows/{workflow}/runs')[1]['workflow_runs'][0]
+
+    def test_starts_with_none_of_the_real_changes(self):
+        for name in ('history', 'batches'):  # the real repository's, whatever they hold, stay out of practice
+            self.assertEqual(self.api(f'/contents/grader/{name}.json')[0], 404, name)
 
     def test_serves_the_page_and_example_people(self):
         self.assertEqual(self.call('/facilitator.html')[0], 200)
