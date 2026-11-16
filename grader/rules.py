@@ -53,7 +53,7 @@ def parse_csv(text):
             row.append(cur)
             cur = ''
         elif c in '\r\n':
-            if c == '\r' and text[i + 1:i + 2] == '\n':
+            if c == '\r' and text[i + 1:i + 2] == '\n':  # no mutate: a \n not skipped makes an empty row, which is dropped
                 i += 1
             row.append(cur)
             cur = ''

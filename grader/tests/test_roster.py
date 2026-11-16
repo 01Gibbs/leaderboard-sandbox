@@ -547,6 +547,16 @@ class EdgeTests(Sandbox):
         self.assertNotIn('Kept', out)  # the kept row is found again, though the re-added row shares its login
         self.assertEqual(self.csv_text(), before)
 
+    def test_undo_does_not_depend_on_the_order_history_lists_changes(self):
+        self.cli('add', 'Second Stuart', 'stuart-alt')
+        before = self.csv_text()
+        self.cli('merge', 'Stuart Smith', 'stuart-alt')
+        history = json.loads((self.dir / 'grader' / 'history.json').read_text())
+        history[-1]['changes'].reverse()  # the removed row listed before the edited one
+        (self.dir / 'grader' / 'history.json').write_text(json.dumps(history))
+        self.assertEqual(self.cli('undo')[0], 0)
+        self.assertEqual(self.csv_text(), before)
+
     def test_merge_fills_an_empty_extra_column_from_the_duplicate_but_keeps_a_filled_one(self):
         (self.dir / 'participants.csv').write_text(CSV.replace('pr_stretch\n', 'pr_stretch,notes\n')
                                                    .replace('Bukky Adeyemi,,,,,2,1,,\n', 'Bukky Adeyemi,,,,,2,1,,,\n')
@@ -568,7 +578,7 @@ class EdgeTests(Sandbox):
         self.cli('rename', 'Bukky Adeyemi Two', 'Stuart Smith')
         code, _, err = self.cli('award', 'Stuart Smith', 'helped')
         self.assertEqual(code, 1)
-        self.assertIn('Stuart Smith (@no GitHub)', err)
+        self.assertIn('Stuart Smith (@StuartJSmith10-dev), Stuart Smith (@no GitHub)', err)
 
     def test_a_local_change_is_signed_with_git_s_user_name_or_the_login(self):
         home = Path(tempfile.mkdtemp())

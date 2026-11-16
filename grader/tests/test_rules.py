@@ -40,6 +40,7 @@ CASES = {
     'old_mac_cr_only': 'name,github,fizzbuzz\rAnn,ann,correct\rBob,bob,submitted',
     'blank_lines_between_rows': 'name,github,fizzbuzz\n\nAnn,ann,correct\n\r\n\nBob,bob,\n',
     'last_cell_empty_no_newline': 'name,github,fizzbuzz,stretch\nAnn,ann,correct,2\nBob,bob,submitted,',
+    'one_column_no_final_newline': 'name\nAnn\nBob',
     'header_line_alone_decides_delimiter': 'name;github;fizzbuzz\n"Rao, A, B, C";asha;correct\nBo;bo,x,y,z;submitted\n',
 }
 
