@@ -1,4 +1,4 @@
-"""Facilitator changes sent as GitHub issues: what the facilitator page's Save opens, already filled in.
+"""Facilitator changes sent as GitHub issues: what the facilitator page's Send opens, already filled in.
 
 An issue made from one of .github/ISSUE_TEMPLATE/facilitator-*.yml says which form it is in its title
 ("Facilitator: Award points") and has one "### <label>" section per field. The changes-from-issues.yml workflow
@@ -30,6 +30,10 @@ FORMS = {
     'Undo the last change': ('undo', []),
 }
 DEFAULTS = {'amount': '1'}  # as facilitator-award.yml defaults it
+# What the facilitator page sends: several changes in one issue (.github/ISSUE_TEMPLATE/facilitator-changes.yml),
+# one per line, each a JSON list such as ["award", "Asha Rao", "helped", "1"]. It becomes `leaderboard.py batch`.
+BATCH_TITLE = 'Changes'
+BATCH_FIELDS = [('Batch', 'batch'), ('Changes', 'changes')]
 
 
 class NotAForm(ValueError):
@@ -48,13 +52,28 @@ def fields(body):
 
 def command(title, body):
     """The leaderboard command an issue asks for, as the Actions form would pass it: [command, *values]."""
-    form = FORMS.get((title or '').removeprefix(TITLE_PREFIX).strip()) if (title or '').startswith(TITLE_PREFIX) else None
+    name = (title or '').removeprefix(TITLE_PREFIX).strip() if (title or '').startswith(TITLE_PREFIX) else None
+    if name == BATCH_TITLE:
+        return batch_command(body)
+    form = FORMS.get(name)
     if form is None:
         raise NotAForm('This issue is not a facilitator form. Its title must start with one of: '
-                       + ', '.join(TITLE_PREFIX + t for t in FORMS) + '.')
+                       + ', '.join(TITLE_PREFIX + t for t in [*FORMS, BATCH_TITLE]) + '.')
     name, inputs = form
     given = fields(body)
     return [name, *(given.get(label, '') or DEFAULTS.get(field, '') for label, field in inputs)]
+
+
+def batch_command(body):
+    """["batch", id, JSON list of rows] from a Changes issue. A line that is not JSON is passed on as it is, for
+    `leaderboard.py batch` to refuse with a reason."""
+    given = fields(body)
+    text = given.get('Changes', '')
+    try:
+        rows = json.dumps([json.loads(line) for line in text.splitlines() if line.strip()])
+    except ValueError:
+        rows = text
+    return ['batch', given.get('Batch', ''), rows]
 
 
 def permission(repo, login, token, api=None):

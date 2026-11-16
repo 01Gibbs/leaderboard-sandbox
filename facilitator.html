@@ -6,7 +6,8 @@
 <meta name="referrer" content="no-referrer">
 <title>Facilitator</title>
 <style>
-/* The facilitator page: every facilitator action as a form, started as its GitHub workflow (facilitator-*.yml). */
+/* The facilitator page: pick a person, then act on them. Changes wait in the Changes box and go to GitHub together
+   as one filled-in issue (docs/research/facilitator-ui.md, docs/research/facilitator-batching.md). */
 :root {
   color-scheme: light dark;
   --bg: #f5f6f3; --surface: #ffffff; --fg: #1a2420; --muted: #5b6862; --line: #dde2dc;
@@ -21,42 +22,76 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font); }
+html, body { overflow-x: hidden; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font); }
 a { color: var(--accent); }
-code { font: 0.9em ui-monospace, "SF Mono", Consolas, monospace; background: var(--accent-soft); border-radius: 4px; padding: 1px 5px; }
+kbd { font: 12px ui-monospace, "SF Mono", Consolas, monospace; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
 button, input, select { font: inherit; color: inherit; }
-button { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+button { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; }
 button:hover:not(:disabled) { border-color: var(--accent); }
 button:disabled { opacity: 0.5; cursor: default; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); font-weight: 600; }
+button.link { border: 0; background: none; padding: 2px 4px; min-height: 0; color: var(--accent); text-decoration: underline; }
 input, select { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
 header h1 { font-size: 18px; margin: 0; margin-right: auto; }
-#who { color: var(--muted); font-size: 14px; }
-main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 20px; }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
-.panel h2 { font-size: 16px; margin: 0 0 6px; }
-.muted, .hint { color: var(--muted); }
-.hint { font-size: 13px; margin: 2px 0 0; font-weight: 400; }
-.banner { border-radius: 10px; padding: 10px 14px; background: var(--accent-soft); }
-#forms { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
-#forms form { display: flex; flex-direction: column; gap: 10px; }
-#forms .help { margin: 0; color: var(--muted); font-size: 14px; }
-#forms label { display: flex; flex-direction: column; gap: 3px; font-size: 14px; font-weight: 600; }
-#forms .preview { font-size: 14px; min-height: 1.5em; margin: 0; }
-#forms .send { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 0; }
-.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
-ul.list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
-ul.list li { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere; }
+#who, .muted, .hint { color: var(--muted); }
+.hint { font-size: 13px; margin: 4px 0 0; }
+.banner { border-radius: 10px; padding: 10px 14px; background: var(--accent-soft); margin: 12px 16px 0; }
+#error { border-radius: 10px; padding: 10px 14px; background: var(--bad-soft); margin: 12px 16px 0; }
+main { display: grid; grid-template-columns: 280px minmax(0, 1fr) 330px; gap: 16px; padding: 16px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.panel h2 { font-size: 16px; margin: 0 0 8px; }
+/* Roster */
+#roster .tools { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 14px; }
+#roster .tools label { display: flex; gap: 6px; align-items: center; }
+#roster .tools input { width: auto; }
+#people { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow: auto; display: grid; gap: 2px; }
+#people li { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+#people li:hover, #people li.active { background: var(--accent-soft); }
+#people li[aria-selected="true"] { outline: 2px solid var(--accent); }
+#people li .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+#people li .pts { color: var(--muted); font-size: 13px; white-space: nowrap; }
+#people li input { width: auto; }
+#addRow { margin-top: 8px; font-size: 14px; }
+/* Person */
+#person .head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+#person .head h2 { margin: 0; font-size: 20px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; position: relative; }
+#menu { position: absolute; top: 100%; z-index: 2; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 4px; margin: 4px 0 0; list-style: none; min-width: 220px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.15); }
+#menu li button { width: 100%; text-align: left; border: 0; border-radius: 6px; }
+#menu li button:focus, #menu li button:hover { background: var(--accent-soft); }
+.inline { border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; display: grid; gap: 8px; }
+.inline label { display: grid; gap: 3px; font-size: 14px; font-weight: 600; }
+.inline .row { display: flex; gap: 8px; flex-wrap: wrap; }
+dl.facts { display: grid; grid-template-columns: max-content 1fr auto; gap: 6px 14px; margin: 8px 0; align-items: center; }
+dl.facts dt { color: var(--muted); }
+dl.facts dd { margin: 0; }
+table.preview { border-collapse: collapse; font-size: 14px; }
+table.preview th, table.preview td { border-top: 1px solid var(--line); padding: 4px 8px; text-align: left; }
+/* Lists */
+ul.list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+ul.list li { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere; display: flex; gap: 8px; align-items: flex-start; }
+ul.list li .text { flex: 1; min-width: 0; }
 ul.list small { color: var(--muted); display: block; }
-.state { font-weight: 600; }
-.state.running { color: var(--accent); }
+li.waiting { border-style: dashed; }
+li.done { background: var(--ok-soft); transition: opacity 1s; }
+li.done.fading { opacity: 0; }
+li.failed { background: var(--bad-soft); }
+.state { font-weight: 600; font-size: 13px; }
 .state.ok { color: var(--ok); }
 .state.bad { color: var(--bad); }
-li.ok { background: var(--ok-soft); }
-li.bad { background: var(--bad-soft); }
-#error { border-radius: 10px; padding: 10px 14px; background: var(--bad-soft); }
+#send { width: 100%; margin-top: 10px; }
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--fg); max-width: 420px; }
+dialog::backdrop { background: rgb(0 0 0 / 0.4); }
+@media (max-width: 1000px) { main { grid-template-columns: 260px minmax(0, 1fr); } #side { grid-column: 1 / -1; } }
+@media (max-width: 700px) {
+  main { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+  #people { max-height: 40vh; }
+  button { min-height: 44px; }
+}
 </style>
 </head>
 <body>
@@ -64,316 +99,536 @@ li.bad { background: var(--bad-soft); }
   <h1>Facilitator</h1>
   <span id="who"></span>
   <a href="index.html">Leaderboard</a>
+  <button type="button" id="keysButton" class="link" aria-haspopup="dialog">Shortcuts</button>
 </header>
+<p id="practice" class="banner" hidden data-tour="practice"><b>Practice mode.</b> These are made-up people on a copy of the
+  leaderboard on your own computer. Nothing you do here changes the real one.</p>
+<p id="how" class="banner" data-tour="how" hidden><b>Changes wait in the Changes box.</b> <b>Send</b> opens GitHub with all
+  of them filled in: press <b>Submit new issue</b> there, once. If you are one of the leaderboard's collaborators they are made
+  in about a minute, and each shows as done here. An issue from anyone else changes nothing.</p>
+<p id="error" role="alert" hidden></p>
+<p id="status" class="visually-hidden" aria-live="polite"></p>
+
 <main>
-  <p id="practice" class="banner" hidden data-tour="practice"><b>Practice mode.</b> These are made-up people on a copy of the
-    leaderboard on your own computer. Nothing you do here changes the real one.</p>
-  <p id="error" role="alert" hidden></p>
+  <nav id="roster" class="panel" aria-label="People" data-tour="roster">
+    <h2>People</h2>
+    <input id="find" type="search" autocomplete="off" placeholder="Find a person…  /" aria-label="Find a person"
+      role="combobox" aria-controls="people" aria-expanded="true" aria-autocomplete="list">
+    <div class="tools">
+      <label><input type="checkbox" id="multi"> Select several</label>
+      <span class="muted" id="count"></span>
+    </div>
+    <ul id="people" role="listbox" aria-label="People on the leaderboard"></ul>
+    <p id="addRow" data-tour="add" hidden></p>
+  </nav>
 
-  <p id="how" class="banner" data-tour="how" hidden><b>Save opens GitHub</b> with the change filled in: press
-    <b>Submit new issue</b> there. If you are one of the leaderboard's collaborators, the change is made in about a minute
-    and the issue is answered with what happened. An issue from anyone else changes nothing.</p>
+  <section id="person" class="panel" aria-live="off" data-tour="person">
+    <p class="muted" id="nobody">Pick someone on the left, or start typing a name.</p>
+  </section>
 
-  <section id="forms" data-tour="forms" aria-label="Facilitator actions"></section>
-
-  <div class="cols">
-    <section class="panel" data-tour="activity">
-      <h2>Started from this page</h2>
-      <p class="muted" id="noRuns">Nothing yet. Each change shows here until GitHub has saved it.</p>
-      <ul class="list" id="runs"></ul>
+  <div id="side">
+    <section id="changes" class="panel" data-tour="changes" aria-label="Changes">
+      <h2>Changes</h2>
+      <p class="muted" id="noChanges">Nothing waiting. Each change you make waits here until you send it.</p>
+      <ul class="list" id="queue"></ul>
+      <button type="button" id="send" class="primary" hidden></button>
+      <p class="hint" id="sendHint" hidden></p>
     </section>
-    <section class="panel" data-tour="history">
+    <section class="panel" data-tour="history" style="margin-top:16px">
       <h2>Recent changes</h2>
-      <p class="hint">By anyone, newest first. <b>Undo</b> reverses the top one.</p>
+      <p class="hint">By anyone, newest first. <b>Undo</b> reverses just that change.</p>
       <ul class="list" id="history"></ul>
     </section>
   </div>
 </main>
-<datalist id="people"></datalist>
+
+<dialog id="keys">
+  <h2>Keyboard shortcuts</h2>
+  <p><kbd>/</kbd> find a person · <kbd>Enter</kbd> pick the first match · <kbd>Esc</kbd> clear</p>
+  <p><kbd>h</kbd> +1 help · <kbd>s</kbd> +1 stretch, for the person picked</p>
+  <p><kbd>?</kbd> this list</p>
+  <label><input type="checkbox" id="keysOn" style="width:auto"> Use the one-letter shortcuts</label>
+  <p><button type="button" id="keysClose">Close</button></p>
+</dialog>
 
 <script src="scoring.js"></script>
 <script src="facilitator-forms.js"></script>
 <script>
-// Save opens GitHub's "New issue" page with that form's template (.github/ISSUE_TEMPLATE/facilitator-*.yml) filled
-// in. Submitting it starts changes-from-issues.yml, which checks the author is a collaborator who can write, makes
-// the change with the same command as the matching Actions form, answers the issue and closes it. So the page needs
-// no token and no sign-in of its own: anyone can fill it in, and only collaborators' changes are made. Each form also
-// links to its Actions form. People and exercises for the pickers come from participants.csv and lessons.json, and
-// recent changes from grader/history.json (read without a token: GitHub allows 60 such reads an hour per network).
+// Pick a person, then act: each action adds a row to the Changes box. Send turns every waiting row into ONE
+// GitHub issue (.github/ISSUE_TEMPLATE/facilitator-changes.yml), opened already filled in, in the one GitHub tab
+// this page reuses. Submitting it starts changes-from-issues.yml: it checks the author is a collaborator who can
+// write, runs `leaderboard.py batch`, answers, closes and locks the issue. The page then reads grader/batches.json
+// (what happened to each row) and grader/history.json (every change, each with an id for Undo) without a token,
+// asking GitHub only while something is waiting, and only for what changed (conditional requests).
 //
-// ?practice talks to facilitator_walkthrough.py's stand-in for GitHub instead, on a copy with made-up people: there
-// a form runs straight away, as its workflow would.
+// ?practice talks to facilitator_walkthrough.py's stand-in for GitHub instead: Send applies the batch at once.
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const PRACTICE = params.has('practice');
-const API = PRACTICE ? new URL('practice-api', location.href).href : 'https://api.github.com';
+const API = PRACTICE ? new URL('practice-api', location.href).href.replace(/\/$/, '') : 'https://api.github.com';
 const REPO = PRACTICE ? 'practice/leaderboard' : (params.get('repo') || repoFromLocation());
-let me = '', lessons = [], people = [];
+const MAX_ROWS = 40;
+const MAX_URL = 7000;  // GitHub refuses (414) a filled-in address that is too long: send what fits, keep the rest
+// How long to wait for GitHub before saying a change was not seen (?timeout=seconds, for the tests).
+const GIVE_UP = (parseFloat(params.get('timeout')) || (PRACTICE ? 30 : 600)) * 1000;
+const newBatchId = () => 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);  // as BATCH_ID in leaderboard.py
+const KEYS_KEY = 'lb-facilitator-keys';
+let lessons = [], people = [], history = [], selected = null, ticked = new Set(), queue = [], nextRow = 1, active = -1;
+const etags = {}, cache = {};
 
 function repoFromLocation() {
-  // GitHub Pages serves owner/name at owner.github.io/name/
   const owner = (location.hostname.match(/^([\w-]+)\.github\.io$/) || [])[1];
   const name = location.pathname.split('/').filter(Boolean)[0];
   return owner && name && !name.endsWith('.html') ? `${owner}/${name}` : null;
 }
-
 function el(tag, cls, text) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
   if (text !== undefined) e.textContent = text;
   return e;
 }
+function button(text, onClick, cls) { const b = el('button', cls, text); b.type = 'button'; b.addEventListener('click', onClick); return b; }
 function showError(text) { $('error').textContent = text || ''; $('error').hidden = !text; }
+function say(text) { $('status').textContent = text; }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
 
-/* ---- GitHub ---- */
-async function gh(path, opts = {}) {
-  const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(opts.headers || {}) };
-  if (opts.body) headers['Content-Type'] = 'application/json';
-  const res = await fetch(API.replace(/\/$/, '') + path, { ...opts, headers, cache: 'no-store' });
-  if (!res.ok) {
-    let message = '';
-    try { message = (await res.json()).message || ''; } catch (e) {}
-    const err = new Error(`GitHub said ${res.status}${message ? ': ' + message : ''}`);
-    err.status = res.status;
-    throw err;
+/* ---- reading state from GitHub (or the practice copy), only what changed ---- */
+async function readState(path, empty) {
+  const headers = { Accept: 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28' };
+  if (etags[path]) headers['If-None-Match'] = etags[path];
+  const res = await fetch(`${API}/repos/${REPO}/contents/${path}?ref=main`, { headers, cache: 'no-store' });
+  if (res.status === 304) return cache[path];
+  if (res.status === 404) return (cache[path] = empty);
+  if (!res.ok) throw new Error(`GitHub said ${res.status}`);
+  etags[path] = res.headers.get('ETag');
+  const body = await res.text();
+  return (cache[path] = path.endsWith('.json') ? JSON.parse(body) : body);
+}
+
+/* ---- the people, as the leaderboard shows them ---- */
+async function loadBoard(fromGitHub) {
+  const csv = fromGitHub && !PRACTICE ? await readState('participants.csv', '')
+    : await fetch('participants.csv', { cache: 'no-store' }).then((r) => (r.ok ? r.text() : ''));
+  if (!lessons.length) lessons = await fetch('lessons.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : []));
+  const tracks = lessons.map((l) => ({ k: l.key, label: l.label }));
+  const read = readParticipants(csv, tracks);
+  const table = parseCSV(csv), head = (table[0] || []).map(normHeader);
+  const logins = new Map(table.slice(1).map((r) => [(r[head.indexOf('name')] || '').trim(), (r[head.indexOf('github_username')] || '').trim()]));
+  people = rankParticipants(read.rows, tracks).map(({ p, pts, rank }) => ({
+    ...p, points: pts, rank, logins: (logins.get(p.name) || '').split(/[\s,;|]+/).filter(Boolean) }));
+  if (selected) selected = people.find((p) => p.name === selected.name) || null;
+  renderRoster();
+  renderPerson();
+}
+function matches(p, q) {
+  q = q.trim().replace(/^@/, '').toLowerCase();
+  return !q || p.name.toLowerCase().includes(q) || p.logins.some((l) => l.toLowerCase().includes(q));
+}
+function findExact(q) {
+  q = q.trim().replace(/^@/, '').toLowerCase();
+  return people.find((p) => p.name.toLowerCase() === q || p.logins.some((l) => l.toLowerCase() === q));
+}
+
+/* ---- roster ---- */
+function renderRoster() {
+  const q = $('find').value, list = people.filter((p) => matches(p, q));
+  active = Math.min(active, list.length - 1);
+  $('people').replaceChildren(...list.map((p, i) => {
+    const li = el('li', i === active ? 'active' : '');
+    li.setAttribute('role', 'option');
+    li.id = 'person-' + i;
+    li.dataset.name = p.name;
+    li.setAttribute('aria-selected', String(!!selected && selected.name === p.name));
+    if ($('multi').checked) {
+      const box = el('input');
+      box.type = 'checkbox';
+      box.checked = ticked.has(p.name);
+      box.setAttribute('aria-label', 'Select ' + p.name);
+      box.addEventListener('click', (e) => { e.stopPropagation(); toggleTick(p.name); });
+      li.append(box);
+    }
+    li.append(el('span', 'name', p.name), el('span', 'pts', `${p.points} · #${p.rank}`));
+    li.addEventListener('click', () => ($('multi').checked ? toggleTick(p.name) : pick(p.name)));
+    return li;
+  }));
+  $('find').setAttribute('aria-activedescendant', active >= 0 && list.length ? 'person-' + active : '');
+  $('count').textContent = $('multi').checked ? `${ticked.size} selected` : `${list.length} of ${people.length}`;
+  const typed = q.trim();
+  $('addRow').hidden = !typed || list.length > 0;  // Add appears where a search finds nobody
+  if (!$('addRow').hidden) $('addRow').replaceChildren(el('span', 'muted', `No one called “${typed}”. `), button(`Add ${typed}`, () => showAdd(typed), 'link'));
+}
+function pick(name) { selected = people.find((p) => p.name === name) || null; closeMenu(); renderRoster(); renderPerson(); }
+function toggleTick(name) { ticked.has(name) ? ticked.delete(name) : ticked.add(name); renderRoster(); renderPerson(); }
+
+/* ---- one person, or several ticked ---- */
+const UNITS = { helped: ['help', 'helps'], stretch: ['stretch task', 'stretch tasks'], bonus: ['bonus point', 'bonus points'] };
+function plural(n, kind) { return `${Math.abs(n)} ${UNITS[kind][Math.abs(n) === 1 ? 0 : 1]}`; }
+function renderPerson() {
+  const pane = $('person');
+  if ($('multi').checked && ticked.size) return renderSeveral(pane);
+  if (!selected) return pane.replaceChildren(el('p', 'muted', 'Pick someone on the left, or start typing a name.'));
+  const p = selected;
+  const head = el('div', 'head');
+  const title = el('h2', '', p.name);
+  title.tabIndex = -1;
+  head.append(title, el('span', 'muted', p.logins.length ? p.logins.map((l) => '@' + l).join(' ') : 'no GitHub username'),
+    el('span', '', `${p.points} points · rank ${p.rank}`));
+  const actions = el('div', 'actions');
+  actions.dataset.tour = 'actions';
+  const more = button('More ▾', () => toggleMenu(more));
+  more.id = 'more';
+  more.setAttribute('aria-haspopup', 'menu');
+  more.setAttribute('aria-expanded', 'false');
+  actions.append(button('+1 help', () => award([p.name], 'helped', 1)), button('+1 stretch', () => award([p.name], 'stretch', 1)), more);
+  actions.firstChild.setAttribute('aria-label', `Give ${p.name} a help`);
+  actions.children[1].setAttribute('aria-label', `Give ${p.name} a stretch task`);
+  const facts = el('dl', 'facts');
+  facts.setAttribute('aria-label', 'Exercises and points');
+  lessons.forEach((l) => {
+    const status = p.tracks[l.key] || 'none';
+    const dd = el('dd', '', RULES.labels[status]);
+    const cell = el('dd');
+    if (status !== 'correct') {
+      const b = button('Mark correct', () => queueRow(['mark', p.name, l.key, 'correct'], `Mark ${p.name}'s ${l.label} as correct.`), 'link');
+      b.setAttribute('aria-label', `Mark ${p.name}'s ${l.label} correct`);
+      cell.append(b);
+    }
+    facts.append(el('dt', '', l.label), dd, cell);
+  });
+  [['Helps', p.helped], ['Stretch', `${p.stretch}${p.prStretch ? ` (+${p.prStretch} for an early pull request)` : ''}`], ['Bonus', p.bonus]]
+    .forEach(([k, v]) => facts.append(el('dt', '', k), el('dd', '', String(v)), el('dd')));
+  const mine = el('ul', 'list');
+  history.filter((h) => touches(h, p)).slice(-5).reverse().forEach((h) => mine.append(historyItem(h)));
+  pane.replaceChildren(head, actions, el('div', '', ''), facts, el('h3', '', 'Recent changes for ' + p.name),
+    mine.children.length ? mine : el('p', 'muted', 'None yet.'));
+  pane.children[2].id = 'inline';
+}
+function renderSeveral(pane) {
+  const names = [...ticked];
+  const actions = el('div', 'actions');
+  actions.append(button('+1 help each', () => award(names, 'helped', 1)), button('+1 stretch each', () => award(names, 'stretch', 1)),
+    button('Bonus points each…', () => showAmount(names, 'bonus')), button('Clear', () => { ticked.clear(); renderRoster(); renderPerson(); }));
+  pane.replaceChildren(el('h2', '', `${names.length} selected`), el('p', 'muted', names.join(', ')), actions, el('div'));
+  pane.children[3].id = 'inline';
+}
+function touches(h, p) {
+  return (h.changes || []).some((c) => [c.before, c.after].some((r) => r && (r.name === p.name
+    || p.logins.some((l) => (r.github_username || '').toLowerCase().split(/\s+/).includes(l.toLowerCase())))));
+}
+
+/* ---- More menu (APG menu button) ---- */
+function toggleMenu(anchor) {
+  if ($('menu')) return closeMenu();
+  const p = selected, menu = el('ul');
+  menu.id = 'menu';
+  menu.setAttribute('role', 'menu');
+  [['Bonus points…', () => showAmount([p.name], 'bonus')], ['Take some away…', () => showTakeAway(p)], ['Set a result…', () => showResult(p)],
+   ['Rename…', () => showRename(p)], ['Same person as…', () => showMerge(p)]].forEach(([text, fn]) => {
+    const li = el('li');
+    li.setAttribute('role', 'none');
+    const b = button(text, () => { closeMenu(); fn(); });
+    b.setAttribute('role', 'menuitem');
+    li.append(b);
+    menu.append(li);
+  });
+  menu.addEventListener('keydown', (e) => {
+    const items = [...menu.querySelectorAll('button')], i = items.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+    if (e.key === 'Escape') { closeMenu(); anchor.focus(); }
+  });
+  anchor.after(menu);
+  anchor.setAttribute('aria-expanded', 'true');
+  menu.querySelector('button').focus();
+}
+function closeMenu() { $('menu')?.remove(); $('more')?.setAttribute('aria-expanded', 'false'); }
+document.addEventListener('click', (e) => { if ($('menu') && !e.target.closest('#menu, #more')) closeMenu(); });
+
+/* ---- small inline forms for the rarer actions ---- */
+function inline(title, fields, ok, onOk) {
+  const box = el('form', 'inline');
+  box.append(el('strong', '', title), ...fields);
+  const row = el('div', 'row');
+  const go = el('button', 'primary', ok);
+  go.type = 'submit';
+  row.append(go, button('Cancel', () => box.remove()));
+  box.append(row);
+  box.addEventListener('submit', (e) => { e.preventDefault(); if (onOk(box) !== false) box.remove(); });
+  if (!$('inline')) { const slot = el('div'); slot.id = 'inline'; $('person').replaceChildren(slot); }  // nobody picked yet
+  $('inline').replaceChildren(box);
+  box.querySelector('input, select')?.focus();
+  return box;
+}
+function field(label, input) { const l = el('label', '', label); l.append(input); return l; }
+function input(name, value = '', type = 'text') { const i = el('input'); i.name = name; i.type = type; i.value = value; i.autocomplete = 'off'; return i; }
+function showAmount(names, kind) {
+  inline(`Bonus points for ${names.length > 1 ? names.length + ' people' : names[0]}`, [field('How many', input('amount', '1', 'number'))], 'Add to changes',
+    (box) => award(names, kind, parseInt(box.elements.amount.value, 10)));
+}
+function showTakeAway(p) {
+  const kind = el('select');
+  kind.name = 'kind';
+  ['helped', 'stretch', 'bonus'].forEach((k) => { const o = el('option', '', UNITS[k][1]); o.value = k; kind.append(o); });
+  inline(`Take away from ${p.name}`, [field('What', kind), field('How many', input('amount', '1', 'number'))], 'Add to changes',
+    (box) => award([p.name], box.elements.kind.value, -Math.abs(parseInt(box.elements.amount.value, 10))));
+}
+function showResult(p) {
+  const lesson = el('select'), status = el('select');
+  lesson.name = 'lesson'; status.name = 'status';
+  lessons.forEach((l) => { const o = el('option', '', l.label); o.value = l.key; lesson.append(o); });
+  ['correct', 'submitted', 'none'].forEach((s) => { const o = el('option', '', RULES.labels[s]); o.value = s; status.append(o); });
+  inline(`Set a result for ${p.name}`, [field('Exercise', lesson), field('Result', status),
+    el('p', 'hint', 'A result cannot go below what a pull request earned: GitHub will say so if it does.')], 'Add to changes', (box) => {
+    const l = lessons.find((x) => x.key === box.elements.lesson.value), s = box.elements.status.value;
+    queueRow(['mark', p.name, l.key, s], `Mark ${p.name}'s ${l.label} as ${RULES.labels[s].toLowerCase()}.`);
+  });
+}
+function showRename(p) {
+  inline(`Rename ${p.name}`, [field('Name to show', input('new_name', p.name))], 'Add to changes', (box) => {
+    const name = box.elements.new_name.value.trim();
+    if (!name || name === p.name) return check('Give a different name.');
+    if (findExact(name)) return check(`${name} is already on the board.`);
+    queueRow(['rename', p.name, name], `Show ${p.name} as ${name}.`);
+  });
+}
+function showAdd(name) {
+  inline(`Add ${name}`, [field('Full name', input('name', name)), field('GitHub username (if you know it)', input('github'))], 'Add to changes', (b) => {
+    const n = b.elements.name.value.trim(), gh = b.elements.github.value.trim().replace(/^@/, '');
+    if (!n) return check('Give a name.');
+    if (findExact(n) || (gh && findExact(gh))) return check(`${findExact(n) ? n : '@' + gh} is already on the board.`);
+    queueRow(['add', n, gh], `Add ${n}${gh ? ' (@' + gh + ')' : ''}.`);
+  });
+}
+function showMerge(p) {
+  const other = el('select');
+  other.name = 'other';
+  other.append(el('option', '', 'Choose the duplicate'));
+  other.firstChild.value = '';
+  people.filter((q) => q.name !== p.name).forEach((q) => { const o = el('option', '', q.name + (q.logins.length ? ` (@${q.logins.join(', @')})` : '')); o.value = q.name; other.append(o); });
+  const preview = el('div');
+  other.addEventListener('change', () => preview.replaceChildren(other.value ? mergePreview(p, people.find((q) => q.name === other.value)) : ''));
+  inline(`${p.name} is the same person as…`, [field('Duplicate row (folded into ' + p.name + ')', other), preview], 'Add to changes', (box) => {
+    const d = box.elements.other.value;
+    if (!d) return check('Choose the duplicate row.');
+    queueRow(['merge', p.name, d], `Fold ${d} into ${p.name}.`);
+  });
+}
+function mergePreview(keep, drop) {
+  // What merge keeps: the higher value of every column (roster.py), the kept row's name, both GitHub usernames.
+  const rank = { none: 0, submitted: 1, correct: 2 };
+  const t = el('table', 'preview'), rows = [['Name', keep.name, drop.name, keep.name],
+    ['GitHub', keep.logins.join(' ') || '–', drop.logins.join(' ') || '–', [...new Set([...keep.logins, ...drop.logins])].join(' ') || '–']];
+  lessons.forEach((l) => { const a = keep.tracks[l.key], b = drop.tracks[l.key]; rows.push([l.label, RULES.labels[a], RULES.labels[b], RULES.labels[rank[b] > rank[a] ? b : a]]); });
+  [['Helps', 'helped'], ['Stretch', 'stretch'], ['Bonus', 'bonus']].forEach(([k, f]) => rows.push([k, keep[f], drop[f], Math.max(keep[f], drop[f])]));
+  t.append(...[['', 'Keep', 'Duplicate', 'Afterwards'], ...rows].map((r, i) => {
+    const tr = el('tr');
+    r.forEach((c) => tr.append(el(i ? 'td' : 'th', '', String(c))));
+    return tr;
+  }));
+  t.dataset.tour = 'merge-preview';
+  return t;
+}
+function check(text) { showError(text); return false; }
+
+/* ---- the Changes box ---- */
+function award(names, kind, amount) {
+  if (!Number.isInteger(amount) || amount === 0) return check('The amount must be a whole number other than 0.');
+  names.forEach((n) => {
+    const p = people.find((x) => x.name === n);
+    if (amount < 0 && p && (p[kind] || 0) + amount < 0 && kind !== 'bonus') return check(`${n} has ${p[kind] || 0} ${UNITS[kind][1]}; cannot take away ${-amount}.`);
+    queueRow(['award', n, kind, String(amount)], `${amount < 0 ? 'Take' : 'Give'} ${plural(amount, kind)} ${amount < 0 ? 'from' : 'to'} ${n}.`);
+  });
+}
+function queueRow(args, text) {
+  showError('');
+  if (queue.some((r) => ['queued', 'waiting'].includes(r.state) && JSON.stringify(r.args) === JSON.stringify(args))) return say('Already in Changes.');
+  if (queue.filter((r) => r.state === 'queued').length >= MAX_ROWS) return check(`Send these ${MAX_ROWS} first.`);
+  queue.push({ key: nextRow++, args, text, state: 'queued' });
+  say('Added to Changes: ' + text);
+  renderQueue();
+}
+function renderQueue() {
+  const waiting = queue.filter((r) => r.state === 'queued');
+  $('queue').replaceChildren(...queue.map((r) => {
+    const li = el('li', r.state);
+    const text = el('div', 'text');
+    text.append(el('span', '', r.text));
+    const state = { queued: ['Not sent yet', ''], waiting: ['Waiting for Submit on GitHub', ''], done: ['Done', 'ok'], failed: ['Not done', 'bad'] }[r.state];
+    text.append(el('small', 'state ' + state[1], state[0] + (r.reason ? ': ' + r.reason : '')));
+    li.append(text);
+    if (r.state === 'queued') li.append(button('Remove', () => { queue = queue.filter((x) => x !== r); renderQueue(); }, 'link'));
+    if (r.state === 'failed') {
+      li.append(button('Try again', () => { queue = queue.filter((x) => x !== r); queueRow(r.args, r.text); }, 'link'),
+        button('Dismiss', () => { queue = queue.filter((x) => x !== r); renderQueue(); }, 'link'));
+    }
+    if (r.state === 'waiting' && r.url && !PRACTICE) text.append(' ', button('Open again', () => showOnGitHub(r.url), 'link'));
+    return li;
+  }));
+  renderHistory();
+  $('noChanges').hidden = queue.length > 0;
+  $('send').hidden = !waiting.length;
+  $('send').textContent = `Send ${waiting.length} change${waiting.length === 1 ? '' : 's'}`;
+  $('sendHint').hidden = !waiting.length || PRACTICE;
+  $('sendHint').textContent = 'Opens GitHub with them filled in: press Submit new issue there.';
+}
+function issueUrl(batch, rows) {
+  const issue = issueText(batch, rows);
+  return `https://github.com/${REPO}/issues/new?` + new URLSearchParams({ template: 'facilitator-changes.yml', title: issue.title, batch, changes: issue.changes });
+}
+function issueText(batch, rows) {
+  return { title: 'Facilitator: Changes', batch, changes: rows.map((r) => JSON.stringify(r.args)).join('\n') };
+}
+async function send() {
+  let rows = queue.filter((r) => r.state === 'queued');
+  if (!rows.length) return;
+  const batch = newBatchId();
+  while (rows.length > 1 && issueUrl(batch, rows).length > MAX_URL) rows = rows.slice(0, -1);  // the rest wait for the next Send
+  rows.forEach((r, i) => Object.assign(r, { state: 'waiting', batch, row: i + 1, sentAt: Date.now() }));
+  renderQueue();
+  const issue = issueText(batch, rows);
+  if (PRACTICE) {
+    await fetch(`${API}/repos/${REPO}/issues`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: issue.title, body: `### Batch\n\n${batch}\n\n### Changes\n\n${issue.changes}` }) });
+  } else {
+    const url = issueUrl(batch, rows);
+    rows.forEach((r) => { r.url = url; });
+    showOnGitHub(url);
   }
-  return res.status === 204 ? null : res.headers.get('Content-Type')?.includes('json') ? res.json() : res.text();
+  const left = queue.filter((r) => r.state === 'queued').length;
+  say(`Sent ${rows.length} change${rows.length === 1 ? '' : 's'}.` + (left ? ` ${left} more did not fit: press Send again.` : ''));
+  renderQueue();
+  follow();
 }
 
-async function practise() {
-  me = (await gh('/user')).login;
-  $('who').textContent = 'Practising';
-}
-
-/* ---- sending a change: a filled-in issue on GitHub ---- */
-function issueUrl(form, inputs) {
-  const q = new URLSearchParams({ template: `facilitator-${form.id}.yml` });
-  Object.entries(inputs).forEach(([k, v]) => { if (v) q.set(k, v); });
-  return `https://github.com/${REPO}/issues/new?${q}`;
-}
-function actionsUrl(form) { return `https://github.com/${REPO}/actions/workflows/${form.workflow}`; }
-function openIssue(form, inputs, description) {
-  const url = issueUrl(form, inputs);
-  const item = el('li'), link = el('a', '', 'Submit it on GitHub');
-  link.href = url; link.target = '_blank'; link.rel = 'noopener';
-  item.append(el('span', 'state running', 'Opened on GitHub. '), el('span', '', description + ' '), link,
-    el('small', '', 'Press Submit new issue there. The change appears under Recent changes about a minute later.'));
-  $('runs').prepend(item);
-  $('noRuns').hidden = true;
-  showOnGitHub(url);
-  watchHistory();
-}
-// One GitHub tab for every change, not a new tab each time. Browsers forget a tab's name once it goes to another
-// site, so the page keeps hold of the tab it opened and sends the next change there. That needs the tab to keep
-// this page as its opener (a browser lets only the opener send it elsewhere); the only site it ever shows is
-// github.com, which is trusted with that.
+// One GitHub tab for every Send, not a new one each time. Browsers forget a tab's name once it goes to another
+// site, so the page keeps hold of the tab it opened; that needs the tab to keep this page as its opener, and the
+// only site it ever shows is github.com.
 let githubTab = null;
 function showOnGitHub(url) {
-  if (githubTab && !githubTab.closed) {
-    githubTab.location.href = url;
-  } else {
+  if (githubTab && !githubTab.closed) githubTab.location.href = url;
+  else {
     githubTab = window.open(url, '_blank');
-    if (!githubTab) { location.href = url; return; }  // pop-ups blocked: go there in this tab instead
+    if (!githubTab) {  // pop-ups blocked: keep this page (and the Changes box), and let a click open it instead
+      $('error').replaceChildren('Your browser stopped GitHub opening in a new tab. ', button('Open GitHub', () => { showError(''); showOnGitHub(url); }, 'link'));
+      $('error').hidden = false;
+      return;
+    }
   }
   githubTab.focus();
 }
-let watching = 0;
-async function watchHistory() {  // refresh recent changes for a few minutes after a change is sent
-  const mine = ++watching;
-  for (let i = 0; i < 12 && mine === watching; i++) { await sleep(15000); await loadHistory(); }
-}
 
-/* ---- people and exercises, for the pickers ---- */
-async function loadBoard() {
-  const [csv, list] = await Promise.all([
-    fetch('participants.csv', { cache: 'no-store' }).then((r) => r.ok ? r.text() : ''),
-    fetch('lessons.json', { cache: 'no-store' }).then((r) => r.ok ? r.json() : []),
-  ]);
-  lessons = list;
-  // Read the way the leaderboard reads it (scoring.js), keeping each row's GitHub logins too.
-  const table = parseCSV(csv), head = (table[0] || []).map(normHeader);
-  const cell = (r, k) => (head.indexOf(k) < 0 ? '' : r[head.indexOf(k)] || '').trim();
-  people = table.slice(1).map((r) => ({ name: cell(r, 'name').slice(0, 80), logins: cell(r, 'github_username') })).filter((p) => p.name);
-  $('people').replaceChildren(...people.map((p) => {
-    const o = el('option'); o.value = p.name; if (p.logins) o.label = p.name + ' (@' + p.logins.split(/[\s,;|]+/).join(', @') + ')';
-    return o;
-  }));
-  document.querySelectorAll('select[data-kind=lesson]').forEach(fillLessons);
-}
-function fillLessons(select) {
-  const was = select.value;
-  select.replaceChildren(el('option', '', 'Choose an exercise'), ...lessons.map((l) => {
-    const o = el('option', '', l.label); o.value = l.key; return o;
-  }));
-  select.firstChild.value = '';
-  select.value = was;
-}
-function onBoard(who) {
-  const w = who.trim().replace(/^@/, '').toLowerCase();
-  return people.some((p) => p.name.toLowerCase() === w || p.logins.toLowerCase().split(/[\s,;|]+/).includes(w));
-}
-
-/* ---- the forms ---- */
-function field(f) {
-  const label = el('label', '', f.label);
-  let input;
-  if (f.kind === 'choice' || f.kind === 'lesson') {
-    input = el('select');
-    input.dataset.kind = f.kind;
-    if (f.kind === 'choice') input.append(...f.options.map((o) => { const e = el('option', '', o); e.value = o; return e; }));
-    else fillLessons(input);
-  } else {
-    input = el('input');
-    input.type = 'text';
-    input.autocomplete = 'off';
-    if (f.kind === 'person') input.setAttribute('list', 'people');
-    if (f.value) input.value = f.value;
-  }
-  input.name = f.input;
-  input.required = !!f.required;
-  label.append(input);
-  if (f.hint) label.append(el('span', 'hint', f.hint));
-  return label;
-}
-const UNITS = { helped: ['help', 'helps'], stretch: ['stretch task', 'stretch tasks'], bonus: ['bonus point', 'bonus points'] };
-function preview(form, values) {
-  const v = (k) => values[k] || '…';
-  const n = Math.abs(parseInt(values.amount, 10)), unit = UNITS[values.kind] || ['', ''];
-  return {
-    award: () => `${values.amount?.trim().startsWith('-') ? 'Take' : 'Give'} ${n || '…'} ${unit[n === 1 ? 0 : 1]} ${values.amount?.trim().startsWith('-') ? 'from' : 'to'} ${v('person')}.`,
-    mark: () => `Mark ${v('person')}'s ${(lessons.find((l) => l.key === values.lesson) || {}).label || '…'} as ${v('status')}.`,
-    add: () => `Add ${v('name')}${values.github ? ' (@' + values.github.replace(/^@/, '') + ')' : ''}.`,
-    rename: () => `Show ${v('person')} as ${v('new_name')}.`,
-    merge: () => `Fold ${v('duplicate')} into ${v('keep')}.`,
-    undo: () => 'Undo the top change under Recent changes.',
-  }[form.id]().replace(/…\.$/, '…');
-}
-function buildForms() {
-  $('forms').replaceChildren(...FORMS.map((form) => {
-    const panel = el('form', 'panel');
-    panel.dataset.tour = 'form-' + form.id;
-    panel.noValidate = false;
-    panel.append(el('h2', '', form.title), el('p', 'help', form.help), ...form.fields.map(field));
-    const say = el('p', 'preview muted');
-    const go = el('button', 'primary', form.id === 'undo' ? 'Undo' : 'Save');
-    go.type = 'submit';
-    const alt = el('a', 'hint', 'or run it in Actions');
-    alt.href = actionsUrl(form); alt.target = '_blank'; alt.rel = 'noopener';
-    alt.hidden = PRACTICE;
-    const row = el('p', 'send');
-    row.append(go, alt);
-    panel.append(say, row);
-    const values = () => Object.fromEntries(form.fields.map((f) => [f.input, panel.elements[f.input].value.trim()]));
-    const update = () => { say.textContent = preview(form, values()); };
-    panel.addEventListener('input', update);
-    update();
-    panel.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      showError('');
-      const inputs = values();
-      const unknown = form.fields.filter((f) => f.kind === 'person' && inputs[f.input] && !onBoard(inputs[f.input]));
-      if (unknown.length && !confirm(`${unknown.map((f) => inputs[f.input]).join(' and ')} is not on the board as a name or GitHub username. Send it anyway?`)) return;
-      if (form.id === 'undo' && !confirm('Undo the top change under Recent changes?')) return;
-      go.disabled = true;
-      try {
-        if (!PRACTICE) return openIssue(form, inputs, preview(form, inputs));
-        await run(form, inputs, preview(form, inputs));
-        if (form.id !== 'undo') form.fields.forEach((f) => { if (f.kind === 'text' && !f.value) panel.elements[f.input].value = ''; });
-        update();
-      } catch (err) {
-        showError(String(err.message || err));
-      } finally {
-        go.disabled = false;
+/* ---- following what was sent: read batches.json only while something waits ---- */
+let following = false;
+async function follow() {
+  if (following) return;
+  following = true;
+  try {
+    // Unchanged answers still count against GitHub's 60 reads an hour without a token (shared by everyone on the
+    // venue's network), so look after 30 s, then once a minute, and only while something waits.
+    for (let wait = PRACTICE ? 300 : 30000; queue.some((r) => r.state === 'waiting'); wait = PRACTICE ? 1000 : 60000) {
+      await sleep(wait);
+      const overdue = queue.filter((r) => r.state === 'waiting' && Date.now() - r.sentAt > GIVE_UP);
+      overdue.forEach((r) => Object.assign(r, { state: 'failed', reason: 'GitHub has not made it yet. If you did not press Submit new issue, try again; '
+        + 'otherwise the issue on GitHub says why.' }));
+      if (overdue.length) renderQueue();
+      let batches;
+      try { batches = await readState('grader/batches.json', {}); } catch (e) { continue; }
+      let landed = false;
+      queue.filter((r) => r.state === 'waiting' && batches[r.batch]).forEach((r) => {
+        const b = batches[r.batch], o = b.error ? { ok: false, message: b.error } : b.rows[r.row - 1] || { ok: false, message: 'Not in the batch GitHub received.' };
+        landed = landed || o.ok;
+        Object.assign(r, o.ok ? { state: 'done', change: o.change } : { state: 'failed', reason: o.message.replace(/^Nothing was changed\.\s*/, '') });
+      });
+      renderQueue();
+      if (landed) {
+        await Promise.all([loadHistory(), loadBoard(true)]);
+        setTimeout(fadeDone, PRACTICE ? 800 : 4000);
       }
-    });
-    return panel;
-  }));
+    }
+  } finally {
+    following = false;
+  }
 }
-function setFormsEnabled(on) {
-  document.querySelectorAll('#forms button, #forms input, #forms select').forEach((e) => { e.disabled = !on; });
+function fadeDone() {
+  document.querySelectorAll('#queue li.done').forEach((li) => li.classList.add('fading'));
+  setTimeout(() => { queue = queue.filter((r) => r.state !== 'done'); renderQueue(); }, 1000);
 }
 
-/* ---- running a workflow and following it ---- */
-async function run(form, inputs, description) {
-  const item = el('li'), state = el('span', 'state running', 'Starting… '), link = el('a');
-  item.append(state, el('span', '', description), link);
-  $('runs').prepend(item);
-  $('noRuns').hidden = true;
-  const started = Date.now();
-  await gh(`/repos/${REPO}/actions/workflows/${form.workflow}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs }) });
-  state.textContent = 'Waiting for GitHub… ';
-  const found = await findRun(form.workflow, started);
-  if (!found) {
-    state.textContent = 'Started. ';
-    link.href = `https://github.com/${REPO}/actions/workflows/${form.workflow}`; link.textContent = 'See it on GitHub';
-    return;
-  }
-  link.href = found.html_url;  // also how findRun knows this run is taken
-  if (!PRACTICE) { link.textContent = ' Open the run'; link.target = '_blank'; link.rel = 'noopener'; }
-  let r = found;
-  for (let i = 0; r.status !== 'completed' && i < 120; i++) {
-    state.textContent = 'Saving… ';
-    await sleep(PRACTICE ? 300 : 4000);
-    r = await gh(`/repos/${REPO}/actions/runs/${r.id}`);
-  }
-  const ok = r.conclusion === 'success';
-  item.className = ok ? 'ok' : 'bad';
-  state.className = 'state ' + (ok ? 'ok' : 'bad');
-  state.textContent = ok ? 'Done. ' : 'Not changed. ';
-  if (r.summary) item.append(el('small', '', r.summary));  // the practice server says why; on GitHub, open the run
-  else if (!ok) item.append(el('small', '', 'The run page says why. Nothing was changed.'));
-  if (ok && !PRACTICE) item.append(el('small', '', 'The leaderboard shows it in a minute or two.'));
-  loadHistory();
-  loadBoard();
-}
-async function findRun(workflow, since) {
-  // GitHub does not say which run a dispatch started: take the newest run of that workflow started by this
-  // person since the click.
-  for (let i = 0; i < 20; i++) {
-    await sleep(PRACTICE ? 150 : 2500);
-    const { workflow_runs: runs } = await gh(`/repos/${REPO}/actions/workflows/${workflow}/runs?event=workflow_dispatch&per_page=10`);
-    const mine = runs.filter((r) => (!me || r.actor?.login === me) && Date.parse(r.created_at) >= since - 60000
-      && !document.querySelector(`#runs a[href="${CSS.escape(r.html_url)}"]`));
-    if (mine.length) return mine[0];
-  }
-  return null;
-}
-
-/* ---- recent changes, from grader/history.json ---- */
+/* ---- recent changes, each undoable on its own ---- */
 async function loadHistory() {
   try {
-    const text = await gh(`/repos/${REPO}/contents/grader/history.json?ref=main`, { headers: { Accept: 'application/vnd.github.raw+json' } });
-    const history = typeof text === 'string' ? JSON.parse(text) : text;
-    if (!history.length) return noHistory('No facilitator changes yet.');  // every change has been undone
-    $('history').replaceChildren(...history.slice(-8).reverse().map((h) => {
-      const li = el('li', '', h.action);
-      li.append(el('small', '', `${h.by}, ${new Date(h.at).toLocaleString()}`));
-      return li;
-    }));
+    history = await readState('grader/history.json', []);
   } catch (e) {
-    noHistory(e.status === 404 ? 'No facilitator changes yet.' : 'Could not read the recent changes.');
+    $('history').replaceChildren(el('li', 'muted', 'Could not read the recent changes.'));
+    return;
   }
+  renderHistory();
+  renderPerson();
 }
-function noHistory(text) { $('history').replaceChildren(el('li', 'muted', text)); }
+function renderHistory() {
+  $('history').replaceChildren(...(history.length ? history.slice(-10).reverse().map(historyItem) : [el('li', 'muted', 'No facilitator changes yet.')]));
+}
+function historyItem(h) {
+  const li = el('li'), text = el('div', 'text');
+  text.append(el('span', '', h.action), el('small', '', `${h.by}, ${new Date(h.at).toLocaleString()}`));
+  li.append(text);
+  if (h.id) {
+    const sent = queue.some((r) => ['queued', 'waiting'].includes(r.state) && r.args[0] === 'undo' && r.args[1] === h.id);
+    const b = button(sent ? 'Undo waiting' : 'Undo', () => queueRow(['undo', h.id], `Undo: ${h.action}`), 'link');
+    b.disabled = sent;  // undone once only
+    b.setAttribute('aria-label', (sent ? 'Undo waiting: ' : 'Undo: ') + h.action);
+    li.append(b);
+  }
+  return li;
+}
+
+/* ---- keyboard ---- */
+function keysOn() { return store(KEYS_KEY) !== 'off'; }
+document.addEventListener('keydown', (e) => {
+  const typing = e.target.closest('input, select, textarea, dialog');
+  if (e.key === '/' && !typing) { e.preventDefault(); $('find').focus(); return; }
+  if (typing || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key === '?') { $('keys').showModal(); return; }
+  if (!keysOn() || !selected || $('multi').checked) return;
+  if (e.key === 'h') award([selected.name], 'helped', 1);
+  if (e.key === 's') award([selected.name], 'stretch', 1);
+});
+$('find').addEventListener('input', () => { active = -1; renderRoster(); });
+$('find').addEventListener('keydown', (e) => {
+  const options = $('people').querySelectorAll('li');
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {  // move through the list, as a combobox does (WAI-ARIA APG)
+    e.preventDefault();
+    active = Math.max(0, Math.min(options.length - 1, active + (e.key === 'ArrowDown' ? 1 : -1)));
+    renderRoster();
+    $('people').querySelector('li.active')?.scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  const first = options[active >= 0 ? active : 0];
+  if (e.key === 'Enter' && first) {
+    e.preventDefault();
+    active = -1;
+    if ($('multi').checked) return toggleTick(first.dataset.name);
+    $('find').value = '';  // the whole list again, ready for the next person
+    pick(first.dataset.name);
+    $('person').querySelector('h2')?.focus();  // so h and s act on them straight away
+  }
+  if (e.key === 'Escape') { $('find').value = ''; renderRoster(); }
+});
+$('multi').addEventListener('change', () => { ticked.clear(); renderRoster(); renderPerson(); });
+$('send').addEventListener('click', send);
+$('keysButton').addEventListener('click', () => $('keys').showModal());
+$('keysClose').addEventListener('click', () => $('keys').close());
+$('keysOn').addEventListener('change', () => store(KEYS_KEY, $('keysOn').checked ? 'on' : 'off'));
 
 /* ---- start ---- */
 (async function start() {
-  buildForms();
-  setFormsEnabled(false);
-  try { await loadBoard(); } catch (e) { showError('Could not read the leaderboard: ' + e.message); }
-  if (!REPO) {
-    showError('Open this page from the leaderboard\'s GitHub Pages address, or add ?repo=owner/name to the address.');
-    return;
-  }
-  if (PRACTICE) {
-    $('practice').hidden = false;
-    try { await practise(); } catch (e) { showError(e.message); return; }
-  } else {
-    $('how').hidden = false;
-  }
-  setFormsEnabled(true);
-  loadHistory();
+  $('keysOn').checked = keysOn();
+  if (!REPO) return showError('Open this page from the leaderboard\'s GitHub Pages address, or add ?repo=owner/name to the address.');
+  if (PRACTICE) { $('practice').hidden = false; $('who').textContent = 'Practising'; } else $('how').hidden = false;
+  try { await loadBoard(false); } catch (e) { showError('Could not read the leaderboard: ' + e.message); }
+  renderQueue();
+  await loadHistory();
 })();
 </script>
 </body>
