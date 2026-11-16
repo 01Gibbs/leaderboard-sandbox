@@ -341,6 +341,7 @@ async function loadHistory() {
   try {
     const text = await gh(`/repos/${REPO}/contents/grader/history.json?ref=main`, { headers: { Accept: 'application/vnd.github.raw+json' } });
     const history = typeof text === 'string' ? JSON.parse(text) : text;
+    if (!history.length) throw Object.assign(new Error('empty'), { status: 404 });  // every change undone
     $('history').replaceChildren(...history.slice(-8).reverse().map((h) => {
       const li = el('li', '', h.action);
       li.append(el('small', '', `${h.by}, ${new Date(h.at).toLocaleString()}`));

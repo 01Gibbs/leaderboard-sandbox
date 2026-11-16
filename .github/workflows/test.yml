@@ -55,6 +55,8 @@ jobs:
             17
             25
             21
+      - name: Install Playwright and Chromium (the facilitator page's browser tests)
+        run: python3 -m pip install --quiet playwright==1.65.2 && python3 -m playwright install --with-deps chromium
       - name: Create the sandbox user the grader runs submissions as
         run: sudo useradd --create-home --shell /bin/bash grader-sandbox
       - name: Check the sandbox user cannot change the grader

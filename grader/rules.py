@@ -33,7 +33,7 @@ def parse_csv(text):
     """Rows of cells, as scoring.js's parseCSV reads them. Returns (rows, delimiter, had_bom)."""
     bom = text.startswith('﻿')
     text = text[1:] if bom else text
-    first = re.split(r'\r?\n', text, maxsplit=1)[0]
+    first = re.split(r'\r?\n', text, maxsplit=1)[0]  # no mutate: any maxsplit gives the same first line
     delim = sorted(RULES['delimiters'], key=lambda ch: -first.count(ch))[0]  # stable, like JS sort
     out, row, cur, q, i = [], [], '', False, 0
     while i < len(text):

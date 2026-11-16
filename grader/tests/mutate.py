@@ -1,0 +1,152 @@
+"""Mutation testing: does a test fail when the code is subtly wrong?
+
+    python3 grader/tests/mutate.py grader/roster.py              (its tests are found by name: test_roster)
+    python3 grader/tests/mutate.py grader/submissions.py --tests test_submissions test_grading test_roster
+
+For each place in the module where one small change would change behaviour (== for !=, < for <=, and for or,
+a `not` dropped, + for -, a number off by one, True for False), it makes that one change in a throwaway copy of
+the repository and runs the module's tests (the fast tier). A mutant the tests catch is "killed"; one they don't
+"survives", and is printed: either a test is missing, or the change makes no difference (then mark the line
+`# no mutate` and say why). Standard library only; nothing in this folder is changed.
+"""
+import argparse
+import ast
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+SWAPS = {ast.Eq: ast.NotEq, ast.NotEq: ast.Eq, ast.Lt: ast.GtE, ast.GtE: ast.Lt, ast.Gt: ast.LtE, ast.LtE: ast.Gt,
+         ast.In: ast.NotIn, ast.NotIn: ast.In, ast.Is: ast.IsNot, ast.IsNot: ast.Is,
+         ast.And: ast.Or, ast.Or: ast.And, ast.Add: ast.Sub, ast.Sub: ast.Add}
+SKIP_DIRS = {'.git', '__pycache__', '.cache', 'node_modules', '.claude'}
+
+
+class _Sites(ast.NodeVisitor):
+    """Every mutation site, as (node path, description), in a stable order."""
+
+    def __init__(self, skip_lines):
+        self.sites, self.skip_lines, self.docstrings = [], skip_lines, set()
+
+    def visit(self, node):
+        for field in ('body',):
+            body = getattr(node, field, None)
+            if isinstance(body, list) and body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+                self.docstrings.add(id(body[0].value))
+        if getattr(node, 'lineno', None) in self.skip_lines:
+            return
+        if isinstance(node, ast.Compare):
+            self.sites += [(node, ('op', i)) for i, op in enumerate(node.ops) if type(op) in SWAPS]
+        elif isinstance(node, ast.BoolOp) or (isinstance(node, ast.BinOp) and type(node.op) in SWAPS):
+            self.sites.append((node, ('op', None)))
+        elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+            self.sites.append((node, ('drop-not', None)))
+        elif isinstance(node, ast.Constant) and id(node) not in self.docstrings:
+            if isinstance(node.value, bool) or (isinstance(node.value, int) and not isinstance(node.value, bool)):
+                self.sites.append((node, ('const', None)))
+        self.generic_visit(node)
+
+
+class _Mutate(ast.NodeTransformer):
+    def __init__(self, target, how):
+        self.target, self.how = target, how
+
+    def visit(self, node):
+        node = self.generic_visit(node)
+        if node is not self.target:
+            return node
+        kind, i = self.how
+        if kind == 'op' and isinstance(node, ast.Compare):
+            node.ops[i] = SWAPS[type(node.ops[i])]()
+        elif kind == 'op':
+            node.op = SWAPS[type(node.op)]()
+        elif kind == 'drop-not':
+            return node.operand
+        elif kind == 'const':
+            node.value = (not node.value) if isinstance(node.value, bool) else node.value + 1
+        return node
+
+
+def mutants(source):
+    """(line, original, mutated, new module source) for each mutation site."""
+    skip = {n for n, line in enumerate(source.splitlines(), 1) if '# no mutate' in line}
+    tree = ast.parse(source)
+    sites = _Sites(skip)
+    sites.visit(tree)
+    for index in range(len(sites.sites)):
+        tree = ast.parse(source)  # a fresh tree each time; find the same site again by position
+        fresh = _Sites(skip)
+        fresh.visit(tree)
+        node, how = fresh.sites[index]
+        before = ast.unparse(node)
+        mutated = _Mutate(node, how).visit(tree)
+        after = ast.unparse(node) if how[0] != 'drop-not' else ast.unparse(node.operand)
+        yield node.lineno, before, after, ast.unparse(ast.fix_missing_locations(mutated))
+
+
+def copy_repo(dest):
+    def ignore(folder, names):
+        return [n for n in names if n in SKIP_DIRS]
+    shutil.copytree(REPO, dest, ignore=ignore, dirs_exist_ok=True)
+
+
+def run_tests(root, tests, timeout):
+    env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')} | {'GRADER_FAST': '1', 'PYTHONDONTWRITEBYTECODE': '1'}
+    try:
+        r = subprocess.run([sys.executable, '-m', 'unittest', '-q', *tests], cwd=root / 'grader' / 'tests', env=env,
+                           capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return False  # a mutant that hangs is caught
+    return r.returncode == 0
+
+
+def main(argv):
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument('module', help='e.g. grader/roster.py')
+    p.add_argument('--tests', nargs='+', help='test modules to run (default: test_<module name>)')
+    p.add_argument('-j', '--jobs', type=int, default=os.cpu_count() or 2)
+    p.add_argument('--timeout', type=int, default=120)
+    a = p.parse_args(argv)
+    module = Path(a.module).resolve().relative_to(REPO)
+    tests = a.tests or [f'test_{module.stem}']
+    source = (REPO / module).read_text(encoding='utf-8')
+    found = list(mutants(source))
+
+    work = Path(tempfile.mkdtemp(prefix='mutate-'))
+    try:
+        roots = []
+        for n in range(max(1, min(a.jobs, len(found)))):
+            copy_repo(work / str(n))
+            roots.append(work / str(n))
+        if not run_tests(roots[0], tests, a.timeout):
+            raise SystemExit(f'The tests fail without any mutation: {" ".join(tests)}')
+        free = list(roots)
+
+        def trial(m):
+            root = free.pop()
+            try:
+                (root / module).write_text(m[3], encoding='utf-8')
+                return m, not run_tests(root, tests, a.timeout)
+            finally:
+                (root / module).write_text(source, encoding='utf-8')
+                free.append(root)
+
+        with ThreadPoolExecutor(len(roots)) as pool:
+            results = list(pool.map(trial, found))
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+    survived = [m for m, killed in results if not killed]
+    for line, before, after, _ in survived:
+        print(f'SURVIVED {module}:{line}: {before}  ->  {after}')
+    total = len(results)
+    print(f'{module}: {total - len(survived)} of {total} mutants killed ({(total - len(survived)) * 100 // max(total, 1)}%) by {" ".join(tests)}')
+    return 1 if survived else 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
