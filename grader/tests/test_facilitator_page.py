@@ -59,8 +59,7 @@ class FormsMatchTheWorkflowsTests(unittest.TestCase):
 
 class PageTests(unittest.TestCase):
     def test_every_tour_step_target_is_on_the_page(self):
-        anchors = set(re.findall(r'data-tour="([\w-]+)"', PAGE))
-        anchors |= {'form-' + i for i in re.findall(r"id: '(\w+)'", (REPO / 'facilitator-forms.js').read_text())}
+        anchors = set(re.findall(r'data-tour="([\w-]+)"', PAGE)) | set(re.findall(r"dataset\.tour = '([\w-]+)'", PAGE))
         targets = set(re.findall(r"target: '([\w-]+)'", STEPS))
         self.assertTrue(targets)
         self.assertEqual(targets - anchors, set(), 'facilitator-steps.js targets missing from facilitator.html')
