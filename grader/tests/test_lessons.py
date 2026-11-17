@@ -43,6 +43,24 @@ class LoadingTests(Sandbox):
         self.assertEqual(self.load()[0].label, 'FizzBuzz')
         self.assertEqual(self.load()[0].repo, 'o/fizz')
 
+    def test_where_tests_come_from_must_be_a_repository_and_a_folder_in_it(self):
+        base = {'key': 'g', 'label': 'G', 'repo': 'o/g', 'check': 'none', 'status': 'checking'}
+        for field, value, why in (('tests_repo', 'not a repo', 'tests_repo must look like owner/name'),
+                                  ('tests_repo', '../o/x', 'tests_repo must look like owner/name'),
+                                  ('tests_dir', '../outside', 'tests_dir must be a folder'),
+                                  ('tests_dir', '/abs', 'tests_dir must be a folder'),
+                                  ('tests_dir', '.git', 'tests_dir must be a folder'),
+                                  ('status', 'live', 'status can only be "checking"')):
+            with self.subTest(field=field, value=value):
+                self.write([{**base, field: value}])
+                with self.assertRaises(lessons.LessonsInvalid) as e:
+                    self.load()
+                self.assertIn(why, str(e.exception))
+        self.write([{**base, 'tests_repo': 'o/solutions', 'tests_dir': 'app/greeting'}])
+        self.assertEqual(self.load(), [], 'a checking lesson is left out unless asked for')
+        (only,) = lessons.load(self.dir, checking=True)
+        self.assertEqual((only.tests_repo, only.tests_dir, only.status), ('o/solutions', 'app/greeting', 'checking'))
+
     def test_every_problem_is_reported_at_once(self):
         self.write([{'key': 'Bad Key', 'label': 'x', 'repo': 'o/r', 'check': 'none'},
                     {'key': 'helped', 'label': 'x', 'repo': 'o/r', 'check': 'none'},

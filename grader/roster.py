@@ -373,10 +373,19 @@ class Roster:
 
     def apply_results(self, graded=None):
         """Bring graded results onto the board, first taking `graded` (a results.json from a grading run) as
-        grader/results.json if given. Returns (changes, warnings) as lines of text."""
+        grader/results.json if given, and putting live every lesson being checked whose trial passed for the lesson
+        as it is now. Returns (changes, warnings) as lines of text."""
+        subs = Submissions(self.root)
         if graded:
-            Submissions(self.root).replace_with(graded)
-        return self._save(self._sheet())
+            subs.replace_with(graded)
+        live = []
+        for lesson in lessons.load(self.root, checking=True):
+            t = subs.trial(lesson.key)
+            if lesson.status == lessons.CHECKING and t and t['passed'] is True and t['version'] == lessons.trial_version(lesson):
+                lessons.promote(self.root, lesson.key)
+                live.append(f'{lesson.label} is live: ' + '; '.join(r.splitlines()[0] for r in t['reasons']))
+        changes, warnings = self._save(self._sheet())
+        return live + changes, warnings
 
     def _refuse_removing(self, sheet, current, added):
         """ActionError if taking away a row this person was added with would lose something: a facilitator's change

@@ -12,6 +12,7 @@ from pathlib import Path
 
 import exercise_tests
 import lessons
+from submissions import Submissions
 from checks.toolkit import CheckFailed, gradle_project
 from exercise_tests import GENERIC, PinFailed
 
@@ -39,6 +40,7 @@ def add(root, key, label, repo, check, tests_repo='', tests_dir=''):
             except CheckFailed:
                 raise PinFailed(f'{repo} has no Gradle project at {sha[:7]}, so "build" cannot check it.') from None
     lessons.add(root, item)
+    forget_trial(root, key)  # a lesson added again is tried again, whatever it was before
     if check != 'tests':
         return f'Added {label} ({LEVELS[check]}), checking until its trial passes.'
     try:
@@ -47,6 +49,12 @@ def add(root, key, label, repo, check, tests_repo='', tests_dir=''):
         lessons.remove(root, key)
         raise
     return f'Added {label} (tests: {count} files from {tests_repo or repo} at {pinned[:7]}), checking until its trial passes.'
+
+
+def forget_trial(root, key):
+    subs = Submissions(root)
+    if subs.forget_trial(key):
+        subs.save()
 
 
 def remove(root, key):
@@ -63,4 +71,5 @@ def remove(root, key):
         raise PinFailed(f'{lesson.label} has the custom check "{lesson.check}": a maintainer removes it through a pull request.')
     lessons.remove(root, key)
     shutil.rmtree(lessons.fixtures(root) / key, ignore_errors=True)
+    forget_trial(root, key)
     return f'Removed {lesson.label}. Its results are kept: adding it again brings them back.'

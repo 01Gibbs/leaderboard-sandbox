@@ -24,9 +24,9 @@ jobs:
       matrix:
         include:
           - { module: grader/rules.py, tests: test_rules test_roster }
-          - { module: grader/submissions.py, tests: test_submissions test_grading test_roster test_slices }
-          - { module: grader/roster.py, tests: test_roster test_slices test_regressions }
-          - { module: grader/lessons.py, tests: test_lessons test_exercise_tests }
+          - { module: grader/submissions.py, tests: test_submissions test_grading test_roster test_slices test_add_lesson }
+          - { module: grader/roster.py, tests: test_roster test_slices test_regressions test_grading }
+          - { module: grader/lessons.py, tests: test_lessons test_exercise_tests test_add_lesson test_grading }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:

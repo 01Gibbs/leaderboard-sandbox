@@ -222,6 +222,17 @@ class RemoveLessonTests(Sandbox):
         rows = (self.dir / 'participants.csv').read_text().splitlines()
         self.assertEqual(rows[1].split(',')[rows[0].split(',').index('fizzbuzz')], 'submitted', 'the mark came back with it')
 
+    def test_adding_or_removing_a_lesson_forgets_its_old_trial(self):
+        import submissions
+        self.exercise('o/essay', {'README.md': 'Write about it.'})
+        results = {'people': {}, 'submissions': {}, 'trials': {'essay': {'version': 'v', 'passed': False, 'reasons': ['old'], 'at': '2026-11-01T00:00:00Z'}}}
+        (self.dir / 'grader/results.json').write_text(json.dumps(results))
+        self.cli('add-lesson', 'essay', 'Essay', 'o/essay', 'none')
+        self.assertIsNone(submissions.Submissions(self.dir).trial('essay'), 'added again: tried again')
+        (self.dir / 'grader/results.json').write_text(json.dumps(results))
+        self.cli('remove-lesson', 'essay')
+        self.assertIsNone(submissions.Submissions(self.dir).trial('essay'))
+
     def test_a_custom_check_is_removed_through_a_pull_request(self):
         entries = LESSONS + [{'key': 'upgrade', 'label': 'Upgrade', 'repo': 'o/upgrade', 'check': 'framework_upgrade'}]
         (self.dir / 'lessons.json').write_text(json.dumps(entries, indent=2) + '\n')

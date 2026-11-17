@@ -12,6 +12,9 @@ name: 'Grade submissions (automatic on every pull request)'
 on:
   repository_dispatch:
     types: [submission]
+  push:  # a lesson added, changed or put live: try it, or grade it (grader/trial.py)
+    branches: [main]
+    paths: [lessons.json, 'grader/fixtures/**']
   schedule:
     - cron: '17 3 * * *'  # once a day, a backstop for any event missed (a repository without the hook, an expired token)
   workflow_dispatch:
