@@ -427,7 +427,7 @@ class BatchTests(Sandbox):
     def test_every_row_refused_still_gives_a_commit_title(self):
         code, out, _ = self.batch('title1', ('award', 'Nobody Here', 'helped', '1'))
         self.assertEqual(code, 0)
-        self.assertTrue(out.startswith('Nothing was changed: 0 of 1 changes made'), out)
+        self.assertTrue(out.startswith('Nothing was changed. 0 of 1 changes made'), out)
 
     def test_a_malformed_batch_changes_nothing(self):
         for batch_id, rows, code in (('ok-1', 'not json', 0), ('ok-2', '{"award": 1}', 0), ('bad id!', '[["undo"]]', 1)):
@@ -745,6 +745,62 @@ class WorkflowInputTests(Sandbox):
                 continue
             first = wf.read_text().split("args: '[\"", 1)[1].split('"', 1)[0]
             self.assertIn(first, commands, wf.name)
+
+
+class OutcomeTests(Sandbox):
+    """main() settles each facilitator change once: changed, refused (an answer, such as a misspelt name) or broken
+    (a fault). The workflows, the practice copy and the tests read that, never the wording people see."""
+
+    def outcome(self, *argv):
+        path = self.dir / 'outcome'
+        self.patch(leaderboard.os, 'environ', {'LEADERBOARD_OUTCOME': str(path)})
+        code, _, _ = self.cli(*argv)
+        return (code, *leaderboard.read_outcome(path))
+
+    def test_a_change_made(self):
+        self.assertEqual(self.outcome('award', 'Stuart Smith', 'helped'), (0, 'changed', ''))
+
+    def test_a_refused_change_says_why_in_one_line(self):
+        code, outcome, reason = self.outcome('award', 'Stuart Smit', 'helped')
+        self.assertEqual((code, outcome), (1, 'refused'))
+        self.assertTrue(reason.startswith('Nobody called "Stuart Smit"'), reason)
+        self.assertNotIn('\n', reason)
+
+    def test_a_batch_with_any_row_made_is_changed(self):
+        rows = json.dumps([['award', 'Nobody Here', 'helped', '1'], ['award', 'Stuart Smith', 'helped', '1']])
+        self.assertEqual(self.outcome('batch', 'oc1', rows)[:2], (0, 'changed'))
+
+    def test_a_batch_with_every_row_refused_is_refused_and_still_saved(self):
+        code, outcome, reason = self.outcome('batch', 'oc2', json.dumps([['award', 'Nobody Here', 'helped', '1']]))
+        self.assertEqual((code, outcome), (0, 'refused'))  # exit 0: batches.json records why, for the page
+        self.assertIn('0 of 1 changes made', reason)
+
+    def test_a_batch_that_is_not_a_list_is_refused(self):
+        self.assertEqual(self.outcome('batch', 'oc3', 'not json')[:2], (0, 'refused'))
+
+    def test_a_fault_is_broken_and_still_raised(self):
+        def explode(*a, **k):
+            raise RuntimeError('disk full')
+        self.patch(roster.Roster, 'award', explode)
+        with self.assertRaises(RuntimeError):
+            self.outcome('award', 'Stuart Smith', 'helped')
+        self.assertEqual(leaderboard.read_outcome(self.dir / 'outcome')[0], 'broken')
+
+    def test_arguments_the_workflow_should_never_send_are_broken(self):
+        for argv in (('--args-json', 'not a JSON array'), ('award', 'Stuart Smith', 'gold')):
+            with self.subTest(argv=argv), self.assertRaises((ValueError, SystemExit)):
+                self.outcome(*argv)
+            self.assertEqual(leaderboard.read_outcome(self.dir / 'outcome')[0], 'broken')
+
+    def test_a_listing_has_no_outcome(self):
+        self.patch(leaderboard.os, 'environ', {'LEADERBOARD_OUTCOME': str(self.dir / 'outcome')})
+        self.cli('history')
+        self.assertFalse((self.dir / 'outcome').exists())
+
+    def test_a_whole_batch_refusal_keeps_its_cause_on_the_one_line(self):
+        reason = self.outcome('batch', 'oc4', json.dumps([['grade']]))[2]
+        self.assertIn('the whole batch oc4 was refused.', reason)
+        self.assertIn('"grade" cannot go in a batch', reason)
 
 
 class BrokenLessonsTests(Sandbox):

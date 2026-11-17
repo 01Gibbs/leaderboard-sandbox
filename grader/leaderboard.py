@@ -29,6 +29,8 @@ from rules import COUNTS, STATUSES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 BATCHABLE = ('add', 'award', 'mark', 'rename', 'merge', 'undo')
+REFUSED_HEADING = 'Nothing was changed.'  # what people read when a change is refused; machines read the outcome
+CHANGES = BATCHABLE + ('batch',)  # the commands that change the leaderboard, so have an outcome
 BATCH_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9-]{1,63}')
 
 
@@ -152,12 +154,12 @@ def run_batch(board, batch_id, text, root):
             message = run(r, root, board, RowParser)
             outcomes.append({'args': r, 'ok': True, 'message': message, 'change': board.last_change})
         except roster.ActionError as e:
-            outcomes.append({'args': r, 'ok': False, 'message': f'Nothing was changed. {e}', 'change': None})
+            outcomes.append({'args': r, 'ok': False, 'message': str(e), 'change': None})  # ok says it was refused
         finally:
             board.batch = None
     board.record_batch(batch_id, outcomes)
     made = sum(o['ok'] for o in outcomes)
-    lines = '\n'.join(('✅ ' if o['ok'] else '❌ ') + o['message'].removeprefix('Nothing was changed. ').splitlines()[0]
+    lines = '\n'.join(('✅ ' if o['ok'] else '❌ ') + o['message'].splitlines()[0]
                       for o in outcomes)
     if not made:
         raise BatchRefused(f'0 of {len(rows)} changes made (batch {batch_id}).\n{lines}')
@@ -165,23 +167,53 @@ def run_batch(board, batch_id, text, root):
 
 
 def main(argv, root=ROOT):
-    # Workflows pass their form inputs as one JSON array, so no input is ever read by a shell.
-    if argv[:1] == ['--args-json']:
-        argv = ['' if v is None else str(v) for v in json.loads(argv[1])]  # a blank optional field arrives as null
     try:
+        # Workflows pass their form inputs as one JSON array, so no input is ever read by a shell.
+        if argv[:1] == ['--args-json']:
+            argv = ['' if v is None else str(v) for v in json.loads(argv[1])]  # a blank optional field arrives as null
         summary = run(argv, Path(root))
     except BatchRefused as e:
-        report(f'Nothing was changed: {e}', failed=True)
-        print(f'Nothing was changed: {str(e).splitlines()[0]}')  # the commit's title
+        report(f'{REFUSED_HEADING} {e}', failed=True)
+        print(f'{REFUSED_HEADING} {str(e).splitlines()[0]}')  # the commit's title
+        record('refused', e)
         return 0  # each row's outcome, or why the batch was refused, is saved: the workflow commits it
     except (roster.ActionError, submissions.ResultsInvalid) as e:  # exercise_tests.PinFailed is an ActionError
-        report(f'Nothing was changed. {e}', failed=True)
+        report(f'{REFUSED_HEADING} {e}', failed=True)
+        record('refused', e)
         return 1
+    except BaseException as e:  # a fault, including arguments the workflow should never have sent (argparse exits)
+        if not (isinstance(e, SystemExit) and e.code in (0, None)):
+            record('broken')
+        raise
+    if argv[:1] and argv[0] in CHANGES:
+        record('changed')
     if summary and argv[:1] == ['history']:
         print(summary)  # a listing, not a change: keep it off the run page's ✅ line
     elif summary:
         report(summary)
     return 0
+
+
+def record(outcome, reason=''):
+    """What happened, settled here once for whoever runs this: 'changed', 'refused' (an answer, with its reason on
+    one line) or 'broken' (a fault). Written to the file LEADERBOARD_OUTCOME names, when it names one: the outcome
+    on the first line, the reason on the second. read_outcome reads it back."""
+    if not os.environ.get('LEADERBOARD_OUTCOME'):
+        return
+    reason = ' '.join(line.removeprefix('❌ ').strip() for line in str(reason).splitlines() if line.strip())
+    try:
+        Path(os.environ['LEADERBOARD_OUTCOME']).write_text(f'{outcome}\n{reason}')
+    except OSError:  # never hide the fault being recorded
+        pass
+
+
+def read_outcome(path):
+    """(outcome, reason) from a file record wrote. No file means the command never got as far: broken."""
+    path = Path(path)
+    if not path.is_file():
+        return 'broken', ''
+    outcome, _, reason = path.read_text().partition('\n')
+    return outcome or 'broken', reason
 
 
 def report(text, failed=False):

@@ -119,10 +119,16 @@ class PracticeServerTests(unittest.TestCase):
         self.assertEqual(self.api('/contents/grader/history.json')[1][-1]['by'], 'you')
         self.assertEqual(hashlib.sha256((REPO / 'participants.csv').read_bytes()).hexdigest(), self.real)
 
-    def test_a_mistake_fails_and_says_why(self):
+    def test_a_mistake_is_an_answer_that_says_why(self):
+        # As on GitHub: a refused change is not a fault, so its run succeeds; its outcome says it was refused.
         run = self.dispatch('facilitator-award.yml', person='Nobody Here', kind='helped', amount='1')
-        self.assertEqual(run['conclusion'], 'failure')
+        self.assertEqual((run['conclusion'], run['outcome']), ('success', 'refused'))
         self.assertIn('Nobody called "Nobody Here"', run['summary'])
+
+    def test_a_refused_issue_is_closed_as_not_planned(self):
+        body = '### Batch\n\nprac2\n\n### Changes\n\n' + json.dumps(['award', 'Nobody Here', 'helped', '1'])
+        status, issue = self.api('/issues', {'title': 'Facilitator: Changes', 'body': body})
+        self.assertEqual((status, issue['state_reason']), (201, 'not_planned'))
 
     def test_undo_reverses_the_practice_change(self):
         before = self.call('/participants.csv')[1]

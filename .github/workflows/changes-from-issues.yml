@@ -65,16 +65,15 @@ jobs:
           ISSUE: ${{ github.event.issue.number }}
           REPLY: ${{ needs.read.outputs.reply }}
           SUMMARY: ${{ needs.change.outputs.summary }}
-          CHANGED: ${{ needs.change.result }}
+          OUTCOME: ${{ needs.change.outputs.outcome }}  # changed, refused or broken; empty when not allowed
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           body=${REPLY:-$SUMMARY}
           body=${body:-"Something went wrong before the change could be made. Nothing was changed."}
           gh issue comment "$ISSUE" -R "$REPO" --body "$body"$'\n\n'"[The run that did this]($RUN)"
-          # Something changed: completed. Refused (the summary's heading says nothing was changed) or not allowed: not
-          # planned. Then locked, so the issue stays a record and draws no more notifications.
-          heading=${SUMMARY%%$'\n'*}
-          if [[ $CHANGED == success && $heading != *'Nothing was changed'* ]]; then reason=completed; else reason='not planned'; fi
+          # Something changed: completed. Refused, broken or not allowed: not planned. Then locked, so the issue stays
+          # a record and draws no more notifications.
+          if [[ $OUTCOME == changed ]]; then reason=completed; else reason='not planned'; fi
           gh issue close "$ISSUE" -R "$REPO" --reason "$reason"
           if [[ $(gh issue view "$ISSUE" -R "$REPO" --json locked -q .locked) != true ]]; then  # a re-run finds it locked
             gh issue lock "$ISSUE" -R "$REPO" --reason resolved

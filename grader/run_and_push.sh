@@ -17,10 +17,11 @@ for attempt in 1 2 3 4 5; do
   git fetch -q origin main
   git reset -q --hard origin/main
   : > "$attempt_summary"
-  # A failing command (for example a misspelled name) stops here: nothing is committed.
+  # A failing command (for example a misspelled name) stops here: nothing is committed. Exit 3 says it was the
+  # command that said no, so a caller can tell that from failing to save, which exits 1 (or git's own code).
   if ! output=$(GITHUB_STEP_SUMMARY=$attempt_summary bash -c "$command"); then
     cat "$attempt_summary" >> "$summary"
-    exit 1
+    exit 3
   fi
   echo "$output"
   for f in participants.csv grader/results.json grader/history.json grader/batches.json; do

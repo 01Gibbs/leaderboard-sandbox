@@ -17,6 +17,7 @@ import shutil
 import sys
 import tempfile
 import threading
+import traceback
 import webbrowser
 from datetime import datetime, timezone
 from functools import partial
@@ -93,28 +94,34 @@ class PracticeGitHub:
             argv = issue_form.command(title, body)
         except issue_form.NotAForm as e:
             return 422, {'message': str(e)}
-        code, summary = self._apply(argv)
+        outcome, summary = self._apply(argv)
         number = len(self.issues) + 1
-        refused = code != 0 or summary.startswith('Nothing was changed')
         issue = {'number': number, 'title': title, 'state': 'closed', 'locked': True,
-                 'state_reason': 'not_planned' if refused else 'completed',
+                 'state_reason': 'completed' if outcome == 'changed' else 'not_planned',
                  'html_url': f'#issue-{number}', 'summary': summary}
         self.issues.append(issue)
         return 201, issue
 
     def _apply(self, argv):
-        """(exit code, what it said): a leaderboard command run on the practice copy, as the workflow runs it."""
+        """(outcome, what it said): a leaderboard command run on the practice copy, as the workflow runs it. The
+        outcome (changed, refused or broken) is the one leaderboard.py settles, read as the workflow reads it."""
         import leaderboard  # the copy's grader is the same code; import late so the copy exists first
         out, err = io.StringIO(), io.StringIO()
         with self.lock, contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            env = {k: os.environ.pop(k, None) for k in ('GITHUB_STEP_SUMMARY', 'GITHUB_ACTOR')}
-            os.environ['GITHUB_ACTOR'] = ACTOR
+            env = {k: os.environ.pop(k, None) for k in ('GITHUB_STEP_SUMMARY', 'GITHUB_ACTOR', 'LEADERBOARD_OUTCOME')}
+            outcome_file = Path(tempfile.mkdtemp()) / 'outcome'  # outside the copy, like the runner's temp folder
+            os.environ.update(GITHUB_ACTOR=ACTOR, LEADERBOARD_OUTCOME=str(outcome_file))
             try:
-                code = leaderboard.main(argv, root=self.root)
+                leaderboard.main(argv, root=self.root)
+            except Exception:  # broken: leaderboard.py has recorded it; show why, as a run's log would
+                traceback.print_exc(file=sys.__stderr__)
             finally:
                 os.environ.pop('GITHUB_ACTOR', None)
+                os.environ.pop('LEADERBOARD_OUTCOME', None)
                 os.environ.update({k: v for k, v in env.items() if v is not None})
-        return code, (out.getvalue() or err.getvalue()).strip()
+            outcome = leaderboard.read_outcome(outcome_file)[0]
+            shutil.rmtree(outcome_file.parent, ignore_errors=True)
+        return outcome, (out.getvalue() or err.getvalue()).strip()
 
     def dispatch(self, workflow, inputs):
         path = self.root / '.github' / 'workflows' / workflow
@@ -124,11 +131,11 @@ class PracticeGitHub:
             argv = command(path.read_text(encoding='utf-8'), inputs or {})
         except ValueError:
             return 422, {'message': 'Workflow does not have a workflow_dispatch trigger'}
-        code, summary = self._apply(argv)
+        outcome, summary = self._apply(argv)
         run_id = len(self.runs) + 1
         self.runs.append({
             'id': run_id, 'workflow': workflow, 'event': 'workflow_dispatch', 'actor': {'login': ACTOR},
-            'status': 'completed', 'conclusion': 'success' if code == 0 else 'failure',
+            'status': 'completed', 'conclusion': 'failure' if outcome == 'broken' else 'success', 'outcome': outcome,
             'created_at': datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'),
             'html_url': f'#run-{run_id}', 'summary': summary})
         return 204, None
