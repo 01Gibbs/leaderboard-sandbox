@@ -160,5 +160,31 @@
         "change": null
       }
     ]
+  },
+  "bmwkltlrssgjn": {
+    "at": "2026-11-17T11:24:34+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "rename",
+          "E2E Check 110615i",
+          "E2E Check"
+        ],
+        "ok": false,
+        "message": "Nobody called \"E2E Check 110615i\" is on the leaderboard. To add someone new, use \"add\".",
+        "change": null
+      },
+      {
+        "args": [
+          "merge",
+          "E2E Check 110615i",
+          "E2E Duplicate 110615i"
+        ],
+        "ok": false,
+        "message": "Nobody called \"E2E Check 110615i\" is on the leaderboard. To add someone new, use \"add\".",
+        "change": null
+      }
+    ]
   }
 }
