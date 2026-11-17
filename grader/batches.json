@@ -127,5 +127,38 @@
         "change": "c9a4382"
       }
     ]
+  },
+  "e2e-110615-undo": {
+    "at": "2026-11-17T11:07:30+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "undo",
+          "c9a4382"
+        ],
+        "ok": true,
+        "message": "Undid: Renamed E2E Batch 110615 to E2E Batch 110615 R (by 01Gibbs at 2026-11-17T11:06:43+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c66e5fe"
+        ],
+        "ok": true,
+        "message": "Undid: Gave 2 helps to E2E Batch 110615 (helped: 0 -> 2) (by 01Gibbs at 2026-11-17T11:06:43+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c0cbee7"
+        ],
+        "ok": true,
+        "message": "Undid: Added E2E Batch 110615 (by 01Gibbs at 2026-11-17T11:06:43+00:00)",
+        "change": null
+      }
+    ]
   }
 }
