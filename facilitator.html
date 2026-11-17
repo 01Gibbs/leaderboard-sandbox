@@ -136,7 +136,7 @@ dialog::backdrop { background: rgb(0 0 0 / 0.4); }
     </section>
     <section id="grading" class="panel" data-tour="grading" aria-label="Grading" style="margin-top:16px">
       <h2>Grading</h2>
-      <p class="hint" id="gradeLast">New pull requests are graded once a day by themselves.</p>
+      <p class="hint" id="gradeLast"></p>
       <button type="button" id="gradeNow">Grade now</button>
       <p class="hint" id="gradeHint" hidden></p>
     </section>
@@ -221,11 +221,19 @@ function ago(time) {
   if (minutes < 120) return `${minutes} minutes ago`;
   return minutes < 2880 ? `${Math.round(minutes / 60)} hours ago` : `${Math.round(minutes / 1440)} days ago`;
 }
-async function latestGrading() {
-  const res = await fetch(`${API}/repos/${REPO}/actions/workflows/grade.yml/runs?per_page=1`,
-    { headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }, cache: 'no-store' });
-  return res.ok ? ((await res.json()).workflow_runs || [])[0] || null : undefined;
+// The latest Grade submissions run (only those started by hand, with 'workflow_dispatch'); undefined when GitHub
+// did not answer. Asked conditionally, so an unchanged answer is cheap.
+async function latestGrading(event) {
+  const url = `${API}/repos/${REPO}/actions/workflows/grade.yml/runs?per_page=1` + (event ? `&event=${event}` : '');
+  const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+  if (etags[url]) headers['If-None-Match'] = etags[url];
+  const res = await fetch(url, { headers, cache: 'no-store' });
+  if (res.status === 304) return cache[url];
+  if (!res.ok) return undefined;
+  etags[url] = res.headers.get('ETag');
+  return (cache[url] = ((await res.json()).workflow_runs || [])[0] || null);
 }
+const DAILY = 'New pull requests are also graded once a day by themselves.';
 function showGrading(run) {
   if (run === undefined) return;  // GitHub did not say: keep what is shown
   const link = run && el('a', '', run.status === 'completed' ? 'see the run' : 'watch it');
@@ -234,7 +242,7 @@ function showGrading(run) {
     : run.status !== 'completed' ? `Grading now, started ${ago(run.created_at)}: `
     : run.conclusion === 'success' ? `Last graded ${ago(run.updated_at)}: `
     : `The last grading, ${ago(run.updated_at)}, did not finish (tell the repository owner): `;
-  $('gradeLast').replaceChildren(text, ...(link ? [link, '.'] : []), ' New pull requests are also graded once a day by themselves.');
+  $('gradeLast').replaceChildren(text, ...(link ? [link, '.'] : []), ' ' + DAILY);
 }
 let gradingFollowed = false;
 async function gradeNow() {
@@ -243,7 +251,9 @@ async function gradeNow() {
     $('gradeHint').hidden = false;
     return;
   }
-  const pressed = Date.now();
+  // The run to follow is the first one started by hand after this press: newer than the latest one now. Run ids
+  // only grow, so no clock (GitHub's or this computer's) is involved, and a scheduled run is never mistaken for it.
+  const before = gradingFollowed ? null : await latestGrading('workflow_dispatch').catch(() => undefined);
   showOnGitHub(`https://github.com/${REPO}/actions/workflows/grade.yml`);
   $('gradeHint').replaceChildren('On GitHub, press ', el('b', '', 'Run workflow'), ', then the green ', el('b', '', 'Run workflow'),
     '. Grading takes about 5 to 20 minutes; the scores here follow when it finishes.');
@@ -253,12 +263,13 @@ async function gradeNow() {
   try {  // once a minute (unauthenticated reads are limited), for as long as grading can take
     for (let i = 0; i < 45; i++) {
       await sleep(60000);
-      const run = await latestGrading().catch(() => undefined);
+      const run = await latestGrading('workflow_dispatch').catch(() => undefined);
+      if (!run || run.id <= ((before && before.id) || 0)) continue;  // not started yet
       showGrading(run);
-      if (run && new Date(run.created_at) > pressed - 5000 && run.status === 'completed') {
+      if (run.status === 'completed') {
         $('gradeHint').hidden = true;
-        await loadBoard(true);
-        say('Grading finished: scores updated.');
+        if (run.conclusion === 'success') { await loadBoard(true); say('Grading finished: scores updated.'); }
+        else say('Grading did not finish. The run on GitHub says why; tell the repository owner.');
         break;
       }
     }
@@ -679,6 +690,7 @@ $('find').addEventListener('keydown', (e) => {
 $('multi').addEventListener('change', () => { ticked.clear(); renderRoster(); renderPerson(); });
 $('send').addEventListener('click', send);
 $('gradeNow').addEventListener('click', gradeNow);
+$('gradeLast').textContent = DAILY.replace('also ', '');
 if (!PRACTICE && REPO) latestGrading().then(showGrading, () => {});
 $('keysButton').addEventListener('click', () => $('keys').showModal());
 $('keysClose').addEventListener('click', () => $('keys').close());

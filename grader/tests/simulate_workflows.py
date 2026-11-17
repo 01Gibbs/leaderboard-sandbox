@@ -112,7 +112,7 @@ def csv_at_origin():
 
 def row(name):
     """A person's row at origin, by column name, so a new lesson's column moves nothing here."""
-    return next(r for r in csv.DictReader(io.StringIO(csv_at_origin())) if r['name'] == name)
+    return next((r for r in csv.DictReader(io.StringIO(csv_at_origin())) if r['name'] == name), {})
 
 
 def filled(r):
@@ -144,7 +144,7 @@ ok, s = run_facilitator('facilitator-merge.yml', {'keep': 'Bukky Adeyemi', 'dupl
 merged = row('Bukky Adeyemi')
 expect(ok and filled(merged) == {'github_username': 'bukkie-create', 'fizzbuzz': 'submitted', 'rest_api': 'submitted', 'stretch': '3'},
        'merge: higher value of each column kept, GitHub login carried over')
-expect('bukkie-create,bukkie-create' not in csv_at_origin(), 'merge: duplicate row removed')
+expect(not row('bukkie-create'), 'merge: duplicate row removed')
 
 ok, s = run_facilitator('facilitator-mark.yml', {'person': 'Bukky Adeyemi', 'lesson': 'container_image', 'status': 'correct'})
 expect(ok and row('Bukky Adeyemi')['container_image'] == 'correct', 'mark: exercise marked correct')
@@ -155,7 +155,8 @@ ok, s = run_facilitator('facilitator-award.yml', {'person': 'Stuart Smit', 'kind
 expect(ok and "❌ Nothing was changed" in s and "Did you mean 'Stuart Smith'" in s, 'typo: run succeeds (a refusal is an answer), says nothing changed, suggests the right name')
 expect(csv_at_origin() == before, 'typo: origin unchanged')
 ok, s = run_facilitator('facilitator-mark.yml', {'person': 'Bukky Adeyemi', 'lesson': 'docker', 'status': 'correct'})
-expect(ok and 'fizzbuzz, rest_api, framework_upgrade, container_image' in s, 'mark: unknown exercise lists the valid keys, run succeeds')
+keys = ', '.join(lesson['key'] for lesson in json.loads((SRC / 'lessons.json').read_text()))
+expect(ok and keys in s, 'mark: unknown exercise lists the valid keys, run succeeds')
 
 workflow = yaml(WF / 'facilitator-action.yml')
 broken = work / 'run-broken'
@@ -171,7 +172,8 @@ ok, s = run_facilitator('facilitator-undo.yml', {})
 expect(ok and 'Undid: Marked Bukky Adeyemi container_image as correct' in s, 'undo: reverses the latest change and says which')
 expect(row('Bukky Adeyemi')['container_image'] == '', 'undo: mark reverted at origin')
 run_facilitator('facilitator-undo.yml', {})
-expect('bukkie-create,bukkie-create,submitted' in csv_at_origin(), 'undo again: merge reverted, both rows back')
+expect(filled(row('bukkie-create')) == {'github_username': 'bukkie-create', 'fizzbuzz': 'submitted', 'rest_api': 'submitted'},
+       'undo again: merge reverted, both rows back')
 
 print('Two changes at the same moment')
 

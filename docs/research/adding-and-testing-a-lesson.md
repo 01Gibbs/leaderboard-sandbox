@@ -2,7 +2,7 @@
 
 *Research note, 16 November 2026. Audience: project lead and facilitators.*
 
-> **Status (16 Nov 2026).** Gaps 1 to 8, 10, 11 and 13 are addressed. README.md, the add-lesson skill and [docs/TAKEOVER.md](../TAKEOVER.md) now cover them. On GitHub Actions a starter that cannot be cloned fails the run, and `EveryCheckIsTestedTests` fails while a check has no test. Since this note, connecting exercise repositories is optional: grading runs daily or on **Grade now**, so gap 10 no longer applies. Gap 9 is noted in TAKEOVER.md. Gap 12 (custom roles) only matters in an organisation and is left as it is.
+> **Status (16 Nov 2026).** Gaps 1 to 8, 10, 11 and 13 are addressed. README.md, the add-lesson skill and [docs/TAKEOVER.md](../TAKEOVER.md) now cover them. On GitHub Actions a starter that cannot be cloned fails the run, and `EveryCheckIsTestedTests` fails while a check has no test. Since this note, connecting exercise repositories is optional: grading runs daily or on **Grade now**, so gap 10 no longer applies. Gap 9 is noted in TAKEOVER.md. Gap 12 (custom roles) only matters in an organisation and is left as it is. Gap 14: the two older notes' status lines say what has moved.
 
 This note is for someone who did not build the leaderboard, such as Atul hosting his own copy. It answers three questions from the code as it is on `main`. It builds on two earlier notes and does not repeat them:
 
@@ -18,7 +18,7 @@ This note is for someone who did not build the leaderboard, such as Atul hosting
 - `tests`: our copy of the tests passes. `pin-tests` copies them from the exercise repository [8].
 - a custom name: a new module, `grader/checks/<name>.py` [4].
 
-Merge the change through a pull request, because `main` takes no direct pushes [24]. Connect the exercise repository with `grader/setup-pr-trigger.sh` [23]. Then run *Grade submissions* once. The quickest route is to ask Claude Code to *"add the lesson in owner/repo to the leaderboard"*. The `add-lesson` skill walks through every step [37].
+Merge the change through a pull request, because `main` takes no direct pushes [24]. Then run *Grade submissions* once (since this note, connecting the exercise repository with `grader/setup-pr-trigger.sh` [23] is optional). The quickest route is to ask Claude Code to *"add the lesson in owner/repo to the leaderboard"*. The `add-lesson` skill walks through every step [37].
 
 **2. How do I test it?**
 
@@ -79,7 +79,7 @@ The `add-lesson` skill [37] is the current procedure. In short:
 5. Prove it in `test_checks.py` (section 2 below).
 6. Optionally, record existing submissions with `grade --no-run` and then `apply`. See Gap 6 before doing this.
 7. Open a pull request. The *Protect main* ruleset requires one and requires the `fast` and `slow` checks to pass [24].
-8. Connect the exercise repository: run `grader/setup-pr-trigger.sh` [23]. Until then the lesson is graded only by the daily run at 03:17 UTC [17].
+8. Optionally, connect the exercise repository: run `grader/setup-pr-trigger.sh` [23]. Without it the lesson is graded by the daily run at 03:17 UTC [17], or when a facilitator presses **Grade now** (added after this note).
 9. After merging, run *Actions → Grade submissions → Run workflow*. Merging to `main` does **not** start grading. `grade.yml` starts only on `repository_dispatch`, on its schedule, or by hand [17].
 
 ### Things a new host should know

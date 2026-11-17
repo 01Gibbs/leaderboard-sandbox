@@ -203,9 +203,11 @@ class GradleCheckTests(unittest.TestCase):
         ok, reasons = run_check('library_replacement', self.copy('library_starter'))
         self.assertFalse(ok)
         text = '\n'.join(reasons)
-        for part in ('Joda-Time', 'log4j 1.x', 'opencsv 2.3', 'log4j.properties is still there', 'joda-time-2.1.jar',
-                     'log4j-1.2.17.jar', 'opencsv-2.3.jar'):
+        for part in ('still uses Joda-Time (org.joda): change it to use java.time', 'still uses log4j 1.x', 'still uses opencsv 2.3',
+                     'log4j.properties is still there', 'build.gradle still asks for Joda-Time (joda-time:joda-time)',
+                     'build.gradle still asks for log4j 1.x', 'build.gradle still asks for opencsv 2.3'):
             self.assertIn(part, text)
+        self.assertEqual(len(reasons), 7, reasons)  # each library said once, not again as a jar
 
     def test_library_replacement_solution_passes(self):
         ok, reasons = run_check('library_replacement', self.copy('library_done'))
@@ -218,7 +220,7 @@ class GradleCheckTests(unittest.TestCase):
         self.assertFalse(ok)
         text = '\n'.join(reasons)
         self.assertNotIn('still uses Joda-Time', text)
-        self.assertIn('joda-time-2.1.jar', text)  # still in build.gradle
+        self.assertIn('build.gradle still asks for Joda-Time', text)
         self.assertIn('log4j 1.x', text)
         self.assertIn('opencsv 2.3', text)
 
@@ -236,11 +238,20 @@ class GradleCheckTests(unittest.TestCase):
         project = self.copy('library_done')
         gradle = project / 'build.gradle'
         gradle.write_text(gradle.read_text().replace("implementation 'com.opencsv:opencsv:5.9'",
-                                                     "implementation 'com.opencsv:opencsv:5.9'\n    implementation 'joda-time:joda-time:2.1'"))
+                                                     "implementation 'com.opencsv:opencsv:5.9'\n    testImplementation 'joda-time:joda-time:2.1'"))
         ok, reasons = run_check('library_replacement', project)
         self.assertFalse(ok)
-        self.assertEqual(len(reasons), 1, reasons)
-        self.assertIn('the built app still contains Joda-Time (joda-time-2.1.jar)', reasons[0])
+        self.assertEqual(reasons, ['build.gradle still asks for Joda-Time (joda-time:joda-time): remove that line'])
+
+    def test_library_replacement_comments_and_log4j_2_are_not_old_libraries(self):
+        project = self.copy('library_done')
+        service = project / 'src/main/java/com/example/onboarding/service/OnboardingStatusService.java'
+        service.write_text('// Moved from org.joda.time.Days to java.time.\n' + service.read_text())
+        gradle = project / 'build.gradle'
+        gradle.write_text(gradle.read_text().replace("implementation 'com.opencsv:opencsv:5.9'",
+                                                     "implementation 'com.opencsv:opencsv:5.9'\n    implementation 'org.apache.logging.log4j:log4j-api:2.24.3'"))
+        ok, reasons = run_check('library_replacement', project)
+        self.assertTrue(ok, reasons)
 
     def test_level_build(self):
         self.assertTrue(run_check('build', self.copy('rest_reference'))[0])

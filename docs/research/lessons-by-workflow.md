@@ -95,7 +95,7 @@ with `DEFAULTS['check'] = 'auto'`.
    | No Gradle project (Node, Dockerfile only, docs only) | `none` | "no Gradle project: needs a facilitator or a custom check" |
 
    An explicit `tests` that finds no tests fails with the usual message, `❌ Nothing was changed`. A custom check name is never accepted from the form. Custom checks carry lesson-specific constants and need tests (ADR 0001, skill step 5), so they arrive through a pull request.
-4. **Write** the entry, plus `tests_commit` and fixtures through the existing `pin` path. Then save the roster: `Roster` adds any lesson column that is missing whenever it writes (`roster.py:60-66`), so the column appears right away instead of on the next `apply`.
+4. **Write** the entry, plus `tests_commit` and fixtures through the existing `pin` path. Then save the roster: `Roster` adds any lesson column that is missing whenever it writes (`roster.py`, `_Sheet`), so the column appears right away instead of on the next `apply`.
 5. **Commit.** Extend `run_and_push.sh` to `git add lessons.json grader/fixtures`. The commit title carries the decision ("Add lesson container_v2 (tests: 7 files at abc1234)"), so `git log -- lessons.json` keeps the reason without a new field in `lessons.json`.
 
 **Undo.** `undo` reverses roster actions only. Adding a lesson is not a roster action, so `undo` must refuse it, or the summary must say "remove it with a pull request". Do not extend the undo journal for this.
