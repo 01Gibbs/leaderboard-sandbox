@@ -16,6 +16,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
+from typing import NamedTuple
 
 TITLE_PREFIX = 'Facilitator: '
 NO_RESPONSE = '_No response_'  # what GitHub writes for a field left empty
@@ -107,7 +108,47 @@ def decide(event, repo, token, api=None):
     return True, args, ''
 
 
+class Reply(NamedTuple):
+    body: str  # the comment the issue gets
+    close_reason: str  # 'completed' or 'not planned', as `gh issue close --reason` takes it
+    lock_reason: str = 'resolved'  # then always locked, so it stays a record and draws no more notifications
+
+    @property
+    def state_reason(self):
+        """The close reason as GitHub's API reports it on the issue ('completed' or 'not_planned')."""
+        return self.close_reason.replace(' ', '_')
+
+
+BROKE = 'Something went wrong before the change could be made. Nothing was changed: tell the repository owner.'
+
+
+def answer(refusal, summary, outcome, run_url=''):
+    """The issue's answer, from the read step's refusal (not allowed, or not a form), the change's summary and its
+    outcome (changed, refused or broken, as leaderboard.py settled it; empty when nothing ran). Completed only when
+    the change was made; always locked. The workflow and the practice copy both answer with this."""
+    body = refusal or summary or BROKE
+    if run_url:
+        body += f'\n\n[The run that did this]({run_url})'
+    return Reply(body, 'completed' if outcome == 'changed' else 'not planned')
+
+
+def main_answer(body_file):
+    """For changes-from-issues.yml: writes the comment to body_file, then prints the close reason and the lock
+    reason, one per line."""
+    env = os.environ
+    reply = answer(env.get('REPLY', ''), env.get('SUMMARY', ''), env.get('OUTCOME', ''), env.get('RUN', ''))
+    with open(body_file, 'w', encoding='utf-8') as f:
+        f.write(reply.body)
+    print(reply.close_reason)
+    print(reply.lock_reason)
+    return 0
+
+
 def main():
+    if sys.argv[1:2] == ['answer']:
+        if len(sys.argv) != 3:
+            sys.exit('usage: issue_form.py answer <file to write the comment to>')
+        return main_answer(sys.argv[2])
     with open(os.environ['GITHUB_EVENT_PATH'], encoding='utf-8') as f:
         event = json.load(f)
     allowed, args, reply = decide(event, os.environ['GITHUB_REPOSITORY'], os.environ['GH_TOKEN'])

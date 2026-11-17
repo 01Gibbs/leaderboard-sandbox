@@ -3,8 +3,8 @@
     python3 facilitator_walkthrough.py          (Windows: py facilitator_walkthrough.py)       Needs Python 3.8 or newer.
 
 It copies the leaderboard into a temporary folder, puts example people in it (the same ones as walkthrough.py),
-and serves it on your own computer only (http://127.0.0.1), with a stand-in for GitHub: a form you send runs the
-same leaderboard command its facilitator-*.yml workflow would, on the copy. So every form really works, and
+and serves it on your own computer only (http://127.0.0.1), with a stand-in for GitHub: changes you send run the
+same leaderboard commands changes-from-issues.yml would, on the copy. So every change really works, and
 nothing is changed in this folder or sent anywhere. The copy is deleted when you press Ctrl+C.
 """
 import argparse
@@ -19,7 +19,6 @@ import tempfile
 import threading
 import traceback
 import webbrowser
-from datetime import datetime, timezone
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -36,8 +35,6 @@ ACTOR = 'you'
 # What the page and the forms need: the pages, the rules, the lessons, the workflows (for their commands) and the grader.
 COPY = ['index.html', 'facilitator.html', 'scoring.js', 'lessons.json', 'dashboard.json',
         'walkthrough', 'grader', '.github/workflows']
-ARGS = re.compile(r"^\s*args:\s*'(.*)'\s*$", re.M)
-INPUT = re.compile(r'\$\{\{\s*toJSON\(inputs\.(\w+)\)\s*\}\}')
 
 
 def practice_results(lessons_):
@@ -68,23 +65,14 @@ def practice_copy(dest):
     return dest
 
 
-def command(workflow_text, inputs):
-    """The leaderboard command a facilitator workflow runs for these form inputs, built from its own `args:` line,
-    as GitHub would fill it in."""
-    m = ARGS.search(workflow_text)
-    if not m:
-        raise ValueError('not a facilitator form')
-    return [str(v) for v in json.loads(INPUT.sub(lambda i: json.dumps(str(inputs.get(i.group(1), ''))), m.group(1)))]
-
-
 class PracticeGitHub:
-    """Just enough of GitHub's API for facilitator.html: opening a facilitator issue (as pressing Submit would),
-    dispatching a facilitator workflow and its runs, and reading grader/history.json and grader/batches.json. An
-    issue or a workflow is applied straight away, on the practice copy, as changes-from-issues.yml would."""
+    """Just enough of GitHub's API for facilitator.html: opening a facilitator issue (as pressing Submit would), and
+    reading grader/history.json and grader/batches.json. An issue is applied straight away, on the practice copy,
+    and answered as changes-from-issues.yml would answer it (grader/issue_form.answer)."""
 
     def __init__(self, root):
         self.root = Path(root)
-        self.runs, self.issues = [], []
+        self.issues = []
         self.lock = threading.Lock()
 
     def open_issue(self, title, body):
@@ -95,56 +83,35 @@ class PracticeGitHub:
         except issue_form.NotAForm as e:
             return 422, {'message': str(e)}
         outcome, summary = self._apply(argv)
+        reply = issue_form.answer('', summary, outcome)  # the answer changes-from-issues.yml gives
         number = len(self.issues) + 1
-        issue = {'number': number, 'title': title, 'state': 'closed', 'locked': True,
-                 'state_reason': 'completed' if outcome == 'changed' else 'not_planned',
-                 'html_url': f'#issue-{number}', 'summary': summary}
+        issue = {'number': number, 'title': title, 'state': 'closed', 'locked': bool(reply.lock_reason),
+                 'state_reason': reply.state_reason, 'html_url': f'#issue-{number}', 'answer': reply.body}
         self.issues.append(issue)
         return 201, issue
 
     def _apply(self, argv):
-        """(outcome, what it said): a leaderboard command run on the practice copy, as the workflow runs it. The
-        outcome (changed, refused or broken) is the one leaderboard.py settles, read as the workflow reads it."""
+        """(outcome, summary): a leaderboard command run on the practice copy, as the workflow runs it: the outcome
+        leaderboard.py settles (changed, refused or broken) and the run page's summary, read as the workflow reads them."""
         import leaderboard  # the copy's grader is the same code; import late so the copy exists first
         out, err = io.StringIO(), io.StringIO()
         with self.lock, contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             env = {k: os.environ.pop(k, None) for k in ('GITHUB_STEP_SUMMARY', 'GITHUB_ACTOR', 'LEADERBOARD_OUTCOME')}
-            outcome_file = Path(tempfile.mkdtemp()) / 'outcome'  # outside the copy, like the runner's temp folder
-            os.environ.update(GITHUB_ACTOR=ACTOR, LEADERBOARD_OUTCOME=str(outcome_file))
+            temp = Path(tempfile.mkdtemp())  # outside the copy, like the runner's temp folder
+            outcome_file, summary_file = temp / 'outcome', temp / 'summary.md'
+            os.environ.update(GITHUB_ACTOR=ACTOR, LEADERBOARD_OUTCOME=str(outcome_file), GITHUB_STEP_SUMMARY=str(summary_file))
             try:
                 leaderboard.main(argv, root=self.root)
             except Exception:  # broken: leaderboard.py has recorded it; show why, as a run's log would
                 traceback.print_exc(file=sys.__stderr__)
             finally:
-                os.environ.pop('GITHUB_ACTOR', None)
-                os.environ.pop('LEADERBOARD_OUTCOME', None)
+                for k in ('GITHUB_ACTOR', 'LEADERBOARD_OUTCOME', 'GITHUB_STEP_SUMMARY'):
+                    os.environ.pop(k, None)
                 os.environ.update({k: v for k, v in env.items() if v is not None})
             outcome = leaderboard.read_outcome(outcome_file)[0]
-            shutil.rmtree(outcome_file.parent, ignore_errors=True)
-        return outcome, (out.getvalue() or err.getvalue()).strip()
-
-    def dispatch(self, workflow, inputs):
-        path = self.root / '.github' / 'workflows' / workflow
-        if not re.fullmatch(r'facilitator-[a-z]+\.yml', workflow) or not path.is_file():
-            return 404, {'message': 'Not Found'}
-        try:
-            argv = command(path.read_text(encoding='utf-8'), inputs or {})
-        except ValueError:
-            return 422, {'message': 'Workflow does not have a workflow_dispatch trigger'}
-        outcome, summary = self._apply(argv)
-        run_id = len(self.runs) + 1
-        self.runs.append({
-            'id': run_id, 'workflow': workflow, 'event': 'workflow_dispatch', 'actor': {'login': ACTOR},
-            'status': 'completed', 'conclusion': 'failure' if outcome == 'broken' else 'success', 'outcome': outcome,
-            'created_at': datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'),
-            'html_url': f'#run-{run_id}', 'summary': summary})
-        return 204, None
-
-    def workflow_runs(self, workflow):
-        return {'workflow_runs': [r for r in reversed(self.runs) if r['workflow'] == workflow]}
-
-    def run(self, run_id):
-        return next((r for r in self.runs if r['id'] == run_id), None)
+            summary = summary_file.read_text(encoding='utf-8').strip() if summary_file.exists() else ''
+            shutil.rmtree(temp, ignore_errors=True)
+        return outcome, summary  # nothing summarised: issue_form.answer says something went wrong, as on GitHub
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -181,11 +148,6 @@ class Handler(SimpleHTTPRequestHandler):
         if sub == '':
             return self.send_json(200, {'full_name': REPO})
         if sub is not None:
-            if m := re.fullmatch(r'/actions/workflows/([\w.-]+)/runs', sub):
-                return self.send_json(200, self.github.workflow_runs(m.group(1)))
-            if m := re.fullmatch(r'/actions/runs/(\d+)', sub):
-                run = self.github.run(int(m.group(1)))
-                return self.send_json(200, run) if run else self.send_json(404, {'message': 'Not Found'})
             if m := re.fullmatch(r'/contents/grader/(history|batches)\.json', sub):
                 path = root / 'grader' / f'{m.group(1)}.json'
                 if not path.exists():
@@ -212,11 +174,7 @@ class Handler(SimpleHTTPRequestHandler):
         if sub == '/issues':
             status, reply = self.github.open_issue(body.get('title', ''), body.get('body', ''))
             return self.send_json(status, reply)
-        m = re.fullmatch(r'/actions/workflows/([\w.-]+)/dispatches', sub or '')
-        if not m:
-            return self.send_json(404, {'message': 'Not Found'})
-        status, reply = self.github.dispatch(m.group(1), body.get('inputs') or {})
-        self.send_json(status, reply)
+        self.send_json(404, {'message': 'Not Found'})
 
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store')  # always show the practice copy as it is now

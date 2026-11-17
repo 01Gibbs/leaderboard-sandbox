@@ -56,8 +56,12 @@ jobs:
     if: always() && needs.read.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
-      issues: write  # to comment on and close the issue
+      contents: read  # grader/issue_form.py decides the answer
+      issues: write  # to comment on, close and lock the issue
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Answer the issue and close it
         env:
           GH_TOKEN: ${{ github.token }}
@@ -68,13 +72,15 @@ jobs:
           OUTCOME: ${{ needs.change.outputs.outcome }}  # changed, refused or broken; empty when not allowed
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          body=${REPLY:-$SUMMARY}
-          body=${body:-"Something went wrong before the change could be made. Nothing was changed."}
-          gh issue comment "$ISSUE" -R "$REPO" --body "$body"$'\n\n'"[The run that did this]($RUN)"
-          # Something changed: completed. Refused, broken or not allowed: not planned. Then locked, so the issue stays
-          # a record and draws no more notifications.
-          if [[ $OUTCOME == changed ]]; then reason=completed; else reason='not planned'; fi
+          # grader/issue_form.py decides the answer: the comment, the close reason (completed only when the change was
+          # made) and the lock. Should it fail, the issue is still answered, closed and locked rather than left open.
+          if ! decided=$(python3 grader/issue_form.py answer "$RUNNER_TEMP/answer.md"); then
+            echo 'Something went wrong before the change could be made. Nothing was changed: tell the repository owner.' > "$RUNNER_TEMP/answer.md"
+            decided=$'not planned\nresolved'
+          fi
+          reason=${decided%%$'\n'*} lock=${decided#*$'\n'}
+          gh issue comment "$ISSUE" -R "$REPO" --body-file "$RUNNER_TEMP/answer.md"
           gh issue close "$ISSUE" -R "$REPO" --reason "$reason"
           if [[ $(gh issue view "$ISSUE" -R "$REPO" --json locked -q .locked) != true ]]; then  # a re-run finds it locked
-            gh issue lock "$ISSUE" -R "$REPO" --reason resolved
+            gh issue lock "$ISSUE" -R "$REPO" --reason "$lock"
           fi

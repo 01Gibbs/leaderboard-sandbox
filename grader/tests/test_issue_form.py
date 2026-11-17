@@ -1,7 +1,7 @@
 """Facilitator changes sent as issues (grader/issue_form.py, changes-from-issues.yml, .github/ISSUE_TEMPLATE/).
 
 An issue must turn into exactly the command its Actions form would run, and only for people who may change the
-repository. The templates, the parser, the page's forms and the workflows must agree.
+repository, and answered the same way everywhere. The templates, the parser and the workflows must agree.
 """
 import contextlib
 import io
@@ -18,11 +18,23 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / 'grader'))
-import facilitator_walkthrough  # noqa: E402
 import issue_form  # noqa: E402
 
 TEMPLATES = REPO / '.github' / 'ISSUE_TEMPLATE'
 WORKFLOWS = REPO / '.github' / 'workflows'
+
+
+ARGS = re.compile(r"^\s*args:\s*'(.*)'\s*$", re.M)
+INPUT = re.compile(r'\$\{\{\s*toJSON\(inputs\.(\w+)\)\s*\}\}')
+
+
+def workflow_command(workflow_text, inputs):
+    """The leaderboard command a facilitator-*.yml workflow runs for these form inputs, built from its own `args:`
+    line as GitHub would fill it in."""
+    m = ARGS.search(workflow_text)
+    if not m:
+        raise ValueError('not a facilitator form: no args line')
+    return [str(v) for v in json.loads(INPUT.sub(lambda i: json.dumps(str(inputs.get(i.group(1), ''))), m.group(1)))]
 
 
 def body(**values):
@@ -68,7 +80,7 @@ class ReadingTests(unittest.TestCase):
             values = {field: f'value {i}' for i, (_, field) in enumerate(inputs)}
             from_issue = issue_form.command('Facilitator: ' + title, body(**{label: values[field] for label, field in inputs}))
             workflow = (WORKFLOWS / f'facilitator-{name}.yml').read_text()
-            self.assertEqual(from_issue, facilitator_walkthrough.command(workflow, values), title)
+            self.assertEqual(from_issue, workflow_command(workflow, values), title)
 
 
 class BatchTests(unittest.TestCase):
@@ -101,6 +113,14 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(roster.Roster(work).find('Asha Rao')['helped'], '2')
 
 
+class WorkflowCommandTests(unittest.TestCase):
+    def test_built_from_the_workflows_own_args_line(self):
+        self.assertEqual(workflow_command((WORKFLOWS / 'facilitator-award.yml').read_text(), {'person': 'Asha "AR" Rao', 'kind': 'helped', 'amount': '2'}),
+                         ['award', 'Asha "AR" Rao', 'helped', '2'])
+        self.assertEqual(workflow_command((WORKFLOWS / 'facilitator-add.yml').read_text(), {'name': 'Pat'}), ['add', 'Pat', ''])
+        self.assertEqual(workflow_command((WORKFLOWS / 'facilitator-undo.yml').read_text(), {}), ['undo'])
+
+
 class PermissionTests(unittest.TestCase):
     EVENT = {'issue': {'title': 'Facilitator: Award points', 'user': {'login': 'pat'},
                        'body': body(**{'Person': 'Asha', 'What for': 'helped', 'How many': '2'})}}
@@ -123,6 +143,37 @@ class PermissionTests(unittest.TestCase):
         allowed, _, reply = issue_form.decide(event, 'o/board', 't', api=lambda path: self.fail('asked GitHub'))
         self.assertFalse(allowed)
         self.assertIn('not a facilitator form', reply)
+
+
+class AnswerTests(unittest.TestCase):
+    """What the issue gets back: one reply, and closed as completed only when the change was made; always locked."""
+
+    def test_a_change_made_is_completed_with_what_happened(self):
+        reply = issue_form.answer('', '### ✅ Gave 1 help to Asha Rao', 'changed', run_url='https://run/1')
+        self.assertEqual((reply.close_reason, reply.state_reason, reply.lock_reason), ('completed', 'completed', 'resolved'))
+        self.assertEqual(reply.body, '### ✅ Gave 1 help to Asha Rao\n\n[The run that did this](https://run/1)')
+
+    def test_a_refused_change_is_not_planned_and_says_why(self):
+        reply = issue_form.answer('', '### ❌ Nothing was changed. Nobody called "Asha"', 'refused')
+        self.assertEqual((reply.close_reason, reply.state_reason, reply.lock_reason), ('not planned', 'not_planned', 'resolved'))
+        self.assertIn('Nobody called "Asha"', reply.body)
+
+    def test_not_allowed_answers_with_why_and_is_not_planned(self):
+        reply = issue_form.answer('Only the leaderboard\'s collaborators with write access can change it.', '', '')
+        self.assertEqual(reply.close_reason, 'not planned')
+        self.assertTrue(reply.body.startswith('Only the leaderboard'), reply.body)
+
+    def test_a_fault_before_any_summary_still_answers(self):
+        for outcome in ('broken', ''):
+            with self.subTest(outcome=outcome):
+                reply = issue_form.answer('', '', outcome)
+                self.assertEqual(reply.close_reason, 'not planned')
+                self.assertIn('Something went wrong', reply.body)
+
+    def test_only_changed_completes(self):
+        self.assertEqual({o: issue_form.answer('', 'x', o).close_reason for o in ('changed', 'refused', 'broken', '', 'nonsense')},
+                         {'changed': 'completed', 'refused': 'not planned', 'broken': 'not planned', '': 'not planned',
+                          'nonsense': 'not planned'})
 
 
 class WorkflowOutputTests(unittest.TestCase):
@@ -182,9 +233,10 @@ class AgreementTests(unittest.TestCase):
         self.assertIn("needs.read.result == 'success'", answer)  # so a skipped read answers nothing either
 
     def test_the_issue_is_closed_by_the_changes_outcome_not_its_wording(self):
-        answer = yaml(WORKFLOWS / 'changes-from-issues.yml')['jobs']['answer']['steps'][0]
+        answer = next(st for st in yaml(WORKFLOWS / 'changes-from-issues.yml')['jobs']['answer']['steps'] if 'run' in st)
         self.assertEqual(answer['env']['OUTCOME'], '${{ needs.change.outputs.outcome }}')
-        self.assertNotIn('Nothing was changed', answer['run'].split('gh issue comment', 1)[1])
+        self.assertIn('grader/issue_form.py answer', answer['run'])  # it decides; the shell only posts
+        self.assertNotRegex(answer['run'], r'(grep|==|!=|startswith)[^\n]*Nothing was changed')  # words only to show
 
     def test_the_workflow_reads_the_issue_only_through_python(self):
         wf = (WORKFLOWS / 'changes-from-issues.yml').read_text()
