@@ -2,8 +2,10 @@
 
     python3 grader/tests/e2e_github.py --repo OWNER/NAME            the Actions forms (about 8 minutes)
     python3 grader/tests/e2e_github.py --repo OWNER/NAME --issues   issues, as the facilitator page sends them
-    python3 grader/tests/e2e_github.py --repo OWNER/NAME --all      both, a grading run from a submission event, one
-                                                                    started by hand, and the mutation workflow (~25 min)
+    python3 grader/tests/e2e_github.py --repo OWNER/NAME --lessons  add a lesson as the page does, see its trial put it live,
+                                                                    and remove it (needs --exercise, a public Gradle exercise)
+    python3 grader/tests/e2e_github.py --repo OWNER/NAME --all      all of these, a grading run from a submission event, one
+                                                                    started by hand, and the mutation workflow (~35 min)
     add --keep to leave the test's issues and runs in place afterwards
 
 Each kind of change goes through a real workflow, and main's participants.csv is checked after each. A mistake (a
@@ -58,6 +60,11 @@ class GitHub:
                 return ''
             raise
         return base64.b64decode(got['content']).decode('utf-8')
+
+    def tree(self, folder):
+        """Every file path under `folder` on main."""
+        got = self.call('GET', f'/repos/{self.repo}/git/trees/main?recursive=1')
+        return sorted(f['path'] for f in got['tree'] if f['type'] == 'blob' and f['path'].startswith(folder + '/'))
 
     def me(self):
         return self.call('GET', '/user')['login']
@@ -122,7 +129,7 @@ class GitHub:
                                           'variables': {'id': issue['node_id']}})
         ours = [r for r in self.runs_since(since)
                 if (r['id'] in self.seen and r['path'].split('/')[-1] not in ('grade.yml', 'mutation.yml'))
-                or (r['path'].endswith('/pages.yml') and re.search(r'E2E |e2e-[0-9]', r.get('display_title') or ''))]
+                or (r['path'].endswith('/pages.yml') and re.search(r'E2E |e2e-', r.get('display_title') or ''))]
         for r in ours:
             self.call('DELETE', f'/repos/{self.repo}/actions/runs/{r["id"]}')
         return len(self.issues), len(ours)
@@ -181,6 +188,44 @@ def _when(stamp):
     return datetime.strptime(stamp, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()
 
 
+LESSON = 'e2e_lesson'  # one key every run, so the column a removed lesson keeps is the same one each time
+
+
+def lessons_journey(gh, exercise):
+    """Add `exercise` as a lesson in a batch issue (as the facilitator page sends it), see it saved as checking with its
+    pinned tests, see the grading run its save starts try it and put it live, then remove it again."""
+    failures = []
+    start_lessons, start_files = gh.file('lessons.json'), gh.tree('grader/fixtures')
+
+    def lesson():
+        return next((entry for entry in json.loads(gh.file('lessons.json')) if entry['key'] == LESSON), None)
+    try:
+        started = time.time()
+        issue, reply, record = gh.send_batch(f'e2e-lesson-{int(started)}', [['add-lesson', LESSON, 'E2E lesson', exercise, 'tests']])
+        added = lesson()
+        failures += report('add a lesson: saved as checking, with its tests pinned',
+                           issue.get('state_reason') == 'completed' and added and added.get('status') == 'checking'
+                           and any(f.startswith(f'grader/fixtures/{LESSON}/src/test/') for f in gh.tree('grader/fixtures')),
+                           reply.splitlines()[0] if reply else issue['html_url'])
+        run = gh.finish(gh.find_run('grade.yml', 'push', started), every=15)
+        live = lesson()
+        trial = json.loads(gh.file('grader/results.json') or '{}').get('trials', {}).get(LESSON, {})
+        failures += report('its save starts grading, whose trial puts it live',
+                           run['conclusion'] == 'success' and live is not None and 'status' not in live and trial.get('passed') is True,
+                           f'{run["html_url"]}: {"; ".join(trial.get("reasons", [])) or "no trial"}')
+        promoted = time.time()
+        run = gh.finish(gh.find_run('grade.yml', 'push', promoted - 300), every=15)
+        failures += report('going live starts grading again, for its pull requests', run['conclusion'] == 'success', run['html_url'])
+    finally:
+        if lesson():
+            issue, reply, record = gh.send_batch(f'e2e-lesson-remove-{int(time.time())}', [['remove-lesson', LESSON]])
+            failures += report('remove it again', issue.get('state_reason') == 'completed', reply.splitlines()[0] if reply else issue['html_url'])
+        gh.finish(gh.find_run('grade.yml', 'push', time.time() - 300), every=15)  # the removal's save starts grading too
+        same = gh.file('lessons.json') == start_lessons and gh.tree('grader/fixtures') == start_files
+        failures += report('lessons.json and the pinned tests are back where they started', same, '')
+    return failures
+
+
 def rows(text):
     return {r['name']: r for r in csv.DictReader(io.StringIO(text))}
 
@@ -191,6 +236,9 @@ def main(argv):
     p.add_argument('--issues', action='store_true', help='issues, as the facilitator page sends them, instead of the Actions forms')
     p.add_argument('--all', action='store_true', help='the Actions forms and issues, grading runs, and the mutation workflow')
     p.add_argument('--keep', action='store_true', help="leave the test's issues and runs in place afterwards")
+    p.add_argument('--lessons', action='store_true', help='add a lesson as the page does, see it go live, remove it')
+    p.add_argument('--exercise', default='01Gibbs/leaderboard-sandbox-exercise',
+                   help='a public Gradle exercise with src/test/, added and removed as a lesson')
     a = p.parse_args(argv)
     began = time.time()
     token = os.environ.get('GH_TOKEN') or subprocess.run(['gh', 'auth', 'token'], capture_output=True, text=True).stdout.strip()
@@ -200,7 +248,10 @@ def main(argv):
     lesson = json.loads(gh.file('lessons.json'))[-1]['key']
     start = Start(gh.file('participants.csv'), json.loads(gh.file('grader/history.json') or '[]'))
     failures = []
-    if a.all or not a.issues:
+    if a.all or a.lessons:
+        print('\n--- A lesson added from the page: tried, put live, removed')
+        failures += lessons_journey(gh, a.exercise)
+    if a.all or not (a.issues or a.lessons):
         print('\n--- Changes through the Actions forms')
         failures += actions_journey(gh, me, f'{stamp}a', lesson, start)
     if a.all or a.issues:
@@ -246,7 +297,8 @@ class Start:
         """None when main is back where it started; otherwise what differs."""
         end_csv, end_history = gh.file('participants.csv'), json.loads(gh.file('grader/history.json') or '[]')
         leftovers = [n for n in rows(end_csv) if n.startswith('E2E ')]
-        changed = {n for n, r in rows(self.csv).items() if rows(end_csv).get(n) != r}
+        start_columns = set(next(iter(rows(self.csv).values()), {}))  # a lesson added and removed keeps its column, empty
+        changed = {n for n, r in rows(self.csv).items() if {k: v for k, v in rows(end_csv).get(n, {}).items() if k in start_columns} != r}
         return (f'rows left behind: {leftovers}' if leftovers else
                 f'history has {len(end_history)} entries, started with {len(self.history)}' if len(end_history) != len(self.history) else
                 f'rows differ from the start (a grading run may have raised them meanwhile): {sorted(changed)}' if changed else None)
