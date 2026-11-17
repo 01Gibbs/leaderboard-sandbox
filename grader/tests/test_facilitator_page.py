@@ -65,15 +65,6 @@ class PageTests(unittest.TestCase):
         self.assertEqual(re.findall(r'https?://(?!github\.com|api\.github\.com)[\w.-]+', PAGE), [])
 
 
-class CommandTests(unittest.TestCase):
-    def test_built_from_the_workflows_own_args_line(self):
-        text = (WORKFLOWS / 'facilitator-award.yml').read_text()
-        self.assertEqual(facilitator_walkthrough.command(text, {'person': 'Asha "AR" Rao', 'kind': 'helped', 'amount': '2'}),
-                         ['award', 'Asha "AR" Rao', 'helped', '2'])
-        self.assertEqual(facilitator_walkthrough.command((WORKFLOWS / 'facilitator-add.yml').read_text(), {'name': 'Pat'}), ['add', 'Pat', ''])
-        self.assertEqual(facilitator_walkthrough.command((WORKFLOWS / 'facilitator-undo.yml').read_text(), {}), ['undo'])
-
-
 class PracticeServerTests(unittest.TestCase):
     def setUp(self):
         self.real = hashlib.sha256((REPO / 'participants.csv').read_bytes()).hexdigest()
@@ -98,9 +89,12 @@ class PracticeServerTests(unittest.TestCase):
     def api(self, path, body=None):
         return self.call(f'/practice-api/repos/practice/leaderboard{path}', body)
 
-    def dispatch(self, workflow, **inputs):
-        self.assertEqual(self.api(f'/actions/workflows/{workflow}/dispatches', {'ref': 'main', 'inputs': inputs})[0], 204)
-        return self.api(f'/actions/workflows/{workflow}/runs')[1]['workflow_runs'][0]
+    def send(self, *rows, batch='prac'):
+        """What the page's Send does: one Changes issue with these rows. Returns the issue as answered."""
+        body = f'### Batch\n\n{batch}\n\n### Changes\n\n' + '\n'.join(json.dumps(list(r)) for r in rows)
+        status, issue = self.api('/issues', {'title': 'Facilitator: Changes', 'body': body})
+        self.assertEqual(status, 201)
+        return issue
 
     def test_starts_with_none_of_the_real_changes(self):
         for name in ('history', 'batches'):  # the real repository's, whatever they hold, stay out of practice
@@ -111,29 +105,23 @@ class PracticeServerTests(unittest.TestCase):
         self.assertIn(b'Asha Rao', self.call('/participants.csv')[1])
         self.assertEqual(self.call('/practice-api/user')[1], {'login': 'you'})
 
-    def test_a_form_runs_its_command_on_the_copy_only(self):
-        run = self.dispatch('facilitator-award.yml', person='Asha Rao', kind='helped', amount='2')
-        self.assertEqual((run['status'], run['conclusion']), ('completed', 'success'))
-        self.assertIn('Gave 2 helps to Asha Rao', run['summary'])
-        self.assertEqual(self.api(f'/actions/runs/{run["id"]}')[1]['id'], run['id'])
+    def test_a_change_is_made_on_the_copy_only(self):
+        issue = self.send(['award', 'Asha Rao', 'helped', '2'], batch='prac-a')
+        self.assertEqual((issue['state'], issue['state_reason'], issue['locked']), ('closed', 'completed', True))
+        self.assertIn('Gave 2 helps to Asha Rao', issue['answer'])
         self.assertEqual(self.api('/contents/grader/history.json')[1][-1]['by'], 'you')
         self.assertEqual(hashlib.sha256((REPO / 'participants.csv').read_bytes()).hexdigest(), self.real)
 
-    def test_a_mistake_is_an_answer_that_says_why(self):
-        # As on GitHub: a refused change is not a fault, so its run succeeds; its outcome says it was refused.
-        run = self.dispatch('facilitator-award.yml', person='Nobody Here', kind='helped', amount='1')
-        self.assertEqual((run['conclusion'], run['outcome']), ('success', 'refused'))
-        self.assertIn('Nobody called "Nobody Here"', run['summary'])
-
-    def test_a_refused_issue_is_closed_as_not_planned(self):
-        body = '### Batch\n\nprac2\n\n### Changes\n\n' + json.dumps(['award', 'Nobody Here', 'helped', '1'])
-        status, issue = self.api('/issues', {'title': 'Facilitator: Changes', 'body': body})
-        self.assertEqual((status, issue['state_reason']), (201, 'not_planned'))
+    def test_a_mistake_is_answered_with_why_as_on_github(self):
+        issue = self.send(['award', 'Nobody Here', 'helped', '1'], batch='prac-b')
+        self.assertEqual(issue['state_reason'], 'not_planned')
+        self.assertTrue(issue['answer'].startswith('### ❌ Nothing was changed.'), issue['answer'])  # the run page's summary
+        self.assertIn('Nobody called "Nobody Here"', issue['answer'])
 
     def test_undo_reverses_the_practice_change(self):
         before = self.call('/participants.csv')[1]
-        self.dispatch('facilitator-rename.yml', person='Asha Rao', new_name='Asha R')
-        self.assertEqual(self.dispatch('facilitator-undo.yml')['conclusion'], 'success')
+        self.send(['rename', 'Asha Rao', 'Asha R'], batch='prac-c')
+        self.assertEqual(self.send(['undo'], batch='prac-d')['state_reason'], 'completed')
         self.assertEqual(self.call('/participants.csv')[1], before)
 
     def test_a_changes_issue_is_applied_row_by_row(self):
@@ -146,7 +134,7 @@ class PracticeServerTests(unittest.TestCase):
         self.assertTrue(batch['rows'][0]['change'])
 
     def test_reading_state_again_unchanged_costs_a_304(self):
-        self.dispatch('facilitator-award.yml', person='Asha Rao', kind='helped', amount='1')
+        self.send(['award', 'Asha Rao', 'helped', '1'], batch='prac-e')
         req = urllib.request.Request(self.base + '/practice-api/repos/practice/leaderboard/contents/grader/history.json')
         with urllib.request.urlopen(req) as r:
             etag = r.headers['ETag']
@@ -156,12 +144,13 @@ class PracticeServerTests(unittest.TestCase):
         self.assertEqual(e.exception.code, 304)
         e.exception.close()
 
-    def test_only_facilitator_forms_can_be_run(self):
-        for workflow in ('grade.yml', 'facilitator-action.yml', '..%2Fgrade.yml'):
-            with self.subTest(workflow):
-                self.assertIn(self.api(f'/actions/workflows/{workflow}/dispatches', {'ref': 'main'})[0], (404, 422))
+    def test_only_issues_can_change_it(self):
+        # The page sends issues; nothing in practice starts a workflow, as nothing on the real page does.
+        for path in ('/actions/workflows/facilitator-award.yml/dispatches', '/actions/workflows/grade.yml/dispatches'):
+            with self.subTest(path):
+                self.assertEqual(self.api(path, {'ref': 'main'})[0], 404)
+        self.assertEqual(self.api('/actions/workflows/facilitator-award.yml/runs')[0], 404)
         self.assertEqual(self.api('/contents/grader/history.json')[0], 404)  # nothing has run
-
 
 if __name__ == '__main__':
     unittest.main()

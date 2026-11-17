@@ -219,7 +219,7 @@ def read_outcome(path):
 def report(text, failed=False):
     print(text, file=sys.stderr if failed else sys.stdout)
     if os.environ.get('GITHUB_STEP_SUMMARY'):  # shows on the workflow run page
-        with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+        with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:
             f.write(('### ❌ ' if failed else '### ✅ ') + text.splitlines()[0] + '\n\n' + '\n'.join(text.splitlines()[1:]) + '\n')
 
 
