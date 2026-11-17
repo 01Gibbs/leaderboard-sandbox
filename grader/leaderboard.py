@@ -14,6 +14,9 @@ terminal. A person is named by their GitHub login or their name.
   apply    [results.json]                 write graded results into participants.csv (from a grading run's file)
   pin-tests <lesson> [commit]             grade a lesson with its exercise repository's own tests, as they are at
                                           that full commit id (default: the latest), copied into grader/fixtures/<lesson>/
+  add-lesson <key> "Label" <owner/repo> none|build|tests [tests-repo] [tests-folder]
+                                          add a lesson as the facilitator page does: checking until a trial passes
+  remove-lesson <key>                     remove a lesson added by mistake (not one with graded pull requests)
 """
 import argparse
 import json
@@ -28,7 +31,7 @@ import submissions  # noqa: E402
 from rules import COUNTS, STATUSES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-BATCHABLE = ('add', 'award', 'mark', 'rename', 'merge', 'undo')
+BATCHABLE = ('add', 'award', 'mark', 'rename', 'merge', 'undo', 'add-lesson', 'remove-lesson')
 REFUSED_HEADING = 'Nothing was changed.'  # what people read when a change is refused; machines read the outcome
 CHANGES = BATCHABLE + ('batch',)  # the commands that change the leaderboard, so have an outcome
 BATCH_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9-]{1,63}')
@@ -74,6 +77,15 @@ def parser(cls=argparse.ArgumentParser):
     c = sub.add_parser('pin-tests', help="grade a lesson with its exercise repository's own tests")
     c.add_argument('lesson')
     c.add_argument('commit', nargs='?')
+    c = sub.add_parser('add-lesson', help='add a lesson, checking until a trial passes')
+    c.add_argument('key')
+    c.add_argument('label')
+    c.add_argument('repo')
+    c.add_argument('check', help='none, build or tests')
+    c.add_argument('tests_repo', nargs='?', default='', help='owner/name its tests come from, if not its own')
+    c.add_argument('tests_dir', nargs='?', default='', help='the folder in that repository holding the project')
+    c = sub.add_parser('remove-lesson', help='remove a lesson added by mistake')
+    c.add_argument('key')
     return p
 
 
@@ -96,6 +108,11 @@ def run(argv, root, board=None, parser_class=argparse.ArgumentParser):
         return board.undo(a.id)
     if a.cmd == 'history':
         return board.recent(a.count)
+    if a.cmd in ('add-lesson', 'remove-lesson'):
+        import lesson_changes
+        if a.cmd == 'remove-lesson':
+            return lesson_changes.remove(root, a.key)
+        return lesson_changes.add(root, a.key, a.label, a.repo, a.check, a.tests_repo, a.tests_dir)
     if a.cmd == 'pin-tests':
         import exercise_tests
         sha, count = exercise_tests.pin(root, a.lesson, a.commit)

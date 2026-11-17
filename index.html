@@ -424,7 +424,7 @@ document.querySelectorAll('[data-points]').forEach((b) => {
   } catch (e) { /* no title or workshops; the scores still show */ }
   try {
     const res = await fetch(LESSONS_FILE, { cache: 'no-cache' });
-    if (res.ok) TRACKS = (await res.json()).map((l) => ({ k: l.key, label: l.label }));
+    if (res.ok) TRACKS = (await res.json()).filter((l) => l.status !== 'checking').map((l) => ({ k: l.key, label: l.label }));  // checking: not live yet
   } catch (e) { /* no lessons.json: exercises come from the CSV columns instead */ }
   render();
   try {

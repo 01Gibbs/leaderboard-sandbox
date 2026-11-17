@@ -16,6 +16,7 @@ git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 for attempt in 1 2 3 4 5; do
   git fetch -q origin main
   git reset -q --hard origin/main
+  git clean -fdq -- grader/fixtures  # nothing left over (an earlier attempt's) can be staged with the lessons
   : > "$attempt_summary"
   # A failing command (for example a misspelled name) stops here: nothing is committed. Exit 3 says it was the
   # command that said no, so a caller can tell that from failing to save, which exits 1 (or git's own code).
@@ -24,8 +25,10 @@ for attempt in 1 2 3 4 5; do
     exit 3
   fi
   echo "$output"
-  for f in participants.csv grader/results.json grader/history.json grader/batches.json; do
-    if [[ -e $f ]]; then git add "$f"; fi
+  # The state files, and the lessons and their pinned tests (added or removed from the facilitator page). -A so
+  # a removed lesson's tests are removed too.
+  for f in participants.csv grader/results.json grader/history.json grader/batches.json lessons.json grader/fixtures; do
+    if [[ -e $f ]]; then git add -A -- "$f"; fi
   done
   if git diff --cached --quiet; then
     cat "$attempt_summary" >> "$summary"

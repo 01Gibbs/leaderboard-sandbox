@@ -291,6 +291,45 @@ expect((work / 'gh-args').read_text().split('\n')[:5] == ['api', 'repos/o/board/
 expect('__LEADERBOARD_REPO__' in (SRC / 'grader' / 'exercise-repo' / 'notify-leaderboard.yml').read_text(),
        'hook: the leaderboard repository is filled in when it is installed')
 
+print('A lesson added and removed from the facilitator page')
+# A stand-in for GitHub holding a public exercise repository; the workflow fetches it with no credentials, from
+# https://github.com/, which a git config in HOME points here (HOME is one of the few variables git is given).
+github = work / 'github'
+exercise = github / 'o' / 'greeting.git'
+git_home = work / 'git-home'
+git_home.mkdir()
+(git_home / '.gitconfig').write_text(f'[url "{github}/"]\n\tinsteadOf = https://github.com/\n')
+exercise.mkdir(parents=True)
+for rel, text in {'build.gradle': "plugins { id 'java' }", 'gradlew': '#!/bin/sh\n',
+                  'src/main/java/Greeting.java': 'class Greeting {}', 'src/test/java/GreetingTest.java': 'class GreetingTest {}'}.items():
+    (exercise / rel).parent.mkdir(parents=True, exist_ok=True)
+    (exercise / rel).write_text(text)
+sh('git init -q -b main && git add -A && git -c user.name=a -c user.email=a@a commit -qm starter', exercise)
+
+
+def run_batch(batch_id, rows):
+    checkout = work / ('run-' + batch_id)
+    shutil.rmtree(checkout, ignore_errors=True)
+    sh(f'git clone -q {origin} {checkout}', work)
+    temp = Path(tempfile.mkdtemp())
+    ok = run_steps(workflow, workflow['jobs']['change'], checkout, {
+        'ARGS': json.dumps(['batch', batch_id, json.dumps(rows)]), 'RUNNER_TEMP': str(temp), 'GITHUB_ACTOR': 'facilitator-ann',
+        'GITHUB_STEP_SUMMARY': str(temp / 'summary.md'), 'GITHUB_OUTPUT': str(temp / 'out'), 'HOME': str(git_home)})
+    sh('git pull -q', clone)
+    committed = set(sh('git show --name-only --format= HEAD', clone).stdout.split())
+    return ok, step_outputs(temp / 'out').get('outcome'), committed
+
+
+ok, outcome, committed = run_batch('sim-lesson', [['add-lesson', 'greeting', 'Greeting', 'o/greeting', 'tests']])
+added = json.loads((clone / 'lessons.json').read_text())[-1]
+expect(ok and outcome == 'changed' and added['key'] == 'greeting' and added['status'] == 'checking' and added['check'] == 'tests',
+       'add-lesson: saved as checking, graded with its pinned tests')
+expect(committed == {'lessons.json', 'grader/batches.json', 'grader/fixtures/greeting/src/test/java/GreetingTest.java'},
+       f'add-lesson: the commit holds the lesson, its pinned tests and the batch record, nothing else ({sorted(committed)})')
+ok, outcome, committed = run_batch('sim-lesson-remove', [['remove-lesson', 'greeting']])
+expect(ok and outcome == 'changed' and 'greeting' not in (clone / 'lessons.json').read_text()
+       and not (clone / 'grader/fixtures/greeting').exists(), 'remove-lesson: the lesson and its pinned tests are gone from main')
+
 print('Answering a facilitator issue')
 # The answer job with a stand-in gh that logs each call as one JSON list (a comment's body read in from its file,
 # so newlines need no shell escaping, which differs between bash versions) and says whether the issue is locked.

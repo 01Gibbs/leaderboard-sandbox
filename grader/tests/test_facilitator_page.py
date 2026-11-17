@@ -55,6 +55,11 @@ class PageTests(unittest.TestCase):
         self.assertTrue(targets)
         self.assertEqual(targets - anchors, set(), 'facilitator-steps.js targets missing from facilitator.html')
 
+    def test_neither_page_shows_a_lesson_still_being_checked(self):
+        for name in ('index.html', 'facilitator.html'):
+            with self.subTest(name):
+                self.assertRegex((REPO / name).read_text(), r"\.filter\(\(l\) => l\.status !== 'checking'\)")
+
     def test_the_page_is_published_with_the_leaderboard(self):
         publish = (WORKFLOWS / 'pages.yml').read_text()
         for f in ('facilitator.html', 'scoring.js', 'github-reader.js', 'participants.csv', 'lessons.json'):
