@@ -71,6 +71,15 @@ class WorkflowRulesTests(unittest.TestCase):
             if where != 'pages.yml/deploy':
                 self.assertNotIn('write', {granted.get('pages'), granted.get('id-token')}, f'{where} can deploy the page')
 
+    def test_a_page_deploy_github_fails_once_is_tried_again(self):
+        steps = self.workflows['pages.yml']['jobs']['deploy']['steps']
+        deploys = [st for st in steps if str(st.get('uses', '')).startswith('actions/deploy-pages@')]
+        self.assertEqual(len(deploys), 2)
+        first, again = deploys
+        self.assertTrue(first.get('continue-on-error'))
+        self.assertEqual(again['if'], "steps.deploy.outcome == 'failure'")
+        self.assertNotIn('continue-on-error', again)  # a second failure fails the run
+
     def test_form_inputs_never_reach_a_shell(self):
         for where, _, job in self.jobs():
             for step in job.get('steps', []):

@@ -29,7 +29,7 @@ To move it, for example to the workshop lead's own account:
 2. The new owner runs `grader/setup-leaderboard.sh` in a clone, logged in to the GitHub CLI as themselves. It publishes the page, adds the deploy key and its secret, the ruleset, the `facilitator` label and the collaborators, then starts the first grading run. Skip its last, optional step (connecting exercise repositories).
 3. Share the new facilitator page address, `https://<new owner>.github.io/<repository>/facilitator.html`. Facilitators need to be collaborators on the new repository.
 
-The old copy can stay as a sandbox for trying changes. `grader/tests/e2e_github.py --repo <owner>/<repository> --all` exercises every real workflow there and undoes everything it changed.
+The old copy can stay as a sandbox for trying changes. `grader/tests/e2e_github.py --repo <owner>/<repository> --all` exercises every real workflow there, undoes everything it changed, and when everything passed deletes the issues and runs it caused.
 
 ## When something looks wrong
 
