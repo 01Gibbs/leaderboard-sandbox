@@ -298,7 +298,8 @@ async function gradeNow() {
 async function loadBoard(fromGitHub) {
   const csv = fromGitHub && !PRACTICE ? await readState('participants.csv', '')
     : await fetch('participants.csv', { cache: 'no-store' }).then((r) => (r.ok ? r.text() : ''));
-  if (!lessons.length) lessons = await fetch('lessons.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : []));
+  if (!lessons.length) lessons = await fetch('lessons.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : []))
+    .then((all) => all.filter((l) => l.status !== 'checking'));  // checking: not live yet
   const tracks = lessons.map((l) => ({ k: l.key, label: l.label }));
   const read = readParticipants(csv, tracks);
   const table = parseCSV(csv), head = (table[0] || []).map(normHeader);

@@ -10,6 +10,7 @@ from pathlib import Path
 
 GRADER = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(GRADER))
+import lessons  # noqa: E402
 import roster  # noqa: E402
 import submissions  # noqa: E402
 
@@ -21,7 +22,8 @@ class SavedFilesTests(unittest.TestCase):
     def test_the_workflows_commit_exactly_the_files_the_grader_writes(self):
         root = Path(tempfile.mkdtemp())
         board, subs = roster.Roster(root), submissions.Submissions(root)
-        owned = {board.csv_file, board.history_file, board.batches_file, subs.file}
+        owned = {board.csv_file, board.history_file, board.batches_file, subs.file,
+                 lessons.lessons_file(root), lessons.fixtures(root)}  # lessons added or removed from the page
         listed = re.search(r'for f in (.+); do', (GRADER / 'run_and_push.sh').read_text()).group(1).split()
         self.assertEqual({root / f for f in listed}, owned)
         root.rmdir()

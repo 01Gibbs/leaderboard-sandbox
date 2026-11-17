@@ -51,9 +51,10 @@ class LoadingTests(Sandbox):
         with self.assertRaises(lessons.LessonsInvalid) as e:
             self.load()
         msg = str(e.exception)
-        for part in ('lowercase', '"helped" is already used', 'owner/name', 'check must be one of', 'needs a label', '"ok" is already used'):
+        for part in ('lowercase', '"helped" is already used', 'owner/name', 'check must be one of', 'needs a label', '"ok" is already used',
+                     'o/r is already the repository of x: one lesson per repository'):
             self.assertIn(part, msg)
-        self.assertEqual(len(e.exception.problems), 6)
+        self.assertEqual(len(e.exception.problems), 8)  # o/r is used three times: two of them are a second lesson on it
 
     def test_a_key_cannot_be_a_column_the_sheet_already_uses(self):
         for column in ('name', 'github_username', 'stretch', 'helped', 'bonus', 'pr_stretch'):
