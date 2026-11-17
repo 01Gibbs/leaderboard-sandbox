@@ -57,9 +57,9 @@ class FacilitatorJourneyTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.folder, True)
         self.addCleanup(self.server.server_close)
         self.addCleanup(self.server.shutdown)
-        self.page = self.open('/facilitator.html?practice')
+        self.page = self.open('/facilitator.html?practice#people')
         expect(self.page.locator('#who')).to_have_text('Practising')
-        expect(self.page.locator('#people li').first).to_be_visible()
+        expect(self.page.locator('#roster-list li').first).to_be_visible()
 
     def open(self, path, width=1280):
         page = self.browser.new_page(viewport={'width': width, 'height': 900})
@@ -73,6 +73,7 @@ class FacilitatorJourneyTests(unittest.TestCase):
     # ---------- helpers ----------
 
     def pick(self, name):
+        self.page.get_by_role('tab', name='People').click()
         self.page.locator('#find').fill(name)
         self.page.locator('#find').press('Enter')
         expect(self.page.locator('#person h2')).to_have_text(name)
@@ -188,7 +189,7 @@ class FacilitatorJourneyTests(unittest.TestCase):
         self.send()
         self.assertIn('Priya New', self.sheet())
         self.page.locator('#find').fill('Priya')
-        expect(self.page.locator('#people li')).to_have_count(1)
+        expect(self.page.locator('#roster-list li')).to_have_count(1)
 
     def test_merge_shows_what_the_row_will_be(self):
         self.page.locator('#find').fill('Dup Person')
@@ -235,11 +236,16 @@ class FacilitatorJourneyTests(unittest.TestCase):
         expect(self.queued()).to_have_count(2)  # turned off
 
     def test_works_on_a_phone_sized_screen(self):
-        page = self.open('/facilitator.html?practice', width=375)
-        expect(page.locator('#people li').first).to_be_visible()
+        page = self.open('/facilitator.html?practice#people', width=375)
+        expect(page.locator('#roster-list li').first).to_be_visible()
         self.assertLessEqual(page.evaluate('document.documentElement.scrollWidth'), 375, 'no sideways scrolling')
         boxes = [page.locator(s).bounding_box() for s in ('#roster', '#person', '#changes')]
         self.assertTrue(boxes[0]['y'] < boxes[1]['y'] < boxes[2]['y'], 'stacked: people, then the person, then changes')
+        page.get_by_role('tab', name='Workshop').click()
+        expect(page.locator('#lessonList li').first).to_be_visible()
+        self.assertLessEqual(page.evaluate('document.documentElement.scrollWidth'), 375, 'no sideways scrolling')
+        boxes = [page.locator(s).bounding_box() for s in ('#grading', '#lessonsPanel', '#changes')]
+        self.assertTrue(boxes[0]['y'] < boxes[1]['y'] < boxes[2]['y'], 'stacked: grading, then lessons, then changes')
 
     def test_a_change_cannot_be_undone_twice_from_the_page(self):
         self.pick('Asha Rao')
@@ -256,7 +262,7 @@ class FacilitatorJourneyTests(unittest.TestCase):
         find.focus()
         find.press('ArrowDown')
         find.press('ArrowDown')
-        second = self.page.locator('#people li').nth(1).get_attribute('data-name')
+        second = self.page.locator('#roster-list li').nth(1).get_attribute('data-name')
         expect(find).to_have_attribute('aria-activedescendant', 'person-1')
         find.press('Enter')
         expect(self.page.locator('#person h2')).to_have_text(second)
@@ -269,9 +275,9 @@ class FacilitatorJourneyTests(unittest.TestCase):
         expect(failed.first).to_contain_text('cannot go in a batch')
 
     def test_a_change_github_never_makes_is_not_left_waiting(self):
-        page = self.open('/facilitator.html?practice&timeout=2')
+        page = self.open('/facilitator.html?practice&timeout=2#people')
         page.route('**/practice-api/**/issues', lambda route: route.fulfill(status=201, body='{}'))  # sent, never applied
-        expect(page.locator('#people li').first).to_be_visible()
+        expect(page.locator('#roster-list li').first).to_be_visible()
         page.locator('#find').fill('Asha Rao')
         page.locator('#find').press('Enter')
         page.get_by_role('button', name='Give Asha Rao a help').click()
@@ -283,7 +289,7 @@ class FacilitatorJourneyTests(unittest.TestCase):
         expect(page.locator('#queue li.queued')).to_have_count(1)
 
     def test_a_change_waiting_while_github_limits_reads_says_so_and_is_not_given_up(self):
-        page = self.open('/facilitator.html?practice&timeout=2')
+        page = self.open('/facilitator.html?practice&timeout=2#people')
         refused = []
 
         def first_read_limited(route):  # GitHub refuses the first read, until 4 s from now; then answers as usual
@@ -293,7 +299,7 @@ class FacilitatorJourneyTests(unittest.TestCase):
             route.fulfill(status=403, content_type='application/json', body='{"message": "API rate limit exceeded"}',
                           headers={'x-ratelimit-remaining': '0', 'x-ratelimit-reset': str(int(time.time()) + 4)})
         page.route('**/practice-api/**/contents/grader/batches.json*', first_read_limited)
-        expect(page.locator('#people li').first).to_be_visible()
+        expect(page.locator('#roster-list li').first).to_be_visible()
         page.locator('#find').fill('Asha Rao')
         page.locator('#find').press('Enter')
         page.get_by_role('button', name='Give Asha Rao a help').click()
@@ -303,12 +309,129 @@ class FacilitatorJourneyTests(unittest.TestCase):
         expect(page.locator('#queue li.done')).to_have_count(1, timeout=15000)
         expect(page.locator('#queue li.failed')).to_have_count(0)
 
+    # ---------- the two tabs ----------
+
+    def test_workshop_is_the_default_and_the_tabs_work_as_a_tab_list(self):
+        page = self.open('/facilitator.html?practice')
+        workshop, people = page.get_by_role('tab', name='Workshop'), page.get_by_role('tab', name='People')
+        expect(workshop).to_have_attribute('aria-selected', 'true')
+        expect(page.locator('#workshop-panel')).to_be_visible()
+        expect(page.locator('#people-panel')).to_be_hidden()
+        workshop.focus()
+        page.keyboard.press('ArrowRight')
+        expect(people).to_be_focused()
+        expect(people).to_have_attribute('aria-selected', 'true')
+        expect(page.locator('#people-panel')).to_be_visible()
+        self.assertTrue(page.url.endswith('#people'), 'a tab can be linked')
+        page.evaluate("location.hash = '#workshop'")  # a link back
+        expect(workshop).to_have_attribute('aria-selected', 'true')
+        expect(workshop).to_be_focused()
+        page.evaluate("location.hash = '#people'")
+        page.keyboard.press('ArrowRight')  # wraps round
+        expect(workshop).to_be_focused()
+        page.keyboard.press('End')
+        expect(people).to_have_attribute('aria-selected', 'true')
+        page.keyboard.press('Home')
+        expect(workshop).to_have_attribute('aria-selected', 'true')
+        expect(people).to_have_attribute('tabindex', '-1')
+
+    def test_slash_finds_a_person_from_either_tab_and_letters_act_only_on_people(self):
+        page = self.open('/facilitator.html?practice')
+        expect(page.locator('#lessonList li').first).to_be_visible()
+        page.keyboard.press('/')
+        expect(page.locator('#people-panel')).to_be_visible()
+        expect(page.locator('#find')).to_be_focused()
+        page.locator('#find').fill('Asha Rao')
+        page.locator('#find').press('Enter')
+        page.get_by_role('tab', name='Workshop').click()
+        page.keyboard.press('h')
+        expect(page.locator('#queue li')).to_have_count(0)
+
+    def test_the_page_says_who_can_send_and_reads_little_on_load(self):
+        page = self.browser.new_page()
+        self.addCleanup(page.close)
+        reads = []
+        page.context.route('https://github.com/**', lambda route: route.fulfill(body='GitHub', content_type='text/html'))
+        page.context.route('https://api.github.com/**', lambda route: (reads.append(route.request.url), route.fulfill(status=404, body='{}')))
+        page.goto(self.base + '/facilitator.html?repo=someone/board#people')
+        page.locator('#find').fill('Asha Rao')
+        page.locator('#find').press('Enter')
+        page.get_by_role('button', name='Give Asha Rao a help').click()
+        expect(page.locator('#sendHint')).to_contain_text("Only the leaderboard's collaborators can make changes.")
+        self.assertLessEqual(len(reads), 4, f'reads on load: {reads}')  # GitHub allows 60 an hour without a token
+
+    def test_the_changes_box_is_shared_by_both_tabs(self):
+        self.pick('Asha Rao')
+        self.page.get_by_role('button', name='Give Asha Rao a help').click()
+        self.page.get_by_role('tab', name='Workshop').click()
+        expect(self.queued()).to_have_count(1)
+        self.page.locator('#lessonList li', has_text='Old exercise').get_by_role('button', name='Remove lesson Old exercise').click()
+        expect(self.queued()).to_have_count(2)
+        expect(self.page.locator('#send')).to_have_text('Send 2 changes')
+
+    # ---------- lessons ----------
+
+    def workshop(self):
+        self.page.get_by_role('tab', name='Workshop').click()
+        expect(self.page.locator('#lessonList li').first).to_be_visible()
+        return self.page.locator('#lessonList li')
+
+    def test_each_lesson_shows_whether_it_is_live_or_failed_its_trial_and_why(self):
+        lessons = self.workshop()
+        first = json.loads((REPO / 'lessons.json').read_text())[0]
+        expect(lessons.filter(has_text=first['label'])).to_contain_text('Live')
+        expect(lessons.filter(has_text=first['label']).get_by_role('button', name=re.compile('^Remove'))).to_have_count(0)  # its own check
+        old = lessons.filter(has_text='Old exercise')
+        expect(old).to_contain_text('Failed its trial: the starter does not build')
+        old.locator('summary').click()
+        expect(old).to_contain_text('could not resolve org.example:retired:1.0')
+        old.get_by_role('button', name='Try again').click()
+        expect(self.queued()).to_have_count(2)  # removed and added again: tried again now
+
+    def test_add_a_lesson_then_it_is_checking_then_live_and_on_the_people_tab(self):
+        self.workshop()
+        self.page.locator('#addLesson summary').click()
+        self.page.locator('#lessonRepo').fill('https://github.com/practice/greeting')
+        self.page.locator('#lessonLabel').fill('Greeting!')
+        expect(self.page.locator('#lessonKey')).to_have_value('greeting')
+        self.page.get_by_role('button', name='Add to changes').click()
+        expect(self.queued()).to_contain_text('Add lesson Greeting! (practice/greeting, correct when its tests pass)')
+        self.send()
+        greeting = self.page.locator('#lessonList li', has_text='Greeting!')
+        expect(greeting).to_contain_text('Checking')
+        # Practice passes its trial after 3 s, as the next grading run would on GitHub; the page looks again by itself.
+        expect(greeting).to_contain_text('Live', timeout=15000)
+        self.pick('Asha Rao')
+        expect(self.page.locator('#person')).to_contain_text('Greeting!')
+
+    def test_adding_a_lesson_says_what_is_wrong_before_anything_is_sent(self):
+        self.workshop()
+        self.page.locator('#addLesson summary').click()
+        first = json.loads((REPO / 'lessons.json').read_text())[0]
+        self.page.locator('#lessonRepo').fill(first['repo'])
+        self.page.locator('#lessonLabel').fill('Again')
+        self.page.locator('#lessonKey').fill(first['key'])
+        self.page.locator('#lessonCheck').select_option('tests')
+        self.page.get_by_label('In another public repository, such as a solutions one').check()
+        self.page.get_by_role('button', name='Add to changes').click()
+        checks = self.page.locator('#lessonChecks')
+        expect(checks).to_contain_text(f'The column name {first["key"]} is already used.')
+        expect(checks).to_contain_text(f'{first["repo"]} is already a lesson')
+        expect(checks).to_contain_text('Give the tests repository')
+        expect(self.queued()).to_have_count(0)
+
+    def test_remove_a_lesson(self):
+        lessons = self.workshop()
+        lessons.filter(has_text='Old exercise').get_by_role('button', name='Remove lesson Old exercise').click()
+        self.send()
+        expect(lessons.filter(has_text='Old exercise')).to_have_count(0)
+
     def test_a_blocked_github_tab_keeps_the_changes(self):
         page = self.browser.new_page()
         self.addCleanup(page.close)
         page.add_init_script('window.open = () => null')  # as a pop-up blocker does
         page.context.route('https://api.github.com/**', lambda route: route.fulfill(status=404, body='{}'))
-        page.goto(self.base + '/facilitator.html?repo=someone/board')
+        page.goto(self.base + '/facilitator.html?repo=someone/board#people')
         page.locator('#find').fill('Asha Rao')
         page.locator('#find').press('Enter')
         page.get_by_role('button', name='Give Asha Rao a help').click()
@@ -319,6 +442,7 @@ class FacilitatorJourneyTests(unittest.TestCase):
         expect(page.locator('#queue li.waiting')).to_have_count(1)
 
     def test_grade_now_in_practice_says_what_it_would_do(self):
+        self.page.get_by_role('tab', name='Workshop').click()
         self.page.get_by_role('button', name='Grade now').click()
         expect(self.page.locator('#gradeHint')).to_contain_text('press Run workflow')
 
@@ -331,7 +455,7 @@ class FacilitatorJourneyTests(unittest.TestCase):
         page.context.route('https://api.github.com/**', lambda route: route.fulfill(
             status=200, content_type='application/json', body=json.dumps({'workflow_runs': [run]}))
             if '/actions/workflows/grade.yml/runs' in route.request.url else route.fulfill(status=404, body='{}'))
-        page.goto(self.base + '/facilitator.html?repo=someone/board')
+        page.goto(self.base + '/facilitator.html?repo=someone/board')  # Workshop: the default
         expect(page.locator('#gradeLast')).to_contain_text('Last graded')
         expect(page.locator('#gradeLast').get_by_role('link', name='see the run')).to_have_attribute('href', run['html_url'])
         with page.expect_popup() as popup:
@@ -344,8 +468,8 @@ class FacilitatorJourneyTests(unittest.TestCase):
         self.addCleanup(page.close)
         page.context.route('https://github.com/**', lambda route: route.fulfill(body='GitHub', content_type='text/html'))
         page.context.route('https://api.github.com/**', lambda route: route.fulfill(status=404, body='{}'))
-        page.goto(self.base + '/facilitator.html?repo=someone/board')
-        expect(page.locator('#how')).to_be_visible()
+        page.goto(self.base + '/facilitator.html?repo=someone/board#people')
+        expect(page.locator('#find')).to_be_visible()
         page.locator('#find').fill('Asha Rao')
         page.locator('#find').press('Enter')
         page.get_by_role('button', name='Give Asha Rao a help').click()

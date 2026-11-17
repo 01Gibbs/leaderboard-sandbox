@@ -89,6 +89,10 @@ export function startTour(steps, ui) {
       return;
     }
     stage.hidden = true;
+    if (step.tab) {  // a page with tabs (the facilitator page): show the tab the target is on first
+      await frameLoaded;
+      if (frame.contentWindow.location.hash !== '#' + step.tab) frame.contentWindow.location.hash = step.tab;
+    }
     const el = await findTarget([].concat(step.target), token);
     if (token !== generation) return;
     if (!el) {
