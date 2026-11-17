@@ -380,5 +380,41 @@
         "after": null
       }
     ]
+  },
+  {
+    "id": "cf38bc7",
+    "at": "2026-11-17T11:16:01+00:00",
+    "by": "01Gibbs",
+    "action": "Renamed E2E Check 110615i to E2E Check 110615i R",
+    "changes": [
+      {
+        "before": {
+          "name": "E2E Check 110615i",
+          "github_username": "",
+          "fizzbuzz": "",
+          "rest_api": "",
+          "framework_upgrade": "",
+          "stretch": "",
+          "pr_stretch": "",
+          "helped": "2",
+          "container_image": "",
+          "bonus": "",
+          "library_replacement": "correct"
+        },
+        "after": {
+          "name": "E2E Check 110615i R",
+          "github_username": "",
+          "fizzbuzz": "",
+          "rest_api": "",
+          "framework_upgrade": "",
+          "stretch": "",
+          "pr_stretch": "",
+          "helped": "2",
+          "container_image": "",
+          "bonus": "",
+          "library_replacement": "correct"
+        }
+      }
+    ]
   }
 ]
