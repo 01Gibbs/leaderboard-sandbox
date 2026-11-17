@@ -79,5 +79,53 @@
         "change": null
       }
     ]
+  },
+  "e2e-110615": {
+    "at": "2026-11-17T11:06:43+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "add",
+          "E2E Batch 110615",
+          ""
+        ],
+        "ok": true,
+        "message": "Added E2E Batch 110615",
+        "change": "c0cbee7"
+      },
+      {
+        "args": [
+          "award",
+          "E2E Batch 110615",
+          "helped",
+          "2"
+        ],
+        "ok": true,
+        "message": "Gave 2 helps to E2E Batch 110615 (helped: 0 -> 2)",
+        "change": "c66e5fe"
+      },
+      {
+        "args": [
+          "award",
+          "Nobody 110615",
+          "helped",
+          "1"
+        ],
+        "ok": false,
+        "message": "Nobody called \"Nobody 110615\" is on the leaderboard. To add someone new, use \"add\".",
+        "change": null
+      },
+      {
+        "args": [
+          "rename",
+          "E2E Batch 110615",
+          "E2E Batch 110615 R"
+        ],
+        "ok": true,
+        "message": "Renamed E2E Batch 110615 to E2E Batch 110615 R",
+        "change": "c9a4382"
+      }
+    ]
   }
 }
