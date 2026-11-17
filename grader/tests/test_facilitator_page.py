@@ -57,12 +57,14 @@ class PageTests(unittest.TestCase):
 
     def test_the_page_is_published_with_the_leaderboard(self):
         publish = (WORKFLOWS / 'pages.yml').read_text()
-        for f in ('facilitator.html', 'scoring.js', 'participants.csv', 'lessons.json'):
+        for f in ('facilitator.html', 'scoring.js', 'github-reader.js', 'participants.csv', 'lessons.json'):
             self.assertRegex(publish, rf'cp [^\n]*\b{re.escape(f)}\b', f)
 
     def test_the_page_asks_for_no_token_and_talks_only_to_github(self):
-        self.assertNotRegex(PAGE, r'(?i)authorization|type="password"|localStorage\.setItem\(.*token')
-        self.assertEqual(re.findall(r'https?://(?!github\.com|api\.github\.com)[\w.-]+', PAGE), [])
+        for name, text in (('facilitator.html', PAGE), ('github-reader.js', (REPO / 'github-reader.js').read_text())):
+            with self.subTest(name):
+                self.assertNotRegex(text, r'(?i)authorization|type="password"|localStorage\.setItem\(.*token')
+                self.assertEqual(re.findall(r'https?://(?!github\.com|api\.github\.com)[\w.-]+', text), [])
 
 
 class PracticeServerTests(unittest.TestCase):

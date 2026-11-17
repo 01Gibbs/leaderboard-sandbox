@@ -7,7 +7,7 @@ name: Test the grader
 on:
   pull_request:
   push:
-    paths: ['grader/**', '!grader/*.json', 'lessons.json', 'dashboard.json', '.github/**', 'walkthrough/**', 'walkthrough.py', 'index.html', 'scoring.js', 'facilitator.html', 'facilitator_walkthrough.py']
+    paths: ['grader/**', '!grader/*.json', 'lessons.json', 'dashboard.json', '.github/**', 'walkthrough/**', 'walkthrough.py', 'index.html', 'scoring.js', 'github-reader.js', 'facilitator.html', 'facilitator_walkthrough.py']
   workflow_dispatch:
 
 permissions:

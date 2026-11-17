@@ -158,6 +158,7 @@ dialog::backdrop { background: rgb(0 0 0 / 0.4); }
 </dialog>
 
 <script src="scoring.js"></script>
+<script src="github-reader.js"></script>
 <script>
 // Pick a person, then act: each action adds a row to the Changes box. Send turns every waiting row into ONE
 // GitHub issue (.github/ISSUE_TEMPLATE/facilitator-changes.yml), opened already filled in, in the one GitHub tab
@@ -182,7 +183,6 @@ const GIVE_UP = (parseFloat(params.get('timeout')) || (PRACTICE ? 30 : 600)) * 1
 const newBatchId = () => 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);  // as BATCH_ID in leaderboard.py
 const KEYS_KEY = 'lb-facilitator-keys';
 let lessons = [], people = [], history = [], selected = null, ticked = new Set(), queue = [], nextRow = 1, active = -1;
-const etags = {}, cache = {};
 
 function repoFromLocation() {
   const owner = (location.hostname.match(/^([\w-]+)\.github\.io$/) || [])[1];
@@ -201,17 +201,30 @@ function say(text) { $('status').textContent = text; }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
 
-/* ---- reading state from GitHub (or the practice copy), only what changed ---- */
+/* ---- reading from GitHub (or the practice copy): every read and poll goes through github-reader.js ---- */
+// One budget for every read on this page (practice has no limit to keep to).
+const github = githubReader({ fetch: (url, init) => fetch(url, init), budget: PRACTICE ? Infinity : 50 });
+// What to tell a facilitator about a read that could not be made: whose limit it is, and when the page looks again.
+function unreadableNote(verdict) {
+  if (verdict.status !== 'limited') return `Could not read GitHub just now (${verdict.reason})`;
+  const at = new Date(verdict.until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return verdict.by === 'github' ? `GitHub is limiting how often this network can read it; this page looks again at ${at}`
+    : `This page is reading GitHub less often, to stay within GitHub's limit; it looks again at ${at}`;
+}
+class GitHubUnreadable extends Error {
+  constructor(verdict) {
+    super(unreadableNote(verdict));
+    this.limited = verdict.status === 'limited';
+  }
+}
+// A file on main (its contents; parsed when it is JSON), or `empty` when it is not there yet. Throws
+// GitHubUnreadable when GitHub is limiting reads or did not answer.
 async function readState(path, empty) {
-  const headers = { Accept: 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28' };
-  if (etags[path]) headers['If-None-Match'] = etags[path];
-  const res = await fetch(`${API}/repos/${REPO}/contents/${path}?ref=main`, { headers, cache: 'no-store' });
-  if (res.status === 304) return cache[path];
-  if (res.status === 404) return (cache[path] = empty);
-  if (!res.ok) throw new Error(`GitHub said ${res.status}`);
-  etags[path] = res.headers.get('ETag');
-  const body = await res.text();
-  return (cache[path] = path.endsWith('.json') ? JSON.parse(body) : body);
+  const r = await github.read(`${API}/repos/${REPO}/contents/${path}?ref=main`,
+    { accept: 'application/vnd.github.raw+json', json: path.endsWith('.json') });
+  if (r.status === 'missing') return empty;
+  if (github.readable(r)) return r.value ?? empty;
+  throw new GitHubUnreadable(r);
 }
 
 /* ---- grading: once a day by itself, or now ---- */
@@ -221,17 +234,12 @@ function ago(time) {
   if (minutes < 120) return `${minutes} minutes ago`;
   return minutes < 2880 ? `${Math.round(minutes / 60)} hours ago` : `${Math.round(minutes / 1440)} days ago`;
 }
-// The latest Grade submissions run (only those started by hand, with 'workflow_dispatch'); undefined when GitHub
-// did not answer. Asked conditionally, so an unchanged answer is cheap.
+// The latest Grade submissions run (only those started by hand, with 'workflow_dispatch'), or null when there is
+// none. Throws GitHubUnreadable, as readState does.
 async function latestGrading(event) {
-  const url = `${API}/repos/${REPO}/actions/workflows/grade.yml/runs?per_page=1` + (event ? `&event=${event}` : '');
-  const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
-  if (etags[url]) headers['If-None-Match'] = etags[url];
-  const res = await fetch(url, { headers, cache: 'no-store' });
-  if (res.status === 304) return cache[url];
-  if (!res.ok) return undefined;
-  etags[url] = res.headers.get('ETag');
-  return (cache[url] = ((await res.json()).workflow_runs || [])[0] || null);
+  const r = await github.read(`${API}/repos/${REPO}/actions/workflows/grade.yml/runs?per_page=1` + (event ? `&event=${event}` : ''), { json: true });
+  if (!github.readable(r)) throw new GitHubUnreadable(r);
+  return ((r.value || {}).workflow_runs || [])[0] || null;
 }
 const DAILY = 'New pull requests are also graded once a day by themselves.';
 function showGrading(run) {
@@ -253,26 +261,34 @@ async function gradeNow() {
   }
   // The run to follow is the first one started by hand after this press: newer than the latest one now. Run ids
   // only grow, so no clock (GitHub's or this computer's) is involved, and a scheduled run is never mistaken for it.
-  const before = gradingFollowed ? null : await latestGrading('workflow_dispatch').catch(() => undefined);
+  const before = gradingFollowed ? null : await latestGrading('workflow_dispatch').catch(() => null);
   showOnGitHub(`https://github.com/${REPO}/actions/workflows/grade.yml`);
-  $('gradeHint').replaceChildren('On GitHub, press ', el('b', '', 'Run workflow'), ', then the green ', el('b', '', 'Run workflow'),
-    '. Grading takes about 5 to 20 minutes; the scores here follow when it finishes.');
+  const pressHint = () => $('gradeHint').replaceChildren('On GitHub, press ', el('b', '', 'Run workflow'), ', then the green ',
+    el('b', '', 'Run workflow'), '. Grading takes about 5 to 20 minutes; the scores here follow when it finishes.');
+  pressHint();
   $('gradeHint').hidden = false;
   if (gradingFollowed) return;
   gradingFollowed = true;
-  try {  // once a minute (unauthenticated reads are limited), for as long as grading can take
-    for (let i = 0; i < 45; i++) {
-      await sleep(60000);
-      const run = await latestGrading('workflow_dispatch').catch(() => undefined);
-      if (!run || run.id <= ((before && before.id) || 0)) continue;  // not started yet
-      showGrading(run);
-      if (run.status === 'completed') {
-        $('gradeHint').hidden = true;
-        if (run.conclusion === 'success') { await loadBoard(true); say('Grading finished: scores updated.'); }
-        else say('Grading did not finish. The run on GitHub says why; tell the repository owner.');
-        break;
+  try {  // about once a minute, sharing the page's reads with anything else that is waiting, for as long as grading takes
+    const result = await github.poll({ first: 60000, every: 60000, giveUpAfter: 45 * 60000, step: async () => {
+      let run;
+      try {
+        run = await latestGrading('workflow_dispatch');
+      } catch (e) {
+        $('gradeHint').textContent = e.message + '.';
+        return e.limited ? 'again' : 'error';
       }
-    }
+      pressHint();
+      if (!run || run.id <= ((before && before.id) || 0)) return 'again';  // not started yet
+      showGrading(run);
+      if (run.status !== 'completed') return 'again';
+      $('gradeHint').hidden = true;
+      if (run.conclusion !== 'success') say('Grading did not finish. The run on GitHub says why; tell the repository owner.');
+      else await loadBoard(true).then(() => say('Grading finished: scores updated.'),
+        (e) => say(`Grading finished. The scores here update when GitHub can be read again: ${e.message}.`));
+      return 'done';
+    } });
+    if (result === 'gave up') say('Grading has not finished after 45 minutes. Its run on GitHub says why.');
   } finally {
     gradingFollowed = false;
   }
@@ -596,28 +612,36 @@ async function follow() {
   if (following) return;
   following = true;
   try {
-    // Unchanged answers still count against GitHub's 60 reads an hour without a token (shared by everyone on the
-    // venue's network), so look after 30 s, then once a minute, and only while something waits.
-    for (let wait = PRACTICE ? 300 : 30000; queue.some((r) => r.state === 'waiting'); wait = PRACTICE ? 1000 : 60000) {
-      await sleep(wait);
-      const overdue = queue.filter((r) => r.state === 'waiting' && Date.now() - r.sentAt > GIVE_UP);
-      overdue.forEach((r) => Object.assign(r, { state: 'failed', reason: 'GitHub has not made it yet. If you did not press Submit new issue, try again; '
-        + 'otherwise the issue on GitHub says why.' }));
-      if (overdue.length) renderQueue();
-      let batches;
-      try { batches = await readState('grader/batches.json', {}); } catch (e) { continue; }
+    // Look after 30 s, then about once a minute, only while something waits (the poll spaces reads further apart
+    // when Grade now is following a run too, so the page stays within GitHub's limit).
+    await github.poll({ first: PRACTICE ? 300 : 30000, every: PRACTICE ? 1000 : 60000, step: async () => {
+      let batches = null, unreadable = null;
+      try { batches = await readState('grader/batches.json', {}); } catch (e) { unreadable = e; }
       let landed = false;
-      queue.filter((r) => r.state === 'waiting' && batches[r.batch]).forEach((r) => {
-        const b = batches[r.batch], o = b.error ? { ok: false, message: b.error } : b.rows[r.row - 1] || { ok: false, message: 'Not in the batch GitHub received.' };
-        landed = landed || o.ok;
-        Object.assign(r, o.ok ? { state: 'done', change: o.change } : { state: 'failed', reason: o.message });
+      queue.filter((r) => r.state === 'waiting').forEach((r) => {
+        const b = batches && batches[r.batch];
+        if (b) {  // GitHub made it: what happened to this row
+          const o = b.error ? { ok: false, message: b.error } : b.rows[r.row - 1] || { ok: false, message: 'Not in the batch GitHub received.' };
+          landed = landed || o.ok;
+          Object.assign(r, o.ok ? { state: 'done', change: o.change, reason: '' } : { state: 'failed', reason: o.message });
+        } else if (unreadable && unreadable.limited) {  // say why, and never give up while reads are limited
+          r.reason = unreadable.message;
+        } else if (Date.now() - r.sentAt > GIVE_UP) {
+          Object.assign(r, { state: 'failed', reason: unreadable
+            ? `${unreadable.message}. The issue on GitHub says whether it was made.`
+            : 'GitHub has not made it yet. If you did not press Submit new issue, try again; otherwise the issue on GitHub says why.' });
+        } else {
+          r.reason = unreadable ? unreadable.message : '';
+        }
       });
       renderQueue();
       if (landed) {
-        await Promise.all([loadHistory(), loadBoard(true)]);
+        await Promise.all([loadHistory(), loadBoard(true).catch((e) => say(`The board updates when GitHub can be read again: ${e.message}.`))]);
         setTimeout(fadeDone, PRACTICE ? 800 : 4000);
       }
-    }
+      if (!queue.some((r) => r.state === 'waiting')) return 'done';
+      return unreadable && !unreadable.limited ? 'error' : 'again';
+    } });
   } finally {
     following = false;
   }
@@ -632,7 +656,7 @@ async function loadHistory() {
   try {
     history = await readState('grader/history.json', []);
   } catch (e) {
-    $('history').replaceChildren(el('li', 'muted', 'Could not read the recent changes.'));
+    $('history').replaceChildren(el('li', 'muted', `Could not read the recent changes: ${e.message}.`));
     return;
   }
   renderHistory();

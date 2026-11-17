@@ -14,6 +14,7 @@ import re
 import shutil
 import sys
 import threading
+import time
 import unittest
 import urllib.parse
 import urllib.request
@@ -280,6 +281,27 @@ class FacilitatorJourneyTests(unittest.TestCase):
         expect(failed).to_contain_text('GitHub has not made it yet')
         failed.get_by_role('button', name='Try again').click()
         expect(page.locator('#queue li.queued')).to_have_count(1)
+
+    def test_a_change_waiting_while_github_limits_reads_says_so_and_is_not_given_up(self):
+        page = self.open('/facilitator.html?practice&timeout=2')
+        refused = []
+
+        def first_read_limited(route):  # GitHub refuses the first read, until 4 s from now; then answers as usual
+            if refused:
+                return route.continue_()
+            refused.append(1)
+            route.fulfill(status=403, content_type='application/json', body='{"message": "API rate limit exceeded"}',
+                          headers={'x-ratelimit-remaining': '0', 'x-ratelimit-reset': str(int(time.time()) + 4)})
+        page.route('**/practice-api/**/contents/grader/batches.json*', first_read_limited)
+        expect(page.locator('#people li').first).to_be_visible()
+        page.locator('#find').fill('Asha Rao')
+        page.locator('#find').press('Enter')
+        page.get_by_role('button', name='Give Asha Rao a help').click()
+        page.locator('#send').click()
+        expect(page.locator('#queue li.waiting')).to_contain_text('GitHub is limiting how often this network can read it')
+        # The limit outlasts the 2-second give-up: the change is still read, and done, not given up.
+        expect(page.locator('#queue li.done')).to_have_count(1, timeout=15000)
+        expect(page.locator('#queue li.failed')).to_have_count(0)
 
     def test_a_blocked_github_tab_keeps_the_changes(self):
         page = self.browser.new_page()
