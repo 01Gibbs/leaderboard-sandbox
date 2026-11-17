@@ -316,5 +316,65 @@
         "change": "c198569"
       }
     ]
+  },
+  "e2e-135720i-undo": {
+    "at": "2026-11-17T14:02:27+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "undo",
+          "c198569"
+        ],
+        "ok": true,
+        "message": "Undid: Renamed E2E Check 135720i to E2E Check 135720i R (by 01Gibbs at 2026-11-17T14:01:45+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c41c4a9"
+        ],
+        "ok": true,
+        "message": "Undid: Merged E2E Duplicate 135720i into E2E Check 135720i (by 01Gibbs at 2026-11-17T14:01:45+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "cddab4b"
+        ],
+        "ok": true,
+        "message": "Undid: Added E2E Duplicate 135720i (by 01Gibbs at 2026-11-17T14:01:45+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c4e7455"
+        ],
+        "ok": true,
+        "message": "Undid: Marked E2E Check 135720i library_replacement as correct (was none). (by 01Gibbs at 2026-11-17T14:01:45+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "cd6e19e"
+        ],
+        "ok": true,
+        "message": "Undid: Gave 2 helps to E2E Check 135720i (helped: 0 -> 2) (by 01Gibbs at 2026-11-17T14:01:45+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "cc3b1a6"
+        ],
+        "ok": true,
+        "message": "Undid: Added E2E Check 135720i (by 01Gibbs at 2026-11-17T14:01:45+00:00)",
+        "change": null
+      }
+    ]
   }
 }
