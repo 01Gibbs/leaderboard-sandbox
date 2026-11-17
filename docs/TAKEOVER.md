@@ -8,7 +8,8 @@ For whoever looks after this repository next. [README.md](../README.md) explains
 |---|---|---|
 | The repository's owner | Settings only the owner can change: Pages, the deploy key and its secret, the ruleset, collaborators. `grader/setup-leaderboard.sh` does them all, asking before each step | Once, and when a facilitator joins |
 | Facilitators (collaborators with **Write**) | Points, results, names, merges and undo on the facilitator page; **Grade now** after a burst of pull requests | Each workshop |
-| A maintainer (anyone with Write, usually with Claude Code) | New lessons, changes to checks and the page, through pull requests | As the workshop grows |
+| Facilitators | Grade now, and add or remove a lesson checked by tests, by building or by hand (Workshop tab) | As the workshop grows |
+| A maintainer (anyone with Write, usually with Claude Code) | Lessons with a custom check, changes to checks and the page, through pull requests | Now and then |
 | GitHub | Grades new pull requests once a day, saves every change, republishes the page | By itself |
 
 Nothing is ever needed in the exercise repositories.
@@ -52,6 +53,7 @@ looks broken or out of date. Change nothing yet.
 **Adding a lesson**
 ```text
 Add the lesson in <owner>/<exercise repository> to the leaderboard. The brief is <a link or a file path>.
+(If its own tests, a build, or marking by hand is enough, a facilitator can add it from the page instead.)
 <There is a reference solution in <owner>/<solution repository> | There is no reference solution.>
 Use the add-lesson skill. Propose how it should be graded, and what that will not check, before writing code.
 Prove the check with tests that grade a known-good and a known-bad submission, and show me they ran rather than

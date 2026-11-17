@@ -119,7 +119,7 @@ export function steps(ctx) {
         </ol>
         <h3>And separately, facilitators</h3>
         <ol class="flow side">
-          <li><b>A facilitator picks a person and acts</b><span>on the facilitator page: points, results, names, merges, undo</span></li>
+          <li><b>A facilitator uses the facilitator page</b><span>Workshop: Grade now, add a lesson. People: points, results, names, merges, undo</span></li>
           <li><b>Send, then Submit once on GitHub</b><span>every waiting change goes as one issue; only collaborators’ are made</span></li>
           <li><b>The same file is updated</b><span>and the page follows</span></li>
         </ol>`,
@@ -138,8 +138,8 @@ export function steps(ctx) {
           <tr><th>${ctx.recent_actions.length ? fileLink(ctx, 'grader/history.json') : 'grader/history.json'}</th><td>Every facilitator change: who, when, what. Undo uses this. It appears after the first change.</td></tr>
           <tr><th>${fileLink(ctx, 'FACILITATOR.md')}</th><td>One-page guide for facilitators.</td></tr>
           <tr><th>${fileLink(ctx, 'README.md')}</th><td>Setup and how it works, for the project lead.</td></tr>
+          <tr><th>${fileLink(ctx, 'docs/MAINTAINING.md')}</th><td>The code, the tests and how it stays safe, for maintainers.</td></tr>
           <tr><th>${fileLink(ctx, 'docs/TAKEOVER.md')}</th><td>Taking over or moving it, with prompts for Claude Code.</td></tr>
-          <tr><th>${fileLink(ctx, 'grader/checks/toolkit.py', 'grader/')}</th><td>The grader and its tests, for maintainers.</td></tr>
         </table>`,
       text: '<p>Everything is in this one repository. Nothing needs installing to use it.</p>',
     },
@@ -168,9 +168,9 @@ export function steps(ctx) {
         <h2>The facilitator page</h2>
         <p>${ctx.repo ? link(ctx.repo.pages_url + 'facilitator.html', ctx.repo.pages_url + 'facilitator.html') : 'The leaderboard’s address, followed by <code>facilitator.html</code>'}</p>
         <ol class="flow">
-          <li><b>Pick a person</b><span>press / and type a name or GitHub username</span></li>
-          <li><b>Act</b><span>+1 help, +1 stretch, or More: bonus, take away, set a result, rename, same person as…</span></li>
-          <li><b>Changes wait in a box</b><span>for as many people as you like; tick Select several for a group</span></li>
+          <li><b>Workshop</b><span>Grade now after a burst of pull requests; the lessons, live or checking; add a lesson</span></li>
+          <li><b>People</b><span>press / and type a name: +1 help, +1 stretch, or More: bonus, take away, set a result, rename, same person as…</span></li>
+          <li><b>Changes wait in one box</b><span>from either tab, for as many people as you like</span></li>
           <li><b>Send</b><span>GitHub opens with them all filled in: press Submit new issue, once</span></li>
         </ol>`,
       text: '<p>Only the leaderboard’s collaborators can make changes: GitHub checks who submitted, so there is nothing to set up but a GitHub account with <b>Write</b> access.</p><p>To practise on made-up people first, run <code>python3 facilitator_walkthrough.py</code>: it tours the page on a copy where everything really works and nothing reaches GitHub.</p>',
@@ -243,16 +243,16 @@ export function steps(ctx) {
           <tr><th>key</th><td>The column in participants.csv. Lowercase letters, digits and _; never change it once people have results.</td></tr>
           <tr><th>label</th><td>The column heading on the leaderboard. Safe to change any time.</td></tr>
           <tr><th>repo</th><td>Where participants open their pull requests: ${link(example.repo_url, example.repo)}.</td></tr>
-          <tr><th>check</th><td>How \u201cCorrect\u201d is decided: <b>none</b> (a facilitator marks it), <b>build</b>, <b>tests</b> (our test files in grader/fixtures/&lt;key&gt;/), or a custom check written in grader/checks/&lt;name&gt;.py.</td></tr>
+          <tr><th>check</th><td>How \u201cCorrect\u201d is decided: <b>none</b> (a facilitator marks it), <b>build</b>, <b>tests</b> (the exercise’s tests, pinned in grader/fixtures/&lt;key&gt;/), or a custom check written in grader/checks/&lt;name&gt;.py.</td></tr>
         </table>` : ''}
         ${ctx.lesson_problems.length ? `<h3>lessons.json has problems right now</h3><ul class="checks">${ctx.lesson_problems.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>
           <p class="hint">Until they are fixed, grading and facilitator forms stop with this message, and nothing is changed.</p>` : ''}
         <h3>Adding an exercise</h3>
         <ol class="flow">
-          <li><b>Add one entry</b><span>with <code>"check": "none"</code> to start</span></li>
-          <li><b>A column appears</b><span>on the leaderboard and in participants.csv</span></li>
-          <li><b>Pull requests count</b><span>as Submitted at the next grading: once a day, or now with Grade now</span></li>
-          <li><b>Raise the level later</b><span>if automating it is worth it</span></li>
+          <li><b>Facilitator page → Workshop → Add a lesson</b><span>its repository, its name, how it is checked, where its tests are</span></li>
+          <li><b>Checking</b><span>the next grading run tries it: the starter compiles with its tests</span></li>
+          <li><b>Live</b><span>its column appears and its pull requests are graded</span></li>
+          <li><b>A custom check</b><span>(code) is added through a pull request, with Claude Code’s add-lesson skill</span></li>
         </ol>`,
       text: `<p>${fileLink(ctx, 'lessons.json')} is the one place a workshop repo is connected to the leaderboard: the page, the grader, the facilitator forms and this tour all read it.</p>
         <p>A mistake in it (a typo in a key, a missing label) is reported by name, and nothing is changed until it is fixed.</p>`,
@@ -274,7 +274,7 @@ export function steps(ctx) {
         </table>
         <p class="hint">Estimates, not measurements: nothing has been timed on a real workshop yet.</p>`,
       text: `<p>For a two-day workshop, start with <b>marked by a facilitator</b> and automate later if it is worth it.</p>
-        <p>To add one, ask Claude Code in this repo to <i>“add the lesson in owner/repo to the leaderboard”</i>. Its add-lesson skill walks through it.</p>
+        <p>Add one from the facilitator page (Workshop → <b>Add a lesson</b>). For a check of its own, ask Claude Code in this repo to <i>“add the lesson in owner/repo to the leaderboard”</i>.</p>
         <p>The grader does not read PROBLEM_STATEMENT.md today. A planned improvement would draft the checks from it (an estimated 30–45 minutes per lesson): ${fileLink(ctx, 'docs/research/adding-lessons.md', 'the research')}.</p>`,
     },
     {
@@ -285,7 +285,7 @@ export function steps(ctx) {
         <div class="cards">
           <div class="card"><b>Facilitators</b><span>keep ${fileLink(ctx, 'FACILITATOR.md')} open during the workshop</span></div>
           <div class="card"><b>Project leads</b><span>one-time setup is in ${fileLink(ctx, 'README.md')}</span></div>
-          <div class="card"><b>Maintainers</b><span>run <code>python3 -m unittest discover grader/tests</code></span></div>
+          <div class="card"><b>Maintainers</b><span>start with ${fileLink(ctx, 'docs/MAINTAINING.md')}</span></div>
         </div>
         <p class="hint">Close this tab and press <kbd>Ctrl</kbd>+<kbd>C</kbd> in the terminal to stop.</p>`,
       text: '<p>Run <code>python3 walkthrough.py</code> again any time.</p>',

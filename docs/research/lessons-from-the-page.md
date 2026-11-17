@@ -14,7 +14,7 @@
 
 This note designs the journey the lead asked for. A facilitator fills in a form on the facilitator page, the lesson lands in `lessons.json`, and the board grows a column. It builds on four earlier notes and does not repeat them:
 
-- [`lessons-by-workflow.md`](lessons-by-workflow.md) is the first design of an "Add a lesson" form. It was not built. This note re-checks its four blockers against today's code.
+- `lessons-by-workflow.md` (removed 17 Nov 2026, superseded by this note; in git history) is the first design of an "Add a lesson" form. It was not built. This note re-checks its four blockers against today's code.
 - [`adding-lessons.md`](adding-lessons.md) explains why tests are pinned from the exercise repository.
 - [`grading-without-exercise-repo-access.md`](grading-without-exercise-repo-access.md) explains grading. It runs daily or on **Grade now**, and exercise repositories need nothing set up. They must be public.
 - [`facilitator-batching.md`](facilitator-batching.md) covers how the page sends changes: one prefilled issue per Send, collaborators only, and no tokens on the page.
@@ -206,7 +206,7 @@ Each slice ships on its own, through a pull request, with its evidence.
 
 Repository (this worktree, branched from `main` at 4d578b7):
 
-1. `docs/research/lessons-by-workflow.md:5` (status, four blockers), `:42-44` (gaps), `:121` (deploy-key risk), §2 `:158-161` (shared-repo fixes)
+1. `docs/research/lessons-by-workflow.md` (removed; in git history):5` (status, four blockers), `:42-44` (gaps), `:121` (deploy-key risk), §2 `:158-161` (shared-repo fixes)
 2. `grader/run_and_push.sh:16-42` (reset, rerun on conflict), `:27` (staged files)
 3. `grader/tests/test_workflows.py:21-27` (staged list pinned), `:52-72` (grade job read-only, no secrets; saves via deploy key)
 4. `grader/submissions.py:51-53` (`key`: `repo#N`), `:125-129` (`keep_only`)
