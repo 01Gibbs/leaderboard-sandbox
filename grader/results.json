@@ -1,7 +1,9 @@
 {
   "people": {
+    "01Gibbs": "Gibbs",
     "DennisSally": "TheLaughingScot",
     "Ihashm1": "Ishrat Hashmi",
+    "SamiRahmanOK": "SamiRahmanOK",
     "StuartJSmith10-dev": "StuartJSmith10-dev",
     "agomes24": "alexia",
     "aindroid": "Ainhoa Moreno",
@@ -353,7 +355,7 @@
     },
     "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#1": {
       "check": "library_replacement",
-      "checked_at": "2026-11-16T14:57:04+00:00",
+      "checked_at": "2026-11-17T11:23:05+00:00",
       "created_at": "2026-11-16T10:21:46Z",
       "login": "aindroid",
       "passed": false,
@@ -363,11 +365,27 @@
       "sha": "bd3ca98626a00fb7bb6f29b00d94f85a30449c91",
       "task": "library_replacement",
       "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/1",
-      "version": "d50711827b19"
+      "version": "8aec7018e500"
+    },
+    "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#10": {
+      "check": "library_replacement",
+      "checked_at": "2026-11-17T11:21:19+00:00",
+      "created_at": "2026-11-17T10:31:19Z",
+      "login": "gaizen-lab",
+      "passed": false,
+      "reasons": [
+        "src/main/java/com/example/onboarding/service/EmployeeCsvExporter.java still uses opencsv 2.3 (au.com.bytecode.opencsv): change it to use opencsv 5 (com.opencsv) or Apache Commons CSV",
+        "build.gradle still asks for opencsv 2.3 (net.sf.opencsv:opencsv): remove that line",
+        "src/main/resources/log4j.properties is still there: move the logging settings to application.properties and delete it"
+      ],
+      "sha": "5439e02dd6556946d80b33dbc4d45c85d7d743da",
+      "task": "library_replacement",
+      "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/10",
+      "version": "8aec7018e500"
     },
     "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#2": {
       "check": "library_replacement",
-      "checked_at": "2026-11-16T14:56:53+00:00",
+      "checked_at": "2026-11-17T11:22:54+00:00",
       "created_at": "2026-11-16T12:36:22Z",
       "login": "j-r-wil",
       "passed": true,
@@ -377,11 +395,11 @@
       "sha": "217796893e16a5eb1cf2e4d4a23fedb92566644e",
       "task": "library_replacement",
       "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/2",
-      "version": "d50711827b19"
+      "version": "8aec7018e500"
     },
     "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#3": {
       "check": "library_replacement",
-      "checked_at": "2026-11-16T14:56:41+00:00",
+      "checked_at": "2026-11-17T11:22:41+00:00",
       "created_at": "2026-11-16T13:09:36Z",
       "login": "StuartJSmith10-dev",
       "passed": true,
@@ -391,11 +409,11 @@
       "sha": "434906bb77b558437a126a4933c2eff391f8c34c",
       "task": "library_replacement",
       "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/3",
-      "version": "d50711827b19"
+      "version": "8aec7018e500"
     },
     "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#4": {
       "check": "library_replacement",
-      "checked_at": "2026-11-16T14:56:30+00:00",
+      "checked_at": "2026-11-17T11:22:31+00:00",
       "created_at": "2026-11-16T13:34:43Z",
       "login": "antonypaul001",
       "passed": true,
@@ -405,11 +423,11 @@
       "sha": "4b68e17aba981855e673f424f98debfc5e7e7579",
       "task": "library_replacement",
       "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/4",
-      "version": "d50711827b19"
+      "version": "8aec7018e500"
     },
     "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#5": {
       "check": "library_replacement",
-      "checked_at": "2026-11-16T14:56:18+00:00",
+      "checked_at": "2026-11-17T11:22:19+00:00",
       "created_at": "2026-11-16T13:49:52Z",
       "login": "tami-tapioca",
       "passed": true,
@@ -419,11 +437,11 @@
       "sha": "1e6b660eff8e32915fe2816a8abd762a5d0e7cbc",
       "task": "library_replacement",
       "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/5",
-      "version": "d50711827b19"
+      "version": "8aec7018e500"
     },
     "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#6": {
       "check": "library_replacement",
-      "checked_at": "2026-11-16T14:56:06+00:00",
+      "checked_at": "2026-11-17T11:22:08+00:00",
       "created_at": "2026-11-16T14:51:02Z",
       "login": "Ihashm1",
       "passed": true,
@@ -433,7 +451,63 @@
       "sha": "b600be3808a1b969d49d4087803aed2e923ac925",
       "task": "library_replacement",
       "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/6",
-      "version": "d50711827b19"
+      "version": "8aec7018e500"
+    },
+    "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#7": {
+      "check": "library_replacement",
+      "checked_at": "2026-11-17T11:21:57+00:00",
+      "created_at": "2026-11-16T16:40:00Z",
+      "login": "madbpopye",
+      "passed": true,
+      "reasons": [
+        "old libraries gone, tests pass unchanged: same API, CSV and log message"
+      ],
+      "sha": "29a40928cfa95b5ab24313ddb829844799de3ef2",
+      "task": "library_replacement",
+      "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/7",
+      "version": "8aec7018e500"
+    },
+    "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#8": {
+      "check": "library_replacement",
+      "checked_at": "2026-11-17T11:21:44+00:00",
+      "created_at": "2026-11-16T17:17:23Z",
+      "login": "SamiRahmanOK",
+      "passed": true,
+      "reasons": [
+        "old libraries gone, tests pass unchanged: same API, CSV and log message"
+      ],
+      "sha": "423a2c67a20dce3a13a2bf0b3746ef01b4136458",
+      "task": "library_replacement",
+      "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/8",
+      "version": "8aec7018e500"
+    },
+    "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#9": {
+      "check": "library_replacement",
+      "checked_at": "2026-11-17T11:21:32+00:00",
+      "created_at": "2026-11-17T01:48:57Z",
+      "login": "bukkie-create",
+      "passed": false,
+      "reasons": [
+        "src/main/resources/log4j.properties is still there: move the logging settings to application.properties and delete it"
+      ],
+      "sha": "cd240eea055fe3830ff647fbf2f151748804fcdf",
+      "task": "library_replacement",
+      "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/9",
+      "version": "8aec7018e500"
+    },
+    "AtulKumarSharma79/containerbaseimage#1": {
+      "check": "container_image",
+      "checked_at": "2026-11-17T11:20:46+00:00",
+      "created_at": "2026-11-17T11:17:49Z",
+      "login": "01Gibbs",
+      "passed": true,
+      "reasons": [
+        "approved pinned JRE base, multi-stage, non-root, app works in the container"
+      ],
+      "sha": "8311065ec0208c4951caae89f3abd4e75a74005e",
+      "task": "container_image",
+      "url": "https://github.com/AtulKumarSharma79/containerbaseimage/pull/1",
+      "version": "4e4ea39705e5"
     },
     "meswright/excersize-1#1": {
       "check": "fizzbuzz",
@@ -559,20 +633,6 @@
       "sha": "244d4606225a31b760a3d5334e7b8086617de5c2",
       "task": "fizzbuzz",
       "url": "https://github.com/meswright/excersize-1/pull/7",
-      "version": "e2efb175ca1f"
-    },
-    "meswright/excersize-1#8": {
-      "check": "fizzbuzz",
-      "checked_at": "2026-11-13T16:27:49+00:00",
-      "created_at": "2026-11-06T17:20:18Z",
-      "login": "torharrington",
-      "passed": true,
-      "reasons": [
-        "tests pass and catch all 7 planted bugs"
-      ],
-      "sha": "cbfe5f5119ccf44ddc94aafd30b83f8432ccfe24",
-      "task": "fizzbuzz",
-      "url": "https://github.com/meswright/excersize-1/pull/8",
       "version": "e2efb175ca1f"
     },
     "meswright/excersize-1#9": {
