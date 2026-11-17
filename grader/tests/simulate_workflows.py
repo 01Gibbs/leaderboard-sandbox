@@ -50,6 +50,24 @@ def run_steps(workflow, job, cwd, env):
     return not failed
 
 
+def step_outputs(path):
+    """A GITHUB_OUTPUT file as GitHub reads it: name=value lines, and name<<DELIMITER blocks."""
+    lines, found = (path.read_text().splitlines() if path.exists() else []), {}
+    while lines:
+        line = lines.pop(0)
+        if '<<' in line and ('=' not in line or line.index('<<') < line.index('=')):
+            name, end = line.split('<<', 1)
+            value = []
+            while lines and lines[0] != end:
+                value.append(lines.pop(0))
+            lines.pop(0) if lines else None
+            found[name] = '\n'.join(value)
+        elif '=' in line:
+            name, value = line.split('=', 1)
+            found[name] = value
+    return found
+
+
 def to_json_args(template, inputs):
     """Evaluate the '${{ toJSON(inputs.x) }}' expressions the way GitHub does: an optional field left blank is null."""
     return re.sub(r'\$\{\{\s*toJSON\(inputs\.(\w+)\)\s*\}\}', lambda m: json.dumps(inputs.get(m.group(1)) or None), template)
@@ -87,6 +105,9 @@ sh(f'git init -q -b main && git add -A && git -c user.name=t -c user.email=t@t c
 sh(f'git clone -q {origin} {clone}', work)
 
 
+outputs = {}  # the last facilitator run's step outputs, filled by run_facilitator
+
+
 def run_facilitator(dispatcher, inputs, actor='facilitator-ann', before_push=None):
     """Run a 'Facilitator: ...' workflow: build its args, then the shared job's steps in a fresh checkout."""
     caller = yaml(WF / dispatcher)
@@ -100,9 +121,13 @@ def run_facilitator(dispatcher, inputs, actor='facilitator-ann', before_push=Non
         before_push(checkout)
     runner_temp = Path(tempfile.mkdtemp())
     summary = runner_temp / 'step_summary.md'
-    env = {'ARGS': args, 'RUNNER_TEMP': str(runner_temp), 'GITHUB_STEP_SUMMARY': str(summary), 'GITHUB_ACTOR': actor}
+    env = {'ARGS': args, 'RUNNER_TEMP': str(runner_temp), 'GITHUB_STEP_SUMMARY': str(summary), 'GITHUB_ACTOR': actor,
+           'GITHUB_OUTPUT': str(runner_temp / 'output')}
     ok = run_steps(workflow, workflow['jobs']['change'], checkout, env)
+    outputs.clear()
+    outputs.update(step_outputs(runner_temp / 'output'))
     return ok, summary.read_text() if summary.exists() else ''
+
 
 
 def csv_at_origin():
@@ -123,6 +148,7 @@ def filled(r):
 print('Facilitator journeys')
 ok, s = run_facilitator('facilitator-award.yml', {'person': 'stuart smith', 'kind': 'helped', 'amount': '2'})
 expect(ok and '✅ Gave 2 helps to Stuart Smith' in s, 'award: run succeeds and summary says what changed')
+expect(outputs.get('outcome') == 'changed', "award: the run's outcome is changed")
 expect(row('Stuart Smith')['helped'] == '2', 'award: helped is 2 at origin')
 expect('facilitator-ann: Gave 2 helps' in s, 'award: recent actions list who did it')
 log = sh('git log -1 --format=%s%n%b', clone).stdout
@@ -153,6 +179,7 @@ print('Mistakes')
 before = csv_at_origin()
 ok, s = run_facilitator('facilitator-award.yml', {'person': 'Stuart Smit', 'kind': 'helped', 'amount': '1'})
 expect(ok and "❌ Nothing was changed" in s and "Did you mean 'Stuart Smith'" in s, 'typo: run succeeds (a refusal is an answer), says nothing changed, suggests the right name')
+expect(outputs.get('outcome') == 'refused', "typo: the run's outcome is refused")
 expect(csv_at_origin() == before, 'typo: origin unchanged')
 ok, s = run_facilitator('facilitator-mark.yml', {'person': 'Bukky Adeyemi', 'lesson': 'docker', 'status': 'correct'})
 keys = ', '.join(lesson['key'] for lesson in json.loads((SRC / 'lessons.json').read_text()))
@@ -166,6 +193,20 @@ temp = Path(tempfile.mkdtemp())
 crashed = run_steps(workflow, workflow['jobs']['change'], broken, {'ARGS': 'not a JSON array', 'RUNNER_TEMP': str(temp),
                                                                    'GITHUB_STEP_SUMMARY': str(temp / 'summary.md'), 'GITHUB_OUTPUT': str(temp / 'out')})
 expect(not crashed and csv_at_origin() == before, 'a fault (not a refusal) still fails the run, and changes nothing')
+expect(step_outputs(temp / 'out').get('outcome') == 'broken', "a fault: the run's outcome is broken")
+
+# A refused batch is still saved (its record tells the page why). If saving it keeps failing, that is a fault: the run
+# fails and says broken, rather than going green with a refusal nobody can see.
+unsaved = work / 'run-unsaved'
+shutil.rmtree(unsaved, ignore_errors=True)
+sh(f'git clone -q {origin} {unsaved}', work)
+(unsaved / '.git' / 'hooks' / 'pre-push').write_text('#!/bin/bash\nexit 1\n')
+(unsaved / '.git' / 'hooks' / 'pre-push').chmod(0o755)
+temp = Path(tempfile.mkdtemp())
+batch = json.dumps(['batch', 'sim-unsaved', json.dumps([['award', 'Nobody Here', 'helped', '1']])])
+saved = run_steps(workflow, workflow['jobs']['change'], unsaved, {'ARGS': batch, 'RUNNER_TEMP': str(temp),
+                                                                'GITHUB_STEP_SUMMARY': str(temp / 'summary.md'), 'GITHUB_OUTPUT': str(temp / 'out')})
+expect(not saved and step_outputs(temp / 'out').get('outcome') == 'broken', 'a refused batch that cannot be saved is broken, not an answer')
 
 print('Undo')
 ok, s = run_facilitator('facilitator-undo.yml', {})

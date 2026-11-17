@@ -17,14 +17,19 @@ import csv
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 
 API = 'https://api.github.com'
+# The warning facilitator-action.yml raises only when leaderboard.py settles a change as refused: its only warning.
+(REFUSED_WARNING,) = re.findall(r'::warning title=([^:]+)::', (Path(__file__).parents[2] / '.github/workflows/facilitator-action.yml')
+                                .read_text())
 
 
 class GitHub:
@@ -55,7 +60,8 @@ class GitHub:
 
     def run_form(self, workflow, inputs, me):
         """A facilitator form in the Actions tab: dispatch, find the newest run by `me` since then, follow it to the
-        end. Its outcome: changed, refused (succeeded with a "Nothing was changed" warning) or broken (did not succeed)."""
+        end. Its outcome, as the workflow settled it: changed, refused (the run succeeds, with the warning the
+        workflow raises only for a refused outcome) or broken (the run did not succeed)."""
         started = time.time()
         self.call('POST', f'/repos/{self.repo}/actions/workflows/{workflow}/dispatches', {'ref': 'main', 'inputs': inputs})
         run = self.finish(self.find_run(workflow, 'workflow_dispatch', started, me))
@@ -63,7 +69,7 @@ class GitHub:
             return run | {'outcome': 'broken'}
         warnings = [a for job in self.call('GET', f'/repos/{self.repo}/actions/runs/{run["id"]}/jobs')['jobs']
                     for a in self.call('GET', job['check_run_url'].removeprefix(API) + '/annotations')]
-        refused = any(a.get('title') == 'Nothing was changed' for a in warnings)
+        refused = any(a.get('title') == REFUSED_WARNING for a in warnings)
         return run | {'outcome': 'refused' if refused else 'changed'}
 
     def find_run(self, workflow, event, since, actor=None):
@@ -106,6 +112,7 @@ class GitHub:
         import issue_form
         title, (_, fields) = next((t, f) for t, f in issue_form.FORMS.items() if f'facilitator-{f[0]}.yml' == workflow)
         body = '\n\n'.join(f'### {label}\n\n{inputs.get(field) or issue_form.NO_RESPONSE}' for label, field in fields) or '### Note (optional)\n\n_No response_'
+        started = time.time()
         issue = self.call('POST', f'/repos/{self.repo}/issues', {'title': issue_form.TITLE_PREFIX + title, 'body': body})
         for _ in range(60):
             time.sleep(5)
@@ -116,8 +123,10 @@ class GitHub:
             raise AssertionError(f'issue #{issue["number"]} was not answered')
         comments = self.call('GET', f'/repos/{self.repo}/issues/{issue["number"]}/comments')
         reply = comments[-1]['body'] if comments else ''
-        outcome = ('changed' if issue.get('state_reason') == 'completed' and 'Nothing was changed' not in reply else
-                   'refused' if 'Nothing was changed' in reply else 'broken')
+        # Closed as completed only when the outcome was changed; otherwise its run says refused (succeeded) or broken.
+        run = self.finish(self.find_run('changes-from-issues.yml', 'issues', started, self.me()))
+        outcome = ('changed' if issue.get('state_reason') == 'completed' else
+                   'refused' if run['conclusion'] == 'success' else 'broken')
         return {'outcome': outcome, 'html_url': issue['html_url'], 'reply': reply}
 
     def runs_since(self, since):

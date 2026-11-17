@@ -181,6 +181,11 @@ class AgreementTests(unittest.TestCase):
         answer = yaml(WORKFLOWS / 'changes-from-issues.yml')['jobs']['answer']['if']
         self.assertIn("needs.read.result == 'success'", answer)  # so a skipped read answers nothing either
 
+    def test_the_issue_is_closed_by_the_changes_outcome_not_its_wording(self):
+        answer = yaml(WORKFLOWS / 'changes-from-issues.yml')['jobs']['answer']['steps'][0]
+        self.assertEqual(answer['env']['OUTCOME'], '${{ needs.change.outputs.outcome }}')
+        self.assertNotIn('Nothing was changed', answer['run'].split('gh issue comment', 1)[1])
+
     def test_the_workflow_reads_the_issue_only_through_python(self):
         wf = (WORKFLOWS / 'changes-from-issues.yml').read_text()
         for run in re.findall(r'run: (?:\|\n)?((?:.*\n)+?)(?=\s+- |\Z|\n\s*\n)', wf):

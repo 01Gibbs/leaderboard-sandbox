@@ -15,6 +15,9 @@ on:
       summary:
         description: 'What happened, as shown on the run page (changes-from-issues.yml replies with it)'
         value: ${{ jobs.change.outputs.summary }}
+      outcome:
+        description: 'changed, refused (an answer, such as a misspelt name: the run still succeeds) or broken'
+        value: ${{ jobs.change.outputs.outcome }}
 
 defaults:
   run:
@@ -27,6 +30,7 @@ jobs:
       contents: read  # pushes with the deploy key
     outputs:
       summary: ${{ steps.change.outputs.summary }}
+      outcome: ${{ steps.change.outputs.outcome }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -37,16 +41,23 @@ jobs:
           ARGS: ${{ inputs.args }}
         run: |
           status=0
+          export LEADERBOARD_OUTCOME=$RUNNER_TEMP/outcome
+          rm -f "$LEADERBOARD_OUTCOME"
           grader/run_and_push.sh "" 'python3 grader/leaderboard.py --args-json "$ARGS"' || status=$?
-          end=$(openssl rand -hex 16)  # a delimiter nothing in the summary can contain
-          { echo "summary<<$end"; cat "$GITHUB_STEP_SUMMARY"; echo "$end"; } >> "$GITHUB_OUTPUT"
-          # A change the leaderboard refused (a misspelt name, an unknown exercise) is an answer, not a fault: the run
-          # succeeds, says why on its page and as a warning, and changed nothing. Anything else that went wrong fails it.
-          if (( status )) && reason=$(grep -m1 '❌ Nothing was changed' "$GITHUB_STEP_SUMMARY"); then
-            reason=${reason#*❌ }; reason=${reason//%/%25}
-            echo "::warning title=Nothing was changed::${reason#Nothing was changed. }"
+          # leaderboard.py settles what happened. Refused (a misspelt name, an unknown exercise) is an answer, not a
+          # fault: the run succeeds and says why on its page and as a warning, as long as what there was to save
+          # (a refused batch's record) was saved: run_and_push.sh exits 3 only when the command itself said no.
+          # Anything else that went wrong (a crash, failing to save) is broken: the run fails.
+          outcome=$(sed -n 1p "$LEADERBOARD_OUTCOME" 2>/dev/null || true)
+          if [[ $outcome == refused ]] && (( status == 0 || status == 3 )); then
             status=0
+            reason=$(sed -n 2p "$LEADERBOARD_OUTCOME")
+            echo "::warning title=Nothing was changed::${reason//%/%25}"
+          elif (( status )) || [[ $outcome != changed ]]; then
+            outcome=broken; status=$(( status ? status : 1 ))
           fi
+          end=$(openssl rand -hex 16)  # a delimiter nothing in the summary can contain
+          { echo "outcome=$outcome"; echo "summary<<$end"; cat "$GITHUB_STEP_SUMMARY"; echo "$end"; } >> "$GITHUB_OUTPUT"
           exit $status
       - name: Show recent actions
         if: always()

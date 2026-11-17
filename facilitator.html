@@ -610,7 +610,7 @@ async function follow() {
       queue.filter((r) => r.state === 'waiting' && batches[r.batch]).forEach((r) => {
         const b = batches[r.batch], o = b.error ? { ok: false, message: b.error } : b.rows[r.row - 1] || { ok: false, message: 'Not in the batch GitHub received.' };
         landed = landed || o.ok;
-        Object.assign(r, o.ok ? { state: 'done', change: o.change } : { state: 'failed', reason: o.message.replace(/^Nothing was changed\.\s*/, '') });
+        Object.assign(r, o.ok ? { state: 'done', change: o.change } : { state: 'failed', reason: o.message });
       });
       renderQueue();
       if (landed) {
