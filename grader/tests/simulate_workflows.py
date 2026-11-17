@@ -9,6 +9,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -291,15 +292,14 @@ expect('__LEADERBOARD_REPO__' in (SRC / 'grader' / 'exercise-repo' / 'notify-lea
        'hook: the leaderboard repository is filled in when it is installed')
 
 print('Answering a facilitator issue')
-# The answer job with a stand-in gh that logs each call on one line (arguments joined by |, a comment's newlines as
-# \n) and says whether the issue is locked already.
+# The answer job with a stand-in gh that logs each call as one JSON list (a comment's body read in from its file,
+# so newlines need no shell escaping, which differs between bash versions) and says whether the issue is locked.
 issue_bin = work / 'issue-bin'
 issue_bin.mkdir()
 (issue_bin / 'gh').write_text(f"""#!/bin/bash
 args=("$@")
 for i in "${{!args[@]}}"; do [[ ${{args[i]}} == --body-file ]] && args[i+1]=$(< "${{args[i+1]}}"); done
-line=$(IFS='|'; echo "${{args[*]}}")
-echo "${{line//$'\\n'/\\n}}" >> {work}/gh-calls
+{sys.executable} -c 'import json, sys; print(json.dumps(sys.argv[1:]))' "${{args[@]}}" >> {work}/gh-calls
 [[ "$1 $2" == 'issue view' ]] && echo "${{LOCKED:-false}}"
 exit 0
 """)
@@ -309,7 +309,9 @@ no_python.mkdir()
 (no_python / 'python3').write_text('#!/bin/bash\nexit 1\n')
 (no_python / 'python3').chmod(0o755)
 answer_job = yaml(WF / 'changes-from-issues.yml')['jobs']['answer']
-CLOSE, LOCK = 'issue|close|7|-R|o/board|--reason|', 'issue|lock|7|-R|o/board|--reason|resolved'
+CLOSE = ['issue', 'close', '7', '-R', 'o/board', '--reason']
+LOCK = ['issue', 'lock', '7', '-R', 'o/board', '--reason', 'resolved']
+VIEW = ['issue', 'view', '7', '-R', 'o/board', '--json', 'locked', '-q', '.locked']
 
 
 def answer_issue(bins=(), **env):
@@ -318,27 +320,27 @@ def answer_issue(bins=(), **env):
     path = ':'.join([*map(str, bins), str(issue_bin), os.environ['PATH']])
     ok = run_steps({}, answer_job, SRC, {'PATH': path, 'RUNNER_TEMP': str(temp), 'REPO': 'o/board', 'ISSUE': '7',
                                          'RUN': 'https://run/9', 'REPLY': '', 'SUMMARY': '', 'OUTCOME': '', **env})
-    return ok, (work / 'gh-calls').read_text().splitlines() if (work / 'gh-calls').exists() else []
+    return ok, [json.loads(c) for c in (work / 'gh-calls').read_text().splitlines()] if (work / 'gh-calls').exists() else []
 
 
 ok, calls = answer_issue(SUMMARY='### ✅ Gave 1 help to Asha Rao', OUTCOME='changed')
-expect(ok and calls[0] == 'issue|comment|7|-R|o/board|--body-file|### ✅ Gave 1 help to Asha Rao\\n\\n[The run that did this](https://run/9)',
+expect(ok and calls[0] == ['issue', 'comment', '7', '-R', 'o/board', '--body-file', '### ✅ Gave 1 help to Asha Rao\n\n[The run that did this](https://run/9)'],
        'issue: a change made is answered with what happened, and the run')
-expect(calls[1:] == [CLOSE + 'completed', 'issue|view|7|-R|o/board|--json|locked|-q|.locked', LOCK],
+expect(calls[1:] == [CLOSE + ['completed'], VIEW, LOCK],
        'issue: a change made is closed as completed, then locked')
 ok, calls = answer_issue(SUMMARY='### ❌ Nothing was changed. Nobody called "Asha"', OUTCOME='refused')
-expect(ok and CLOSE + 'not planned' in calls and LOCK in calls, 'issue: a refused change is closed as not planned and locked')
+expect(ok and CLOSE + ['not planned'] in calls and LOCK in calls, 'issue: a refused change is closed as not planned and locked')
 ok, calls = answer_issue(REPLY="Only the leaderboard's collaborators with write access can change it.")
-expect(ok and "Only the leaderboard's collaborators" in calls[0] and CLOSE + 'not planned' in calls and LOCK in calls,
+expect(ok and "Only the leaderboard's collaborators" in calls[0][-1] and CLOSE + ['not planned'] in calls and LOCK in calls,
        'issue: not allowed: answered with why, closed as not planned, locked')
 ok, calls = answer_issue(OUTCOME='broken')
-expect(ok and 'Something went wrong' in calls[0] and CLOSE + 'not planned' in calls and LOCK in calls,
+expect(ok and 'Something went wrong' in calls[0][-1] and CLOSE + ['not planned'] in calls and LOCK in calls,
        'issue: a broken change is still answered, closed and locked')
 ok, calls = answer_issue(bins=[no_python], SUMMARY='x', OUTCOME='changed')
-expect(ok and 'Something went wrong' in calls[0] and CLOSE + 'not planned' in calls and LOCK in calls,
+expect(ok and 'Something went wrong' in calls[0][-1] and CLOSE + ['not planned'] in calls and LOCK in calls,
        'issue: if deciding the answer fails, the issue is still answered, closed and locked')
 ok, calls = answer_issue(SUMMARY='x', OUTCOME='changed', LOCKED='true')
-expect(ok and not any(c.startswith('issue|lock') for c in calls), 'issue: one locked already (a re-run) is not locked again')
+expect(ok and not any(c[:2] == ['issue', 'lock'] for c in calls), 'issue: one locked already (a re-run) is not locked again')
 
 print('Saving past branch protection, and page publishing')
 # main requires a pull request; only the deploy key may push to it. Its pushes also start "Publish the page",
