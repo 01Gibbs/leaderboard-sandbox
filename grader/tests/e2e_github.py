@@ -1,15 +1,18 @@
 """End to end on GitHub: the real facilitator workflows on a real leaderboard repository, then all of it undone.
 
-    python3 grader/tests/e2e_github.py --repo OWNER/NAME                  the Actions forms (about 10 minutes)
-    python3 grader/tests/e2e_github.py --repo OWNER/NAME --issues         the same changes as issues, as the page sends them
-    python3 grader/tests/e2e_github.py --repo OWNER/NAME --all            both, a grading run from a submission event, one
-                                                                          started by hand, and the mutation workflow (~30 min)
+    python3 grader/tests/e2e_github.py --repo OWNER/NAME            the Actions forms (about 8 minutes)
+    python3 grader/tests/e2e_github.py --repo OWNER/NAME --issues   issues, as the facilitator page sends them
+    python3 grader/tests/e2e_github.py --repo OWNER/NAME --all      both, a grading run from a submission event, one
+                                                                    started by hand, and the mutation workflow (~25 min)
+    add --keep to leave the test's issues and runs in place afterwards
 
-Each change goes through a real workflow, and main's participants.csv is checked after each. A mistake (a misspelt
-name) must be refused: its run succeeds, says "Nothing was changed", and changes nothing. Then every change is
-undone and main must be back where it started. Last, every workflow run started meanwhile (Pages deploys included)
-must have succeeded: none failed, none cancelled. It needs a token that may run the workflows (GH_TOKEN, or
-`gh auth token`). It commits to main, so use it on a repository where that is fine. Not run by `unittest discover`.
+Each kind of change goes through a real workflow, and main's participants.csv is checked after each. A mistake (a
+misspelt name) must be refused: its run succeeds, says why, and changes nothing. Then every change is undone, mostly
+in one batch so main gets few commits, and main must be back where it started. Every workflow run started meanwhile
+(Pages deploys included) must have succeeded: none failed, none cancelled. When everything passed, it deletes the
+issues it opened and the facilitator, issue and Pages runs it caused (grading and mutation runs stay); on a failure
+it leaves them for you to look at. It needs a token that may run the workflows and delete issues (GH_TOKEN, or
+`gh auth token`, as an admin). It commits to main, so use it on a sandbox copy. Not run by `unittest discover`.
 """
 import argparse
 import base64
@@ -36,6 +39,7 @@ class GitHub:
     def __init__(self, repo, token):
         self.repo, self.token = repo, token
         self.seen = set()  # runs already claimed, so two quick dispatches of one workflow get a run each
+        self.issues = []  # every issue this test opened, so it can delete them afterwards
 
     def call(self, method, path, body=None, accept='application/vnd.github+json'):
         req = urllib.request.Request(API + path, method=method, data=json.dumps(body).encode() if body is not None else None,
@@ -89,7 +93,7 @@ class GitHub:
         """What the facilitator page's Send does: one Changes issue with every row, answered and closed. Returns
         (the issue, its reply, the batch's record in grader/batches.json)."""
         body = f'### Batch\n\n{batch_id}\n\n### Changes\n\n' + '\n'.join(json.dumps(r) for r in rows)
-        issue = self.call('POST', f'/repos/{self.repo}/issues', {'title': 'Facilitator: Changes', 'body': body})
+        issue = self.open_issue('Facilitator: Changes', body)
         for _ in range(60):
             time.sleep(5)
             issue = self.call('GET', f'/repos/{self.repo}/issues/{issue["number"]}')
@@ -105,6 +109,24 @@ class GitHub:
         comments = self.call('GET', f'/repos/{self.repo}/issues/{issue["number"]}/comments')
         return issue, comments[-1]['body'] if comments else '', json.loads(self.file('grader/batches.json') or '{}').get(batch_id)
 
+    def open_issue(self, title, body):
+        issue = self.call('POST', f'/repos/{self.repo}/issues', {'title': title, 'body': body})
+        self.issues.append(issue)
+        return issue
+
+    def clean_up(self, since):
+        """Delete the issues this test opened and the runs it caused: its facilitator and issue runs, and the Pages
+        runs that published its commits. Grading and mutation runs stay: they are real results. Returns the counts."""
+        for issue in self.issues:
+            self.call('POST', '/graphql', {'query': 'mutation($id: ID!) { deleteIssue(input: {issueId: $id}) { clientMutationId } }',
+                                          'variables': {'id': issue['node_id']}})
+        ours = [r for r in self.runs_since(since)
+                if (r['id'] in self.seen and r['path'].split('/')[-1] not in ('grade.yml', 'mutation.yml'))
+                or (r['path'].endswith('/pages.yml') and re.search(r'E2E |e2e-[0-9]', r.get('display_title') or ''))]
+        for r in ours:
+            self.call('DELETE', f'/repos/{self.repo}/actions/runs/{r["id"]}')
+        return len(self.issues), len(ours)
+
     def send_issue(self, workflow, inputs):
         """What a facilitator does from the page: open the form's issue (as GitHub writes a submitted form), then
         wait until changes-from-issues.yml answers and closes it. Returns a run-like dict for step()."""
@@ -113,7 +135,7 @@ class GitHub:
         title, (_, fields) = next((t, f) for t, f in issue_form.FORMS.items() if f'facilitator-{f[0]}.yml' == workflow)
         body = '\n\n'.join(f'### {label}\n\n{inputs.get(field) or issue_form.NO_RESPONSE}' for label, field in fields) or '### Note (optional)\n\n_No response_'
         started = time.time()
-        issue = self.call('POST', f'/repos/{self.repo}/issues', {'title': issue_form.TITLE_PREFIX + title, 'body': body})
+        issue = self.open_issue(issue_form.TITLE_PREFIX + title, body)
         for _ in range(60):
             time.sleep(5)
             issue = self.call('GET', f'/repos/{self.repo}/issues/{issue["number"]}')
@@ -166,25 +188,24 @@ def rows(text):
 def main(argv):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument('--repo', required=True)
-    p.add_argument('--issues', action='store_true', help='send each change as an issue, as the facilitator page does')
-    p.add_argument('--batch', action='store_true', help='send changes as the facilitator page does: one issue, then undo row by row')
-    p.add_argument('--all', action='store_true', help='Actions forms, issues and a batch, grading runs, and the mutation workflow')
+    p.add_argument('--issues', action='store_true', help='issues, as the facilitator page sends them, instead of the Actions forms')
+    p.add_argument('--all', action='store_true', help='the Actions forms and issues, grading runs, and the mutation workflow')
+    p.add_argument('--keep', action='store_true', help="leave the test's issues and runs in place afterwards")
     a = p.parse_args(argv)
     began = time.time()
     token = os.environ.get('GH_TOKEN') or subprocess.run(['gh', 'auth', 'token'], capture_output=True, text=True).stdout.strip()
     gh = GitHub(a.repo, token)
     me = gh.me()
     stamp = datetime.now(timezone.utc).strftime('%H%M%S')
-    lessons = json.loads(gh.file('lessons.json'))
-    lesson = lessons[-1]['key']
-    start_csv, start_history = gh.file('participants.csv'), json.loads(gh.file('grader/history.json') or '[]')
+    lesson = json.loads(gh.file('lessons.json'))[-1]['key']
+    start = Start(gh.file('participants.csv'), json.loads(gh.file('grader/history.json') or '[]'))
     failures = []
-    if a.all or a.batch:
-        print('\n--- Several changes in one issue, as the facilitator page sends them')
-        failures += batch_journey(gh, stamp, start_csv, start_history)
-    for via in (['actions', 'issues'] if a.all else ['issues' if a.issues else 'actions'] if not a.batch else []):
-        print(f'\n--- Changes through {"issues, as the facilitator page sends them" if via == "issues" else "the Actions forms"}')
-        failures += journey(gh, me, via, f'{stamp}{via[0]}', lesson, start_csv, start_history)
+    if a.all or not a.issues:
+        print('\n--- Changes through the Actions forms')
+        failures += actions_journey(gh, me, f'{stamp}a', lesson, start)
+    if a.all or a.issues:
+        print('\n--- Changes sent as issues, as the facilitator page sends them')
+        failures += issues_journey(gh, f'{stamp}i', lesson, start)
 
     if a.all:
         print('\n--- Grading and the other workflows')
@@ -206,8 +227,34 @@ def main(argv):
     bad = [f'{r["name"]} [{r["event"]}] {r["conclusion"] or r["status"]}: {r["html_url"]}' for r in runs if r['conclusion'] != 'success']
     failures += report(f'all {len(runs)} runs succeeded: none failed, none cancelled', not bad, '\n     '.join(bad))
 
+    if failures or a.keep:
+        print(f'\nLeft in place to look at: {len(gh.issues)} issues and the runs above.')
+    else:
+        issues, deleted = gh.clean_up(began)
+        print(f'\nLeft no trace: deleted {issues} issues and {deleted} runs. Its commits stay on main.')
     print(f'\n{"All passed" if not failures else "Failed: " + ", ".join(failures)}')
     return 1 if failures else 0
+
+
+class Start:
+    """main as it was before the test: participants.csv and grader/history.json."""
+
+    def __init__(self, csv_text, history):
+        self.csv, self.history = csv_text, history
+
+    def problem(self, gh):
+        """None when main is back where it started; otherwise what differs."""
+        end_csv, end_history = gh.file('participants.csv'), json.loads(gh.file('grader/history.json') or '[]')
+        leftovers = [n for n in rows(end_csv) if n.startswith('E2E ')]
+        changed = {n for n, r in rows(self.csv).items() if rows(end_csv).get(n) != r}
+        return (f'rows left behind: {leftovers}' if leftovers else
+                f'history has {len(end_history)} entries, started with {len(self.history)}' if len(end_history) != len(self.history) else
+                f'rows differ from the start (a grading run may have raised them meanwhile): {sorted(changed)}' if changed else None)
+
+    def new_changes(self, gh):
+        """The ids of the changes made since the start, newest first: what to undo."""
+        history = json.loads(gh.file('grader/history.json') or '[]')
+        return [h['id'] for h in reversed(history[len(self.history):])]
 
 
 def report(title, ok, detail=''):
@@ -215,47 +262,26 @@ def report(title, ok, detail=''):
     return [] if ok else [title]
 
 
-def batch_journey(gh, stamp, start_csv, start_history):
-    """One Changes issue with three changes and one mistake; then each change undone on its own, newest first."""
-    who = f'E2E Batch {stamp}'
-    failures = []
-    issue, reply, record = gh.send_batch(f'e2e-{stamp}', [['add', who, ''], ['award', who, 'helped', '2'],
-                                                         ['award', 'Nobody ' + stamp, 'helped', '1'], ['rename', who, who + ' R']])
-    rows = (record or {}).get('rows', [])
-    failures += report('one issue: answered, closed as done and locked',
-                       issue.get('state_reason') == 'completed' and issue.get('locked') is True, issue['html_url'])
-    failures += report('each row has its own outcome: three made, the misspelt name not',
-                       [r['ok'] for r in rows] == [True, True, False, True], reply.splitlines()[0] if reply else 'no reply')
-    sheet = rows_of(gh.file('participants.csv'))
-    failures += report('the sheet shows all three', sheet.get(who + ' R', {}).get('helped') == '2', str(sheet.get(who + ' R')))
-    changes = [r['change'] for r in rows if r['ok']]
-    issue, reply, record = gh.send_batch(f'e2e-{stamp}-undo', [['undo', c] for c in reversed(changes)])
-    failures += report('undo each change on its own, in one more issue',
-                       [r['ok'] for r in (record or {}).get('rows', [])] == [True] * len(changes), reply.splitlines()[0] if reply else 'no reply')
-    end_csv = gh.file('participants.csv')
-    end_history = json.loads(gh.file('grader/history.json') or '[]')
-    left = [n for n in rows_of(end_csv) if n.startswith('E2E Batch')]
-    failures += report('main is back where it started', not left and len(end_history) == len(start_history),
-                       f'rows left: {left}, history {len(end_history)} vs {len(start_history)}')
-    return failures
+def undo_all(gh, start, batch_id):
+    """Undo every change made since the start in one batch issue: one commit on main. Returns failures."""
+    ids = start.new_changes(gh)
+    if not ids:
+        return report('nothing to undo', True)
+    issue, reply, record = gh.send_batch(batch_id, [['undo', i] for i in ids])
+    made = [r['ok'] for r in (record or {}).get('rows', [])]
+    return report(f'undo the other {len(ids)} changes in one batch', made == [True] * len(ids), reply.splitlines()[0] if reply else 'no reply')
 
 
-def rows_of(text):
-    return {r['name']: r for r in csv.DictReader(io.StringIO(text))}
-
-
-def journey(gh, me, via, stamp, lesson, start_csv, start_history):
-    """Each kind of change, through `via` (the Actions forms or issues), checked on main; then all undone."""
+def actions_journey(gh, me, stamp, lesson, start):
+    """Each Actions form once, checked on main; the Undo form once; the rest undone in one batch."""
     who, dup = f'E2E Check {stamp}', f'E2E Duplicate {stamp}'
-    made, failures = 0, []
+    failures = []
 
     def step(title, workflow, inputs, expect, check):
-        nonlocal made
         try:
-            run = gh.send_issue(workflow, inputs) if via == 'issues' else gh.run_form(workflow, inputs, me)
+            run = gh.run_form(workflow, inputs, me)
         except AssertionError as e:  # a run that never started or never ended: report it, carry on to the undo
             run = {'outcome': 'broken', 'html_url': str(e)}
-        made += run['outcome'] == 'changed'
         problem = None if run['outcome'] == expect else f'{run["outcome"]}, expected {expect}'
         problem = problem or check(rows(gh.file('participants.csv')))
         failures.extend(report(title, not problem, problem or run['html_url']))
@@ -263,29 +289,51 @@ def journey(gh, me, via, stamp, lesson, start_csv, start_history):
     try:
         step('add a person', 'facilitator-add.yml', {'name': who, 'github': ''}, 'changed',
              lambda s: None if who in s else f'{who} is not on the sheet')
-        step('award 2 helps', 'facilitator-award.yml', {'person': who, 'kind': 'helped', 'amount': '2'},  'changed',
+        step('award 2 helps', 'facilitator-award.yml', {'person': who, 'kind': 'helped', 'amount': '2'}, 'changed',
              lambda s: None if s[who]['helped'] == '2' else f'helped is {s[who]["helped"]!r}')
-        step(f'mark {lesson} correct', 'facilitator-mark.yml', {'person': who, 'lesson': lesson, 'status': 'correct'},  'changed',
+        step(f'mark {lesson} correct', 'facilitator-mark.yml', {'person': who, 'lesson': lesson, 'status': 'correct'}, 'changed',
              lambda s: None if s[who][lesson] == 'correct' else f'{lesson} is {s[who][lesson]!r}')
-        step('add a duplicate', 'facilitator-add.yml', {'name': dup, 'github': ''},  'changed',
+        step('add a duplicate', 'facilitator-add.yml', {'name': dup, 'github': ''}, 'changed',
              lambda s: None if dup in s else f'{dup} is not on the sheet')
-        step('merge the duplicate', 'facilitator-merge.yml', {'keep': who, 'duplicate': dup},  'changed',
+        step('merge the duplicate', 'facilitator-merge.yml', {'keep': who, 'duplicate': dup}, 'changed',
              lambda s: None if dup not in s and who in s else 'both rows are still there')
-        step('rename', 'facilitator-rename.yml', {'person': who, 'new_name': who + ' R'},  'changed',
+        step('rename', 'facilitator-rename.yml', {'person': who, 'new_name': who + ' R'}, 'changed',
              lambda s: None if who + ' R' in s else 'not renamed')
         step('a misspelt name changes nothing', 'facilitator-award.yml', {'person': 'Nobody ' + stamp, 'kind': 'helped', 'amount': '1'},
              'refused', lambda s: None if s[who + ' R']['helped'] == '2' else 'the sheet changed')
+        step('the Undo form reverses the latest change', 'facilitator-undo.yml', {}, 'changed',
+             lambda s: None if who in s and who + ' R' not in s else 'the rename was not undone')
     finally:
-        changes = made  # undo counts as made too, so fix the number first
-        for n in range(changes):
-            step(f'undo {n + 1} of {changes}', 'facilitator-undo.yml', {}, 'changed', lambda s: None)
-        end_csv, end_history = gh.file('participants.csv'), json.loads(gh.file('grader/history.json') or '[]')
-        leftovers = [n for n in rows(end_csv) if n.startswith(('E2E Check', 'E2E Duplicate'))]
-        changed = {n for n, r in rows(start_csv).items() if rows(end_csv).get(n) != r}
-        problem = (f'rows left behind: {leftovers}' if leftovers else
-                   f'history has {len(end_history)} entries, started with {len(start_history)}' if len(end_history) != len(start_history) else
-                   f'rows differ from the start (a grading run may have raised them meanwhile): {sorted(changed)}' if changed else None)
-        failures.extend(report('main is back where it started', not problem, problem or ''))
+        failures += undo_all(gh, start, f'e2e-{stamp}-undo')
+        problem = start.problem(gh)
+        failures += report('main is back where it started', not problem, problem or '')
+    return failures
+
+
+def issues_journey(gh, stamp, lesson, start):
+    """One issue from a single form's template (refused); then every kind of change in one batch issue, as the page
+    sends them, with a mistake among them; then all undone in one more."""
+    who, dup = f'E2E Check {stamp}', f'E2E Duplicate {stamp}'
+    failures = []
+    try:
+        answered = gh.send_issue('facilitator-award.yml', {'person': 'Nobody ' + stamp, 'kind': 'helped', 'amount': '1'})
+        failures += report("a form's own issue: a misspelt name is answered, closed as not planned, nothing changed",
+                           answered['outcome'] == 'refused' and not start.new_changes(gh), answered['html_url'])
+        issue, reply, record = gh.send_batch(f'e2e-{stamp}', [
+            ['add', who, ''], ['award', who, 'helped', '2'], ['mark', who, lesson, 'correct'], ['add', dup, ''],
+            ['merge', who, dup], ['award', 'Nobody ' + stamp, 'helped', '1'], ['rename', who, who + ' R']])
+        failures += report('one issue for all of them: answered, closed as done and locked',
+                           issue.get('state_reason') == 'completed' and issue.get('locked') is True, issue['html_url'])
+        failures += report('each row has its own outcome: six made, the misspelt name not',
+                           [r['ok'] for r in (record or {}).get('rows', [])] == [True] * 5 + [False, True],
+                           reply.splitlines()[0] if reply else 'no reply')
+        sheet = rows(gh.file('participants.csv')).get(who + ' R', {})
+        failures += report('the sheet shows them all', sheet.get('helped') == '2' and sheet.get(lesson) == 'correct'
+                           and dup not in rows(gh.file('participants.csv')), str(sheet))
+    finally:
+        failures += undo_all(gh, start, f'e2e-{stamp}-undo')
+        problem = start.problem(gh)
+        failures += report('main is back where it started', not problem, problem or '')
     return failures
 
 

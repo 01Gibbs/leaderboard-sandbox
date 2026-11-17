@@ -16,7 +16,7 @@ Adding a lesson, or changing how one is graded: use the `add-lesson` skill. A ne
 - Browser journeys: `uv run --no-project --with playwright python -m unittest grader/tests/test_facilitator_browser.py` (once: `uv run --no-project --with playwright playwright install chromium`).
 - Lint: `uvx ruff check grader facilitator_walkthrough.py walkthrough.py`.
 - Commit with `git -c core.hooksPath=.githooks commit`: the hook lints and runs the fast tier.
-- Live, against a real copy on GitHub: `python3 grader/tests/e2e_github.py --repo <owner>/<repo> --all`. It makes real changes and undoes them; use a sandbox copy, never the live leaderboard during a workshop.
+- Live, against a real copy on GitHub: `python3 grader/tests/e2e_github.py --repo <owner>/<repo> --all`. It makes real changes, undoes them, and when all passed deletes the issues and runs it caused (`--keep` leaves them); use a sandbox copy, never the live leaderboard during a workshop.
 
 ## When behaviour changes
 Update the words people read, in the same pull request: README.md, FACILITATOR.md, the leaderboard tour (`walkthrough/steps.js`) and the facilitator tour (`walkthrough/facilitator-steps.js`). Tests fail if a tour's `target` is missing from its page. `docs/adr/` holds decisions already made (read before proposing a layout change); `docs/research/` holds dated notes, each with a status line.

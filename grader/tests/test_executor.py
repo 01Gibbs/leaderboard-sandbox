@@ -40,7 +40,7 @@ def alive(pid):
     if stat.exists():
         try:
             return stat.read_text().split()[2] != 'Z'
-        except FileNotFoundError:  # reaped between the two calls
+        except (FileNotFoundError, ProcessLookupError):  # reaped between the two calls (Linux says either)
             return False
     ps = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True, text=True).stdout.strip()
     return bool(ps) and not ps.startswith('Z')
