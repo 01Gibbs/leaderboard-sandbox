@@ -113,6 +113,58 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(roster.Roster(work).find('Asha Rao')['helped'], '2')
 
 
+class CommandLineTests(unittest.TestCase):
+    """issue_form.py as changes-from-issues.yml runs it."""
+
+    def run_py(self, *argv, env=None):
+        return subprocess.run([sys.executable, str(REPO / 'grader' / 'issue_form.py'), *argv], capture_output=True, text=True,
+                              env={**os.environ, **(env or {})}, cwd=REPO)
+
+    def test_answer_writes_the_comment_and_prints_the_close_and_lock_reasons(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            body = Path(tmp) / 'answer.md'
+            r = self.run_py('answer', str(body), env={'SUMMARY': '### ✅ Gave 1 help', 'OUTCOME': 'changed', 'REPLY': '', 'RUN': 'https://run/1'})
+            self.assertEqual((r.returncode, r.stdout), (0, 'completed\nresolved\n'))
+            self.assertEqual(body.read_text(encoding='utf-8'), '### ✅ Gave 1 help\n\n[The run that did this](https://run/1)')
+
+    def test_answer_without_a_file_says_how_to_use_it(self):
+        r = self.run_py('answer')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn('usage: issue_form.py answer <file', r.stderr)
+
+    def test_reading_an_allowed_issue_says_what_it_will_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            event = {'issue': {'title': 'Facilitator: Award points', 'user': {'login': 'pat'},
+                               'body': body(**{'Person': 'Asha', 'What for': 'helped', 'How many': '2'})}}
+            (Path(tmp) / 'event.json').write_text(json.dumps(event))
+            code = ('import sys, runpy; sys.path.insert(0, "grader"); import issue_form\n'
+                    'issue_form.permission = lambda *a, **k: "write"\n'
+                    'sys.exit(issue_form.main())')
+            r = subprocess.run([sys.executable, '-c', code], cwd=REPO, capture_output=True, text=True, env={
+                **os.environ, 'GITHUB_EVENT_PATH': str(Path(tmp) / 'event.json'), 'GITHUB_OUTPUT': str(Path(tmp) / 'out'),
+                'GITHUB_REPOSITORY': 'o/board', 'GH_TOKEN': 'unused'})
+            self.assertEqual((r.returncode, r.stdout.strip()), (0, "Allowed: ['award', 'Asha', 'helped', '2']"))
+
+    def test_the_permission_is_asked_of_github_with_the_token(self):
+        seen = {}
+
+        class Answer(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def urlopen(req, timeout):
+            seen.update(url=req.full_url, auth=req.get_header('Authorization'))
+            return Answer(b'{"permission": "write", "role_name": "write"}')
+        real = issue_form.urllib.request.urlopen
+        issue_form.urllib.request.urlopen = urlopen
+        self.addCleanup(setattr, issue_form.urllib.request, 'urlopen', real)
+        self.assertEqual(issue_form.permission('o/board', 'pat', 'tok'), 'write')
+        self.assertEqual(seen, {'url': 'https://api.github.com/repos/o/board/collaborators/pat/permission', 'auth': 'Bearer tok'})
+
+
 class WorkflowCommandTests(unittest.TestCase):
     def test_built_from_the_workflows_own_args_line(self):
         self.assertEqual(workflow_command((WORKFLOWS / 'facilitator-award.yml').read_text(), {'person': 'Asha "AR" Rao', 'kind': 'helped', 'amount': '2'}),
