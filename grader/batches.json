@@ -1268,5 +1268,23 @@
         "change": null
       }
     ]
+  },
+  "e2e-lesson-1795033575": {
+    "at": "2026-11-18T20:26:42+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "add-lesson",
+          "e2e_lesson",
+          "E2E lesson",
+          "01Gibbs/leaderboard-sandbox-exercise",
+          "tests"
+        ],
+        "ok": true,
+        "message": "Added E2E lesson (tests: 1 files from 01Gibbs/leaderboard-sandbox-exercise at bf05804), checking until its trial passes.",
+        "change": null
+      }
+    ]
   }
 }
