@@ -8,6 +8,7 @@ import hashlib
 import json
 import re
 import shutil
+import tempfile
 import subprocess
 import sys
 import threading
@@ -97,6 +98,22 @@ class PageTests(unittest.TestCase):
             with self.subTest(name):
                 self.assertNotRegex(text, r'(?i)authorization|type="password"|localStorage\.setItem\(.*token')
                 self.assertEqual(re.findall(r'https?://(?!github\.com|api\.github\.com)[\w.-]+', text), [])
+
+
+class PracticeTrialTests(unittest.TestCase):
+    """Practice puts lessons live by the real rule (lesson_lifecycle), with a pretend trial in place of Gradle."""
+
+    def test_a_lesson_added_goes_live_and_the_one_that_failed_its_trial_stays_failed(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root, True)
+        facilitator_walkthrough.practice_copy(root)
+        entries = json.loads((root / 'lessons.json').read_text())
+        entries.append({'key': 'new_one', 'label': 'New one', 'repo': 'practice/new-one', 'check': 'none', 'status': 'checking',
+                        'added': '2026-11-18T09:00:00.000000Z'})
+        (root / 'lessons.json').write_text(json.dumps(entries))
+        facilitator_walkthrough.PracticeGitHub(root)._grading_run()
+        status = {e['key']: e.get('status') for e in json.loads((root / 'lessons.json').read_text())}
+        self.assertEqual((status['new_one'], status['old_exercise']), (None, 'checking'))
 
 
 class PracticeServerTests(unittest.TestCase):

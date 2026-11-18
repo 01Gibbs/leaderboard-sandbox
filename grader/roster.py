@@ -21,8 +21,9 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+import lesson_lifecycle
 import lessons
-from submissions import Submissions, first_lines
+from submissions import Submissions
 from rules import BASE_COLUMNS, COUNTS, EARLY_BONUS, GENERATED, RANK, STATUSES, norm_header, norm_status, parse_csv, to_int
 
 LOGIN = BASE_COLUMNS[1]  # the github_username column
@@ -378,11 +379,7 @@ class Roster:
         subs = Submissions(self.root)
         if graded:
             subs.replace_with(graded)
-        live = []
-        for lesson in lessons.load(self.root, checking=True):
-            if lesson.status == lessons.CHECKING and subs.trial_passed(lesson.key, lessons.trial_version(lesson)):
-                lessons.promote(self.root, lesson.key)
-                live.append(f'{lesson.label} is live: ' + first_lines(subs.trial(lesson.key)['reasons'], '; '))
+        live = lesson_lifecycle.promote_passed(self.root, subs)
         changes, warnings = self._save(self._sheet())
         return live + changes, warnings
 

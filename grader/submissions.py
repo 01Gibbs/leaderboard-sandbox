@@ -57,7 +57,7 @@ def _check(data):
     return problems
 
 
-def _when(stamp):
+def when(stamp):
     return datetime.strptime(stamp, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()
 
 
@@ -95,23 +95,11 @@ class Submissions:
         self._load(Path(path), "the grading run's results.json")
         self.save()
 
-    def needs_trial(self, key, version, retry_failed_after, now=None):
-        """Whether lesson `key` still needs trying: never tried at this `version`, not finished last time, or failed
-        more than `retry_failed_after` seconds ago."""
-        t = self.trial(key)
-        if not t or t['version'] != version or t['passed'] is None:
-            return True
-        return t['passed'] is False and (now or datetime.now(timezone.utc)).timestamp() - _when(t['at']) > retry_failed_after
-
     def record_trial(self, key, version, passed, reasons, now=None):
-        # lesson key -> its trial; the section appears with the first trial, so a board without any is unchanged
+        """Store lesson `key`'s trial (lesson_lifecycle decides when to run one and what it means). The section
+        appears with the first trial, so a board without any is unchanged."""
         at = (now or datetime.now(timezone.utc)).strftime('%Y-%m-%dT%H:%M:%SZ')
         self._data.setdefault('trials', {})[key] = {'version': version, 'passed': passed, 'reasons': list(reasons), 'at': at}
-
-    def trial_passed(self, key, version):
-        """Whether lesson `key`'s trial passed for `version` (lessons.trial_version): only then may it go live."""
-        t = self.trial(key)
-        return bool(t) and t['passed'] is True and t['version'] == version
 
     def forget_trial(self, key):
         """Forget lesson `key`'s trial (it was added again, or removed). Returns whether there was one."""

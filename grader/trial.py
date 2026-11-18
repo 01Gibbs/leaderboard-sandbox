@@ -7,18 +7,14 @@ pull request, because a starter's Gradle build runs its code:
   - tests: the starter compiles with the pinned tests (failing them is expected: that is the exercise), and, when
     the tests came from another repository (a solutions repository), that project, at the commit the tests were
     pinned from, passes them.
-A custom check is never tried here: it is code, and goes live through its pull request. Roster.apply_results then
-puts a lesson whose trial passed live. A trial is tried again when anything it depends on changes
-(lessons.trial_version), when the grader could not finish it, or a day after it failed (a starter fixed since, or a
-network hiccup).
+A custom check is never tried here: it is code, and goes live through its pull request. When a lesson is tried,
+and when it goes live, is lesson_lifecycle's to decide: this is what one trial does.
 """
 import traceback
 
 import checks
 import executor
 from checks.toolkit import CheckFailed, gradle, gradle_project, overlay
-
-RETRY_FAILED_AFTER = 24 * 3600  # seconds
 
 
 def run(lesson, source, adapter=None):

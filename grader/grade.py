@@ -19,6 +19,7 @@ from typing import NamedTuple
 
 import checks
 import executor
+import lesson_lifecycle
 import lessons
 import submissions
 import trial
@@ -130,15 +131,6 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
             subs.record_result(lesson, pr, passed, reasons)
             subs.save()  # keep progress if a later one hangs
     if not (no_run or only):
-        for lesson in lessons.load(root, checking=True):
-            if lesson.status != lessons.CHECKING:
-                continue
-            version = lessons.trial_version(lesson)
-            if subs.needs_trial(lesson.key, version, trial.RETRY_FAILED_AFTER):
-                log(f'Trying {lesson.key}, a lesson still being checked')
-                passed, reasons = (try_lesson or trial.run)(lesson, source, adapter)
-                log(_verdict(passed, reasons))
-                subs.record_trial(lesson.key, version, passed, reasons)
-                subs.save()
+        lesson_lifecycle.try_due(root, subs, lambda lesson: (try_lesson or trial.run)(lesson, source, adapter), log=log)
     subs.save()
     return subs

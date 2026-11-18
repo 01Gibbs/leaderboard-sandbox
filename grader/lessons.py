@@ -72,15 +72,6 @@ class Lesson:
         return h.hexdigest()[:12]  # no mutate: any length that is unlikely to collide
 
 
-def trial_version(lesson):
-    """What the trial of a checking lesson (grader/trial.py) depends on: the lesson itself (its check and pinned
-    tests), where its code and tests come from, when it was added, and trial.py. A trial of another version does not count. Read here,
-    not in trial.py, so putting a lesson live needs none of the grading code loaded."""
-    h = hashlib.sha256('\n'.join([lesson.version, lesson.repo, lesson.tests_repo, lesson.tests_dir, lesson.tests_commit, lesson.added]).encode())
-    h.update((HERE / 'trial.py').read_bytes())
-    return h.hexdigest()[:12]  # no mutate: any length that is unlikely to collide
-
-
 def lessons_file(root=ROOT):
     return Path(root) / 'lessons.json'
 
