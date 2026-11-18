@@ -135,30 +135,6 @@ class GitHub:
             self.call('DELETE', f'/repos/{self.repo}/actions/runs/{r["id"]}')
         return len(self.issues), len(ours)
 
-    def send_issue(self, workflow, inputs):
-        """What a facilitator does from the page: open the form's issue (as GitHub writes a submitted form), then
-        wait until changes-from-issues.yml answers and closes it. Returns a run-like dict for step()."""
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-        import issue_form
-        title, (_, fields) = next((t, f) for t, f in issue_form.FORMS.items() if f'facilitator-{f[0]}.yml' == workflow)
-        body = '\n\n'.join(f'### {label}\n\n{inputs.get(field) or issue_form.NO_RESPONSE}' for label, field in fields) or '### Note (optional)\n\n_No response_'
-        started = time.time()
-        issue = self.open_issue(issue_form.TITLE_PREFIX + title, body)
-        for _ in range(60):
-            time.sleep(5)
-            issue = self.call('GET', f'/repos/{self.repo}/issues/{issue["number"]}')
-            if issue['state'] == 'closed':
-                break
-        else:
-            raise AssertionError(f'issue #{issue["number"]} was not answered')
-        comments = self.call('GET', f'/repos/{self.repo}/issues/{issue["number"]}/comments')
-        reply = comments[-1]['body'] if comments else ''
-        # Closed as completed only when the outcome was changed; otherwise its run says refused (succeeded) or broken.
-        run = self.finish(self.find_run('changes-from-issues.yml', 'issues', started, self.me()))
-        outcome = ('changed' if issue.get('state_reason') == 'completed' else
-                   'refused' if run['conclusion'] == 'success' else 'broken')
-        return {'outcome': outcome, 'html_url': issue['html_url'], 'reply': reply}
-
     def runs_since(self, since):
         """Every workflow run created since `since`, once all of them have finished (up to 20 minutes)."""
         stamp = datetime.fromtimestamp(since - 5, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -369,14 +345,14 @@ def actions_journey(gh, me, stamp, lesson, start):
 
 
 def issues_journey(gh, stamp, lesson, start):
-    """One issue from a single form's template (refused); then every kind of change in one batch issue, as the page
-    sends them, with a mistake among them; then all undone in one more."""
+    """A Changes issue whose one change is refused; then every kind of change in one issue, as the page sends them,
+    with a mistake among them; then all undone in one more."""
     who, dup = f'E2E Check {stamp}', f'E2E Duplicate {stamp}'
     failures = []
     try:
-        answered = gh.send_issue('facilitator-award.yml', {'person': 'Nobody ' + stamp, 'kind': 'helped', 'amount': '1'})
-        failures += report("a form's own issue: a misspelt name is answered, closed as not planned, nothing changed",
-                           answered['outcome'] == 'refused' and not start.new_changes(gh), answered['html_url'])
+        issue, reply, record = gh.send_batch(f'e2e-{stamp}-refused', [['award', 'Nobody ' + stamp, 'helped', '1']])
+        failures += report('a misspelt name is answered, closed as not planned, nothing changed',
+                           issue.get('state_reason') == 'not_planned' and not start.new_changes(gh), issue['html_url'])
         issue, reply, record = gh.send_batch(f'e2e-{stamp}', [
             ['add', who, ''], ['award', who, 'helped', '2'], ['mark', who, lesson, 'correct'], ['add', dup, ''],
             ['merge', who, dup], ['award', 'Nobody ' + stamp, 'helped', '1'], ['rename', who, who + ' R']])

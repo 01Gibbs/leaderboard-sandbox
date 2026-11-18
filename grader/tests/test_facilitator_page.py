@@ -1,9 +1,7 @@
-"""The facilitator page (facilitator.html) and its practice copy (facilitator_walkthrough.py), and the facilitator
-forms (grader/issue_form.FORMS) matching their facilitator-*.yml workflows.
+"""The facilitator page (facilitator.html) and its practice copy (facilitator_walkthrough.py).
 
-The page sends one Changes issue (changes.js); the one-change forms (issue templates and Actions forms) must ask
-for exactly their workflow's inputs. The practice copy must apply changes the way the workflows would, and never
-touch this repository.
+The page sends one Changes issue (changes.js). The practice copy must apply changes the way the workflows would,
+and never touch this repository.
 """
 import hashlib
 import json
@@ -25,7 +23,6 @@ import facilitator_walkthrough  # noqa: E402
 import issue_form  # noqa: E402
 
 WORKFLOWS = REPO / '.github' / 'workflows'
-FORM_WORKFLOWS = sorted(p.name for p in WORKFLOWS.glob('facilitator-*.yml') if p.name != 'facilitator-action.yml')
 PAGE = (REPO / 'facilitator.html').read_text()
 SCRIPTS = re.findall(r'<script src="([\w.-]+)"', PAGE)  # the page's own scripts, each a file beside it
 STEPS = (REPO / 'walkthrough' / 'facilitator-steps.js').read_text()
@@ -36,19 +33,6 @@ def yaml(path):
                          capture_output=True, text=True, check=True).stdout
     return json.loads(out)
 
-
-@unittest.skipUnless(shutil.which('ruby'), 'needs Ruby (the YAML)')
-class FormsMatchTheWorkflowsTests(unittest.TestCase):
-    """issue_form.FORMS lists the facilitator forms: one per facilitator-*.yml, with exactly its inputs."""
-
-    def test_one_form_per_facilitator_workflow(self):
-        self.assertEqual(sorted(f'facilitator-{name}.yml' for name, _ in issue_form.FORMS.values()), FORM_WORKFLOWS)
-
-    def test_each_form_asks_for_exactly_its_workflows_inputs(self):
-        for title, (name, fields) in issue_form.FORMS.items():
-            with self.subTest(title):
-                inputs = (yaml(WORKFLOWS / f'facilitator-{name}.yml')['true']['workflow_dispatch'] or {}).get('inputs') or {}
-                self.assertEqual([field for _, field in fields], list(inputs))
 
 
 class PageTests(unittest.TestCase):

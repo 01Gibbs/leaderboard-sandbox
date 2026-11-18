@@ -7,8 +7,7 @@ For whoever looks after this repository next. [README.md](../README.md) explains
 | Who | Does | How often |
 |---|---|---|
 | The repository's owner | Settings only the owner can change: Pages, the deploy key and its secret, the ruleset, collaborators. `grader/setup-leaderboard.sh` does them all, asking before each step | Once, and when a facilitator joins |
-| Facilitators (collaborators with **Write**) | Points, results, names, merges and undo on the facilitator page; **Grade now** after a burst of pull requests | Each workshop |
-| Facilitators | Grade now, and add or remove a lesson checked by tests, by building or by hand (Workshop tab) | As the workshop grows |
+| Facilitators (collaborators with **Write**) | On the facilitator page: **Grade now**, add or remove a lesson (Workshop); points, results, names, merges and undo (People) | Each workshop |
 | A maintainer (anyone with Write, usually with Claude Code) | Lessons with a custom check, changes to checks and the page, through pull requests | Now and then |
 | GitHub | Grades new pull requests once a day, saves every change, republishes the page | By itself |
 

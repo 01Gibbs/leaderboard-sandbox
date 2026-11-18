@@ -48,6 +48,6 @@ Each lesson is one entry in `lessons.json`: `key` (the column), `label` (shown),
 | `tests` | the exercise's tests pass, our pinned copy (so editing them does not help) | from the facilitator page |
 | a custom name | a check written for it (`grader/checks/<name>.py`) | through a pull request: ask Claude Code to *"add the lesson in owner/repo to the leaderboard"* |
 
-**From the facilitator page:** Workshop → **Add a lesson**: the repository, its name and how it is checked. Its tests are the exercise's own `src/test/`, unless another public repository's folder is given (optional, such as a solutions repository). It stays *checking* until the next grading run tries it: the starter must compile with the pinned tests (and a solutions repository must pass them). Then it goes live and its pull requests are graded. A failed trial says why on the page.
+A lesson added from the page ([FACILITATOR.md](FACILITATOR.md)) uses the exercise's own `src/test/` unless told otherwise, and stays *checking* until the next grading run shows it works; then it goes live.
 
 The custom checks today: **FizzBuzz** (the participant's tests must catch 7 planted bugs), **REST API** (calls the running app), **Framework upgrade** (Spring Boot 3.5, `jakarta`, the API unchanged), **Container image** (an approved, pinned, multi-stage, non-root image that runs) and **Replace a library** (no Joda-Time, log4j 1.x or opencsv 2.3; behaviour unchanged).
