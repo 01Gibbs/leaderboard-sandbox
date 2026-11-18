@@ -24,12 +24,12 @@ jobs:
       matrix:
         include:
           - { module: grader/rules.py, tests: test_rules test_roster }
-          - { module: grader/submissions.py, tests: test_submissions test_grading test_roster test_slices test_add_lesson }
+          - { module: grader/submissions.py, tests: test_submissions test_grading test_roster test_slices test_add_lesson test_lesson_lifecycle }
           - { module: grader/roster.py, tests: test_roster test_slices test_regressions test_grading }
           - { module: grader/lessons.py, tests: test_lessons test_exercise_tests test_add_lesson test_grading }
           - { module: grader/lesson_lifecycle.py, tests: test_lesson_lifecycle test_add_lesson test_grading }
           - { module: grader/exercise_tests.py, tests: test_exercise_tests test_add_lesson }
-          - { module: grader/issue_form.py, tests: test_issue_form test_facilitator_page }
+          - { module: grader/issue_form.py, tests: test_issue_form test_facilitator_page test_changes_box }
           - { module: grader/leaderboard.py, tests: test_roster test_add_lesson test_issue_form }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1

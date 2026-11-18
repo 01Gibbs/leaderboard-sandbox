@@ -7,14 +7,18 @@ Python 3 standard library only, in `grader/`, and plain HTML and JavaScript at t
 
 | File | What it owns |
 |---|---|
+| `index.html` | The public leaderboard page: reads `participants.csv`, `lessons.json` and `dashboard.json`. |
 | `scoring.js` | The rules (points, status words, how the CSV is read): the only scoring code. `grader/rules.py` reads its `RULES` block, and a test runs both on tricky files to prove they agree. |
 | `grader/lessons.py` | Loading and checking `lessons.json`, each lesson's check, test files and version (changing one regrades only it), and every write to `lessons.json`. A lesson with `"status": "checking"` is left out of everything but `load(checking=True)`. |
 | `grader/lesson_lifecycle.py` | A lesson's life, the one place that decides it: `add-lesson` and `remove-lesson` (generic levels only, saved as checking), which lessons grading tries (through a seam: `trial.run`, or practice's pretend trial), and which go live. |
 | `grader/exercise_tests.py` | Pinning a lesson's tests from a public repository at one commit: plain files only, inside the fetched repository, at most 500 files and 5 MB. |
 | `grader/trial.py` | Trying a checking lesson in the grading job's sandbox: the starter compiles with the pinned tests; a solutions repository passes them. |
-| `grader/grade.py` | Listing pull requests and grading the ones that need it; trying checking lessons. |
+| `grader/grade.py` | Listing pull requests and grading the ones that need it; then asking `lesson_lifecycle` to try what is due. |
 | `grader/submissions.py` | `grader/results.json`: each pull request's result, trials, the early-PR bonus. Validated before use. |
-| `grader/roster.py` | Every change to `participants.csv`: facilitator actions, undo, applying graded results (only ever up) and putting a lesson whose trial passed live. |
+| `grader/roster.py` | Every change to `participants.csv`: facilitator actions, undo, and applying graded results (only ever up; `lesson_lifecycle` puts live what passed). |
+| `grader/rules.py` | Reads `scoring.js`'s `RULES` block for the grader: the order of results, the columns, the points. |
+| `grader/run_and_push.sh` | How every workflow saves to `main`: run a command, commit only the files it may change, and retry the push when someone else pushed first. |
+| `grader/setup-leaderboard.sh`, `grader/setup-pr-trigger.sh`, `grader/exercise-repo/` | One-time setup wizards; the second gives an exercise repository a workflow that asks for grading when a pull request changes. |
 | `grader/executor.py` | The only way participant code runs: a clean environment, timeouts, clean-up, the CI sandbox user, and `fetch`. |
 | `grader/checks/` | One module per check (`build`, `tests`, and each custom check), built from `toolkit.py`. |
 | `grader/leaderboard.py` | The command line, the same commands the workflows run; settles each facilitator change as changed, refused or broken. |
@@ -27,15 +31,15 @@ Python 3 standard library only, in `grader/`, and plain HTML and JavaScript at t
 The page's **Send** opens `.github/ISSUE_TEMPLATE/facilitator-changes.yml` filled in with every waiting change, one JSON row per line. `changes-from-issues.yml` checks the author's permission, runs `leaderboard.py batch` through `facilitator-action.yml` (each row's outcome to `grader/batches.json`, each change with an id to `grader/history.json`), then answers, closes and locks the issue. The page follows by reading those two files. The per-action forms in the Actions tab do the same one change at a time.
 
 ## How a lesson goes live
-`add-lesson` saves it as checking, with its tests pinned. That push starts *Grade submissions*, whose grade job tries it (`trial.py`) and whose publish job puts it live when its trial passed at its current version (`lesson_lifecycle.version`; `grader/lesson_lifecycle.py` is the one place these rules live), which starts grading once more for its pull requests. A failed trial is kept in `results.json` with its reasons, and tried again a day later or when the lesson changes.
+`add-lesson` saves it as checking, with its tests pinned. That push starts *Grade submissions*: its grade job tries the lesson and its publish job puts it live if the trial passed, which starts grading once more for its pull requests. When a trial is due and what counts as passed are in `grader/lesson_lifecycle.py`'s docstring.
 
 ## Tests
-- `GRADER_FAST=1 python3 -m unittest discover grader/tests`: the fast tier, about a minute.
+- `GRADER_FAST=1 python3 -m unittest discover grader/tests`: the fast tier, about a minute on GitHub Actions and a few minutes on a Mac (most of it starting git processes for stand-in repositories).
 - `python3 -m unittest discover grader/tests`: everything, including Gradle builds, Docker and `simulate_workflows.py` (every workflow's shell steps against a scratch repository). It needs a JDK and network access; on GitHub Actions a starter that cannot be cloned fails the run rather than skipping.
 - `uv run --no-project --with playwright python -m unittest grader/tests/test_facilitator_browser.py`: the facilitator page's journeys in Chromium, on the practice copy.
 - `python3 grader/tests/mutate.py <module> --tests <test modules>`: mutation testing; `mutation.yml` runs it for the core modules.
 - `python3 grader/tests/e2e_github.py --repo <owner>/<repo> --all`: every real workflow on a sandbox copy on GitHub, undone afterwards, with its issues and runs deleted when everything passed. `--lessons` adds and removes a lesson.
-- Commit with `git -c core.hooksPath=.githooks commit` to lint and run the fast tier first. *Test the grader* runs both tiers and `ruff` on every pull request.
+- Commit with `git -c core.hooksPath=.githooks commit` to lint and run the fast tier first. *Test the grader* runs both tiers and `ruff` on every pull request; its slow tier is two jobs side by side (`slow (gradle)` and `slow (rest)`, with the browser journeys in the runner's own Chrome), and `slow`, the required check, passes only when both did (docs/research/ci-wait.md).
 
 ## Security
 Pull-request code runs only in the grading job: a read-only token, no secrets, as a separate `grader-sandbox` user that cannot write to the grader or its results, and everything it started is killed after each check. A lesson's trial runs there too. Saving happens in separate jobs that run no participant code, refuse a malformed `results.json`, and push with the deploy key: no workflow's token can write to the repository. Tests enforce this: `test_boundaries.py` (where processes may start) and `test_workflows.py` (permissions, inputs never reaching a shell, actions pinned to commits). Locally, grade only with `leaderboard.py grade --no-run`.

@@ -7,7 +7,8 @@ For each place in the module where one small change would change behaviour (== f
 a `not` dropped, + for -, a number off by one, True for False), it makes that one change in a throwaway copy of
 the repository and runs the module's tests (the fast tier). A mutant the tests catch is "killed"; one they don't
 "survives", and is printed: either a test is missing, or the change makes no difference (then mark the line
-`# no mutate` and say why). Standard library only; nothing in this folder is changed.
+`# no mutate` and say why). A mutant caught only by timing out (a hang, or a machine too busy) counts as killed
+and is printed as TIMEOUT. Standard library only; nothing in this folder is changed.
 """
 import argparse
 import ast

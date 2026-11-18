@@ -88,13 +88,11 @@ def grade_submission(lesson, source, pr, adapter=None):
             return None, ['grader error, will retry:\n' + checks.tail(traceback.format_exc())]
 
 
-def _verdict(passed, reasons):
-    return f"  {({True: 'PASS', False: 'FAIL'}).get(passed, 'RETRY')}: " + submissions.first_lines(reasons, ' | ')
 
 
 def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=print, try_lesson=None):
-    """Grade every new commit on every lesson's repository; record the results in grader/results.json. Then try
-    each lesson still being checked (trial.run, or `try_lesson`), once per version of it.
+    """Grade every new commit on every lesson's repository; record the results in grader/results.json. Then ask
+    lesson_lifecycle to try each lesson being checked whose trial is due (with trial.run, or `try_lesson`).
     no_run: only record who submitted. only: grade just one pull request, e.g. "owner/repo#3" (no trials either).
     Returns the Submissions."""
     root = Path(root)
@@ -127,7 +125,7 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
                 continue
             log(f'Grading {name} ({pr.login} @ {pr.sha[:7]})')
             passed, reasons = grade_submission(lesson, source, pr, adapter)
-            log(_verdict(passed, reasons))
+            log(submissions.verdict(passed, reasons))
             subs.record_result(lesson, pr, passed, reasons)
             subs.save()  # keep progress if a later one hangs
     if not (no_run or only):

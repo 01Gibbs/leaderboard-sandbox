@@ -2,7 +2,8 @@
 
 Run: python3 -m unittest discover grader/tests
 Needs a JDK (JAVA_HOME, or JAVA_HOME_<version>_X64 as set by actions/setup-java) and network access to clone
-the starter projects; the container test also needs Docker. Tests skip themselves when these are missing.
+the starter projects; the container test also needs Docker. Locally, tests skip themselves when these are
+missing; on GitHub Actions they fail instead, so a missing JDK or clone never passes unnoticed.
 Only trusted inputs are used here: the exercise starters and submissions written for these tests.
 """
 import os
@@ -23,7 +24,7 @@ import lessons  # noqa: E402
 import trial  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from tiers import slow  # noqa: E402
+from tiers import gradle_builds, slow  # noqa: E402
 
 DATA = Path(__file__).resolve().parent / 'data'
 STARTERS = {
@@ -147,6 +148,7 @@ class FizzBuzzCheckTests(unittest.TestCase):
 
 
 @slow
+@gradle_builds
 @unittest.skipUnless(checks.jdks(), 'needs a JDK')
 class GradleCheckTests(unittest.TestCase):
     """Builds real Spring Boot projects, so each test takes 15-60 seconds."""

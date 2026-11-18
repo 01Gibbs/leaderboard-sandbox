@@ -61,6 +61,11 @@ def when(stamp):
     return datetime.strptime(stamp, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()
 
 
+def verdict(passed, reasons):
+    """How one grading or trial went, on one line for the run's log: PASS, FAIL or RETRY, and why."""
+    return f"  {({True: 'PASS', False: 'FAIL'}).get(passed, 'RETRY')}: " + first_lines(reasons, ' | ')
+
+
 def first_lines(reasons, sep):
     """Each reason's first line, joined: a one-line summary of a result or a trial."""
     return sep.join(r.splitlines()[0] for r in reasons if r)

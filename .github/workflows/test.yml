@@ -1,13 +1,15 @@
 # Runs the grader's tests: on every pull request (so it can be a required check), and on pushes that change the
-# code, lessons or workflows, not the scores the grader and forms save. Two jobs run side by side: `fast` (the fast
-# tier, about a minute) and `slow` (everything, including Java builds, Docker and the workflow simulation). This is
-# the only place the container check runs end to end.
+# code, lessons or workflows, not the scores the grader and forms save. `fast` (the fast tier) runs beside the slow
+# tier, which is split in two so it takes about as long as its longest part: `slow (gradle)` (the Java builds,
+# about six minutes) and `slow (rest)` (Docker, the workflow simulation, the browser journeys in the runner's own
+# Google Chrome, and the fast tier again). `slow` waits for both and fails unless both passed: it is the required
+# check, with `fast`. This is the only place the container check runs end to end.
 name: Test the grader
 
 on:
   pull_request:
   push:
-    paths: ['grader/**', '!grader/*.json', 'lessons.json', 'dashboard.json', '.github/**', 'walkthrough/**', 'walkthrough.py', 'index.html', 'scoring.js', 'github-reader.js', 'facilitator.html', 'facilitator_walkthrough.py']
+    paths-ignore: ['participants.csv', 'grader/results.json', 'grader/history.json', 'grader/batches.json']  # the state saved to main
   workflow_dispatch:
 
 permissions:
@@ -37,9 +39,19 @@ jobs:
           GRADER_FAST: '1'
         run: python3 -m unittest discover -v grader/tests
 
-  slow:
+  slow-part:
+    name: slow (${{ matrix.part }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: gradle  # renamed? this fails on import, so the rest's skip never hides tests
+            run: cd grader/tests && python3 -m unittest -v test_checks.GradleCheckTests
+          - part: rest
+            skip_gradle: '1'
+            run: python3 -m unittest discover -v grader/tests
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
@@ -55,16 +67,28 @@ jobs:
             17
             25
             21
-      - name: Install Playwright and Chromium (the facilitator page's browser tests)
-        run: python3 -m pip install --quiet playwright==1.65.2 && python3 -m playwright install --with-deps chromium
+      - name: Install Playwright (it drives the runner's Google Chrome, so nothing to download or apt-install)
+        run: python3 -m pip install --quiet playwright==1.65.2
       - name: Create the sandbox user the grader runs submissions as
         run: sudo useradd --create-home --shell /bin/bash grader-sandbox
       - name: Check the sandbox user cannot change the grader
         run: |
           sudo -n -u grader-sandbox true  # the user exists and sudo works, so the next failure means "not allowed"
           if sudo -n -u grader-sandbox touch grader/rules.py 2>/dev/null; then echo 'grader-sandbox can write to the checkout'; exit 1; fi
-      - name: Run every test (check tests run submissions as the sandbox user, like the real grader)
+      - name: Run this part's tests (check tests run submissions as the sandbox user, like the real grader)
         env:
           GRADER_SANDBOX_USER: grader-sandbox
           GRADER_CACHE: /tmp/grader-cache  # readable by the sandbox user
-        run: python3 -m unittest discover -v grader/tests
+          GRADER_BROWSER_CHANNEL: chrome
+          GRADER_SKIP_GRADLE: ${{ matrix.skip_gradle }}
+        run: ${{ matrix.run }}
+
+  slow:  # the required check: passes only when every part ran and passed (a skipped job would count as passed)
+    needs: slow-part
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1
+      - run: echo 'both slow parts passed'

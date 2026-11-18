@@ -1,5 +1,5 @@
-# Sent by the facilitator page (facilitator.html), already filled in. Applied by changes-from-issues.yml
-# for collaborators with write access, then answered and closed. Fields match facilitator-award.yml (tests).
+# A fallback: one change, from New issue. (The facilitator page sends facilitator-changes.yml.) Applied by
+# changes-from-issues.yml for collaborators with write access, then answered and closed. Fields match facilitator-award.yml (tests).
 name: 'Facilitator: Award points'
 description: 'Give or take away helps, stretch tasks or bonus points.'
 title: 'Facilitator: Award points'

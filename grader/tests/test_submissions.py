@@ -13,7 +13,7 @@ from types import SimpleNamespace
 GRADER = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(GRADER))
 from grade import PullRequest  # noqa: E402
-from submissions import ResultsInvalid, Submissions  # noqa: E402
+from submissions import ResultsInvalid, Submissions, verdict  # noqa: E402
 
 
 def lesson(key='alpha', automated=True, version='v1'):
@@ -23,6 +23,12 @@ def lesson(key='alpha', automated=True, version='v1'):
 
 def pr(number=1, login='ann', sha='s1', created_at='2026-11-01T09:00:00Z'):
     return PullRequest(number, login, sha, f'https://github.com/o/r/pull/{number}', created_at)
+
+
+class VerdictTests(unittest.TestCase):
+    def test_the_log_says_pass_fail_or_retry_and_each_reasons_first_line(self):
+        self.assertEqual([verdict(True, ['builds']), verdict(False, ['no tests\nmore', 'slow']), verdict(None, ['grader error'])],
+                         ['  PASS: builds', '  FAIL: no tests | slow', '  RETRY: grader error'])
 
 
 class Sandbox(unittest.TestCase):

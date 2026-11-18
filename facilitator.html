@@ -58,9 +58,6 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; pa
 #addLesson summary { cursor: pointer; font-weight: 600; margin-top: 12px; }
 #addLesson form { display: grid; gap: 10px; margin-top: 10px; }
 #addLesson label { display: grid; gap: 3px; font-size: 14px; font-weight: 600; }
-#addLesson fieldset { border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 6px; }
-#addLesson fieldset label { display: flex; gap: 6px; font-weight: 400; align-items: center; }
-#addLesson fieldset input[type=radio] { width: auto; }
 #addLesson .checks { list-style: none; padding: 0; margin: 0; font-size: 14px; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
 .panel h2 { font-size: 16px; margin: 0 0 8px; }
@@ -575,7 +572,7 @@ function showMerge(p) {
 }
 function mergePreview(keep, drop) {
   // What merge keeps: the higher value of every column (roster.py), the kept row's name, both GitHub usernames.
-  const rank = { none: 0, submitted: 1, correct: 2 };
+  const rank = RULES.points;  // a result worth more points is the higher one, as the grader ranks them
   const t = el('table', 'preview'), rows = [['Name', keep.name, drop.name, keep.name],
     ['GitHub', keep.logins.join(' ') || '–', drop.logins.join(' ') || '–', [...new Set([...keep.logins, ...drop.logins])].join(' ') || '–']];
   lessons.forEach((l) => { const a = keep.tracks[l.key], b = drop.tracks[l.key]; rows.push([l.label, RULES.labels[a], RULES.labels[b], RULES.labels[rank[b] > rank[a] ? b : a]]); });
@@ -618,8 +615,8 @@ function renderQueue() {
     li.append(text);
     if (r.state === 'queued') li.append(button('Remove', () => { box.remove(r.key); renderQueue(); }, 'link'));
     if (r.state === 'failed') {
-      li.append(button('Try again', () => { box.remove(r.key); queueRow(r.args, r.text); }, 'link'),
-        button('Dismiss', () => { box.dismiss(r.key); renderQueue(); }, 'link'));
+      li.append(button('Try again', () => { showError(''); const refused = box.retry(r.key); if (refused) return refused.say ? say(refused.say) : check(refused.error); renderQueue(); }, 'link'),
+        button('Dismiss', () => { box.remove(r.key); renderQueue(); }, 'link'));
     }
     if (r.state === 'waiting' && r.url && !PRACTICE) text.append(' ', button('Open again', () => showOnGitHub(r.url), 'link'));
     return li;

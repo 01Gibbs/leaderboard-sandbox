@@ -16,7 +16,7 @@ terminal. A person is named by their GitHub login or their name.
                                           that full commit id (default: the latest), copied into grader/fixtures/<lesson>/
   add-lesson <key> "Label" <owner/repo> none|build|tests [tests-repo] [tests-folder]
                                           add a lesson as the facilitator page does: checking until a trial passes
-  remove-lesson <key>                     remove a lesson added by mistake (not one with graded pull requests)
+  remove-lesson <key>                     remove a lesson added from the page (its results are kept, for adding it again)
 """
 import argparse
 import json

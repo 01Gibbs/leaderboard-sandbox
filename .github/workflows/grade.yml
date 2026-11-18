@@ -12,7 +12,7 @@ name: 'Grade submissions (automatic on every pull request)'
 on:
   repository_dispatch:
     types: [submission]
-  push:  # a lesson added, changed or put live: try it, or grade it (grader/trial.py)
+  push:  # a lesson added, changed or put live: try it if due (grader/lesson_lifecycle.py), or grade it
     branches: [main]
     paths: [lessons.json, 'grader/fixtures/**']
   schedule:

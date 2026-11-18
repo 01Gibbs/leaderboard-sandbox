@@ -6,8 +6,9 @@
 //    (with why). Until then it waits, and after `giveUp` it fails, saying where to look; never while GitHub limits
 //    reads (`unreadable.limited`), which only says why.
 // The page draws `rows()` and decides nothing about them.
+const changeLines = (argsList) => argsList.map((a) => JSON.stringify(a)).join('\n');  // one change a line
 function issueBody(batch, argsList) {  // as grader/issue_form.py batch_body: a test holds the two to the same text
-  return `### Batch\n\n${batch}\n\n### Changes\n\n` + argsList.map((a) => JSON.stringify(a)).join('\n');
+  return `### Batch\n\n${batch}\n\n### Changes\n\n` + changeLines(argsList);
 }
 
 function changesBox({ repo, giveUp, newBatchId, now = () => Date.now(), maxRows = 40, maxUrl = 7000 }) {
@@ -16,7 +17,7 @@ function changesBox({ repo, giveUp, newBatchId, now = () => Date.now(), maxRows 
   const isOpen = (r) => r.state === 'queued' || r.state === 'waiting';
   const drop = (key) => { rows = rows.filter((r) => r.key !== key); };
   const issueUrl = (batch, sent) => `https://github.com/${repo}/issues/new?` + new URLSearchParams({
-    template: 'facilitator-changes.yml', title: 'Facilitator: Changes', batch, changes: sent.map((r) => JSON.stringify(r.args)).join('\n') });
+    template: 'facilitator-changes.yml', title: 'Facilitator: Changes', batch, changes: changeLines(sent.map((r) => r.args)) });
 
   function add(args, text) {  // null when added; otherwise {say} (nothing wrong) or {error}
     if (rows.some((r) => isOpen(r) && JSON.stringify(r.args) === JSON.stringify(args))) return { say: 'Already in Changes.' };
@@ -62,8 +63,7 @@ function changesBox({ repo, giveUp, newBatchId, now = () => Date.now(), maxRows 
     add,
     send,
     settle,
-    remove: drop,
-    dismiss: drop,
+    remove: drop,  // a waiting row taken out, or a failed one dismissed
     retry(key) { const r = rows.find((x) => x.key === key); drop(key); return r ? add(r.args, r.text) : null; },
     clearDone() { rows = rows.filter((r) => r.state !== 'done'); },
     pending: (test) => rows.some((r) => isOpen(r) && test(r.args)),  // a change of this kind waits or is sent
