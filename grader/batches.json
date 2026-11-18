@@ -1352,5 +1352,22 @@
         "change": null
       }
     ]
+  },
+  "e2e-202614i-refused": {
+    "at": "2026-11-18T20:33:19+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "award",
+          "Nobody 202614i",
+          "helped",
+          "1"
+        ],
+        "ok": false,
+        "message": "Nobody called \"Nobody 202614i\" is on the leaderboard. To add someone new, use \"add\".",
+        "change": null
+      }
+    ]
   }
 }
