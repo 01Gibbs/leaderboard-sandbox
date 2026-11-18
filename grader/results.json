@@ -650,5 +650,14 @@
       "version": "e2efb175ca1f"
     }
   },
-  "trials": {}
+  "trials": {
+    "e2e_lesson": {
+      "at": "2026-11-18T20:27:54Z",
+      "passed": true,
+      "reasons": [
+        "the pinned tests compile against the starter"
+      ],
+      "version": "ab8b0b2474f6"
+    }
+  }
 }
