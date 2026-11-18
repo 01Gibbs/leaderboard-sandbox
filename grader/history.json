@@ -261,5 +261,43 @@
         }
       }
     ]
+  },
+  {
+    "id": "caabfc1",
+    "at": "2026-11-18T14:18:18+00:00",
+    "by": "01Gibbs",
+    "action": "Gave 2 helps to E2E Check 141228a (helped: 0 -> 2)",
+    "changes": [
+      {
+        "before": {
+          "name": "E2E Check 141228a",
+          "github_username": "",
+          "fizzbuzz": "",
+          "rest_api": "",
+          "framework_upgrade": "",
+          "stretch": "",
+          "pr_stretch": "",
+          "helped": "",
+          "container_image": "",
+          "bonus": "",
+          "library_replacement": "",
+          "e2e_lesson": ""
+        },
+        "after": {
+          "name": "E2E Check 141228a",
+          "github_username": "",
+          "fizzbuzz": "",
+          "rest_api": "",
+          "framework_upgrade": "",
+          "stretch": "",
+          "pr_stretch": "",
+          "helped": "2",
+          "container_image": "",
+          "bonus": "",
+          "library_replacement": "",
+          "e2e_lesson": ""
+        }
+      }
+    ]
   }
 ]
