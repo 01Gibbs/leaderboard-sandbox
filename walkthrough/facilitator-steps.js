@@ -24,7 +24,7 @@ export function steps(ctx) {
           <div class="card"><b>Undo</b><span>any one change, whenever</span></div>
         </div>
         <p class="hint">Use <kbd>→</kbd> and <kbd>←</kbd> or the buttons. On a step that says <b>Try it</b>, use the page itself.</p>`,
-      text: `<p>The real page is at ${page}. The same changes can also be made from the repository’s Actions tab.</p>`,
+      text: `<p>The real page is at ${page}. Changes to people can also be made one at a time from the repository’s Actions tab; lessons are added here.</p>`,
     },
     {
       chapter: 'The page',

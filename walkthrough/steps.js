@@ -20,7 +20,7 @@ const levelOf = (check) => LEVELS[check] || LEVELS.custom;
 // The same changes as forms in the Actions tab, in the order shown (the facilitator page is the usual way). Any other
 // workflow is for maintainers and is not listed.
 const FORM_HELP = {
-  'facilitator-award.yml': 'Points for helping a colleague, stretch tasks, or bonus points. A minus sign takes them away.',
+  'facilitator-award.yml': 'One help or stretch task, or bonus points (the only amount). -1 takes one away.',
   'facilitator-mark.yml': 'Mark an exercise Correct that you checked by hand.',
   'facilitator-rename.yml': 'Show someone’s real name instead of their GitHub username.',
   'facilitator-merge.yml': 'Someone appears twice: keep one row. The higher value of every column is kept.',
@@ -90,7 +90,7 @@ export function steps(ctx) {
       chapter: 'The leaderboard',
       title: 'Solved and stretch',
       target: 'first-row-extras',
-      text: '<p>How many exercises are correct, and how many stretch credits they have. Stretch includes the early pull request credit, which the grader adds by itself.</p><p>Help given and bonus points count towards the total but are not shown separately. Facilitators give all of these with the <b>Award points</b> form (later in this tour).</p>',
+      text: '<p>How many exercises are correct, and how many stretch credits they have. Stretch includes the early pull request credit, which the grader adds by itself.</p><p>Help given and bonus points count towards the total but are not shown separately. Facilitators give these on the facilitator page: <b>+1 help</b>, <b>+1 stretch</b> and <b>Bonus points</b> (later in this tour).</p>',
     },
     {
       chapter: 'The leaderboard',

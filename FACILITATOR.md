@@ -17,7 +17,8 @@ Find the person (press `/` and type a name or GitHub username), then:
 |---|---|
 | Give points for helping a colleague | **+1 help** (or `h`) |
 | Give points for a stretch task | **+1 stretch** (or `s`) |
-| Give or take away other points | **More → Bonus points…** / **More → Take some away…** |
+| Give bonus points | **More → Bonus points…** (how many points) |
+| Take away a help, a stretch task or bonus points | **More → Take some away…** (one help or stretch at a time; bonus asks how many points) |
 | Give the same to a group | Tick **Select several**, tick them, **+1 help each** |
 | Mark an exercise you checked by hand | **Mark correct** next to it |
 | Show a real name instead of a GitHub username | **More → Rename…** |
@@ -35,5 +36,6 @@ Every change from either tab waits in the **Changes** box, in words. **Send** op
 - **Undo** reverses only the cells that change touched; anything changed since is kept.
 - **Two facilitators at once is fine:** both changes land.
 - **Why isn't a submission *Correct*?** Open `grader/results.json` and search for their GitHub username: each pull request lists its reasons.
-- **Points:** submitted 10, correct 30, each stretch +5, each help +5, bonus one for one; the first 3 pull requests on each exercise earn a stretch credit.
-- **No facilitator page to hand?** The same changes, one at a time, are forms in the repository's **Actions** tab (*Facilitator: …* → **Run workflow**).
+- **Points:** submitted 10, correct 30, each stretch +5, each help +5, bonus one for one. Helps and stretch tasks are counted one at a time: +1 per press.
+- **Stretch** comes two ways: automatically, for the first 3 pull requests on each exercise; and by hand (**+1 stretch**), for a stretch task you saw done.
+- **No facilitator page to hand?** Changes to people, one at a time, are forms in the repository's **Actions** tab (*Facilitator: …* → **Run workflow**). Lessons are added and removed on the page only.

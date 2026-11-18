@@ -327,6 +327,16 @@ class TrialTests(Sandbox):
         self.assertEqual(gamma['status'], 'checking')
         self.assertNotIn('gamma', sheet.splitlines()[0])
 
+    def test_a_lesson_added_again_is_not_put_live_on_its_old_trial(self):
+        # Removed and added again while a grading run was going: that run's results.json still holds the old
+        # trial, and publishing takes it whole. Each add stamps the lesson, so the old trial no longer matches.
+        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
+        entries = json.loads((self.dir / 'lessons.json').read_text())
+        entries[-1]['added'] = '2026-11-18T09:00:00Z'
+        (self.dir / 'lessons.json').write_text(json.dumps(entries))
+        gamma, _, _ = self.apply()
+        self.assertEqual(gamma['status'], 'checking')
+
     def test_a_trial_of_an_older_version_does_not_count(self):
         self.grade(try_lesson=self.trial((True, ['the starter builds'])))
         (self.dir / 'grader' / 'fixtures' / 'gamma').mkdir()
@@ -356,7 +366,7 @@ class TrialRunTests(unittest.TestCase):
         import trial
 
         class Private:
-            def starter(self, repo, dest, ref='HEAD'):
+            def fetch_repo(self, repo, dest, ref='HEAD'):
                 raise RuntimeError("fatal: could not read Username for 'https://github.com': terminal prompts disabled")
         passed, reasons = trial.run(self.lesson('build'), Private())
         self.assertFalse(passed)

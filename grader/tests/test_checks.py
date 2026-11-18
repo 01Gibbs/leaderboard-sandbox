@@ -264,7 +264,7 @@ class GradleCheckTests(unittest.TestCase):
         fetched = self.fetched = []
 
         class Source:
-            def starter(self, repo, dest, ref='HEAD'):
+            def fetch_repo(self, repo, dest, ref='HEAD'):
                 fetched.append((repo, ref))
                 shutil.copytree(folders[repo], dest, dirs_exist_ok=True)
         lesson = lessons.Lesson('trial', 'Trial', 'o/starter', check, test_files or lessons.FIXTURES / 'library_replacement',

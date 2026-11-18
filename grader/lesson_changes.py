@@ -8,6 +8,7 @@ participants.csv column, so adding it again brings them back.
 """
 import shutil
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import exercise_tests
@@ -27,7 +28,8 @@ def add(root, key, label, repo, check, tests_repo='', tests_dir=''):
                         'A custom check is added by a maintainer, through a pull request.')
     if (tests_repo or tests_dir) and check != 'tests':
         raise PinFailed(f'Where its tests come from only applies to a lesson checked with tests, not "{check}".')
-    item = {'key': key, 'label': label, 'repo': repo, 'check': 'none' if check == 'tests' else check, 'status': lessons.CHECKING}
+    item = {'key': key, 'label': label, 'repo': repo, 'check': 'none' if check == 'tests' else check, 'status': lessons.CHECKING,
+            'added': datetime.now(timezone.utc).isoformat(timespec='microseconds').replace('+00:00', 'Z')}  # each add a new trial
     item.update({k: v for k, v in (('tests_repo', tests_repo), ('tests_dir', tests_dir)) if v})
     problems = lessons.problems_adding(root, item)  # before anything is fetched
     if problems:

@@ -11,3 +11,4 @@ Dated notes on why the leaderboard works the way it does, each with a status lin
 | [facilitator-ui.md](facilitator-ui.md) | The person-first facilitator view | Built (now the People tab) |
 | [adding-lessons.md](adding-lessons.md) | Pinning exercise tests; a generic spec check | Pinning built; spec check not built |
 | [architecture-recommendations.md](architecture-recommendations.md) | Five architecture recommendations | Partly built |
+| [stretch-automation.md](stretch-automation.md) | Crediting stretch tasks automatically | Proposal |

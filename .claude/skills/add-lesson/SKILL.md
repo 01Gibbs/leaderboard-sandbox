@@ -15,12 +15,12 @@ A **lesson** is one entry in `lessons.json`: a repository whose pull requests ar
 
 Pick the lowest level that decides "correct" honestly. Every level counts any pull request as *submitted*.
 
-| `check` | Correct when | You write |
+| `check` | Correct when | How it is added |
 |---|---|---|
-| `none` | a facilitator marks it (facilitator page: pick the person, **Mark correct**) | nothing |
-| `build` | the submission's Gradle project builds | nothing |
-| `tests` | our tests pass against the submission | nothing, when the exercise repository ships the tests a participant must make pass: `python3 grader/leaderboard.py pin-tests <key>` copies them into `grader/fixtures/<key>/` and records `tests_commit`. Otherwise, test files in `grader/fixtures/<key>/`, at the same paths as in the project (they overwrite the submission's copies) |
-| custom | anything else: calling the running app, inspecting a Dockerfile, planted-bug tests | a module `grader/checks/<key>.py` |
+| `none` | a facilitator marks it | the facilitator page (Workshop → Add a lesson), not this skill |
+| `build` | the submission's Gradle project builds | the facilitator page, not this skill |
+| `tests` | the exercise's own tests (or a public solutions repository's) pass, our pinned copy | the facilitator page, not this skill: it pins them and tries the lesson before it goes live |
+| custom | anything else: calling the running app, inspecting a Dockerfile, planted-bug tests | this skill: a module `grader/checks/<key>.py`, through a pull request |
 
 The existing custom checks in `grader/checks/` (`rest_api.py`, `framework_upgrade.py`, `container_image.py`, `fizzbuzz.py`, `library_replacement.py`, which is the closest pattern for a lesson about changing dependencies) are the patterns to copy, built from `grader/checks/toolkit.py` (`gradle_project`, `gradle`, `overlay`, `employee_api_checks`, and `RunningApp` with its `Jar` and `Container` adapters for calling a running app). Participant code runs only through the workspace (`ws.run`, `ws.start`), which handles the CI sandbox and clean-up; the one exception is a container image, which `Container` runs with Docker. A test (`grader/tests/test_boundaries.py`) fails if a check starts processes any other way, or imports grader modules other than its toolkit.
 
@@ -32,7 +32,7 @@ The existing custom checks in `grader/checks/` (`rest_api.py`, `framework_upgrad
 
 3. **Add the entry** to `lessons.json`: `key` (lowercase, digits, `_`; becomes the CSV column), `label` (shown on the page), `repo` (`owner/name`), `check`. Done when `python3 -m unittest discover grader/tests -p test_lessons.py` passes (it validates the real `lessons.json`).
 
-4. **Write the check** for `tests` or custom. To use the repository's own tests, add the entry with `"check": "none"` and run `python3 grader/leaderboard.py pin-tests <key>` (add a full commit id to pin an older commit): it copies them, sets `check` to `tests` and records `tests_commit`; go on to step 5. Otherwise: Every failure reason is a sentence the participant can act on ("POST with a blank name should return 400 (got 500)"). A custom check is a new module `grader/checks/<name>.py` (the name used as `check` in `lessons.json`) with `def check(ws, lesson)` (the checkout is at `ws.path`, the lesson's test files at `lesson.test_files`) returning `(passed, reasons)` or raising `CheckFailed`. Keep its constants in that module, not in the toolkit: then editing it regrades only its own lessons. The module is found by its file name; nothing else to register. Done when every requirement from step 1 that a check can observe is checked.
+4. **Write the check** (custom only: `tests`, `build` and `none` lessons are added from the facilitator page, which pins tests and tries the lesson). Every failure reason is a sentence the participant can act on ("POST with a blank name should return 400 (got 500)"). A custom check is a new module `grader/checks/<name>.py` (the name used as `check` in `lessons.json`) with `def check(ws, lesson)` (the checkout is at `ws.path`, the lesson's test files at `lesson.test_files`) returning `(passed, reasons)` or raising `CheckFailed`. Keep its constants in that module, not in the toolkit: then editing it regrades only its own lessons. The module is found by its file name; nothing else to register. Done when every requirement from step 1 that a check can observe is checked.
 
 5. **Prove it** in `grader/tests/test_checks.py`, following `GradleCheckTests` and its `run_check` helper (it grades a folder through `grade.grade_submission`, exactly as real pull requests are graded): at least one known-good submission passes and one known-bad submission fails with the specific reason, starting from the exercise's starter (add it to `STARTERS`) and the reference submission's files, kept in `grader/tests/data/<key>/` so the tests never depend on a solution repository staying public. Cover a half-done submission too: it fails naming only what is left. Done when `python3 -m unittest discover grader/tests` is green with your new tests running, not skipped. A JDK is needed; if none is installed, download a Temurin JDK into a scratch folder and point `JAVA_HOME_21_X64` (or `_ARM64`) at it.
 

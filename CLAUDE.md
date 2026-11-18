@@ -1,6 +1,6 @@
 # Leaderboard: notes for Claude
 
-A workshop leaderboard on GitHub: participants' pull requests on exercise repositories are graded by GitHub Actions, scores live in `participants.csv`, and a static page on GitHub Pages shows them. Python 3 standard library only (`grader/`), plain HTML and JavaScript (`index.html`, `facilitator.html`, `scoring.js`). README.md's "For maintainers" section maps the code.
+A workshop leaderboard on GitHub: participants' pull requests on exercise repositories are graded by GitHub Actions, scores live in `participants.csv`, and a static page on GitHub Pages shows them. Python 3 standard library only (`grader/`), plain HTML and JavaScript (`index.html`, `facilitator.html`, `scoring.js`). docs/MAINTAINING.md maps the code.
 
 ## Guardrails
 - **Participant code runs only in the `grade` job on GitHub Actions.** Locally, grade with `python3 grader/leaderboard.py grade --no-run`, and prove checks against trusted inputs: the exercise's starter and submissions written for the tests.

@@ -2,7 +2,7 @@
 
 *Research note, 17 November 2026. Audience: project lead.*
 
-> **Status (17 Nov 2026).** Slice 1 (the commands, hardened pinning, the bot's save) and the trial that puts a lesson live are built. The page form, the live e2e journey and the JUnit check are next.
+> **Status (17 Nov 2026).** Slice 1 (the commands, hardened pinning, the bot's save) and the trial that puts a lesson live are built. The page form (the Workshop tab) and the live e2e journey (`e2e_github.py --lessons`) are built too; each add is stamped, so a lesson added again always gets a new trial. Still to build: the JUnit check (tests cannot be switched off), and replying on the issue when a trial fails (it shows on the page).
 >
 > **Decisions (17 Nov 2026, project lead).**
 > - **Saving:** straight to main with the bot's deploy key (option a), behind guard checks, so a lesson is proved to work before it is used. A new lesson is saved as *checking* and hidden from the board. A trial in the grading job builds its starter with the pinned tests (they must compile; failing is expected), and, when a public solution repository is given, the solution must pass them. Only then does the lesson go live (its column appears and its pull requests are graded). A failed trial says why on the issue and the page, and the lesson stays hidden.
@@ -206,7 +206,7 @@ Each slice ships on its own, through a pull request, with its evidence.
 
 Repository (this worktree, branched from `main` at 4d578b7):
 
-1. `docs/research/lessons-by-workflow.md` (removed; in git history):5` (status, four blockers), `:42-44` (gaps), `:121` (deploy-key risk), §2 `:158-161` (shared-repo fixes)
+1. `docs/research/lessons-by-workflow.md` (removed; in git history), line 5 (status, four blockers), `:42-44` (gaps), `:121` (deploy-key risk), §2 `:158-161` (shared-repo fixes)
 2. `grader/run_and_push.sh:16-42` (reset, rerun on conflict), `:27` (staged files)
 3. `grader/tests/test_workflows.py:21-27` (staged list pinned), `:52-72` (grade job read-only, no secrets; saves via deploy key)
 4. `grader/submissions.py:51-53` (`key`: `repo#N`), `:125-129` (`keep_only`)
