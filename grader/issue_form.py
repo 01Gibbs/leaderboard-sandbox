@@ -1,15 +1,10 @@
-"""Facilitator changes sent as GitHub issues: the facilitator page's Send (one Changes issue, a batch), or one change
-from a fallback template.
+"""Facilitator changes sent as a GitHub issue: the facilitator page's Send opens one "Facilitator: Changes" issue
+(.github/ISSUE_TEMPLATE/facilitator-changes.yml) with every waiting change, which becomes `leaderboard.py batch`.
 
-An issue made from one of .github/ISSUE_TEMPLATE/facilitator-*.yml says which form it is in its title
-("Facilitator: Award points") and has one "### <label>" section per field. The changes-from-issues.yml workflow
-runs this file with the issue's event, and only for issues from the owner, an organisation member or a collaborator
-(anyone else's issue starts no run). It checks the author may change this repository (write, maintain or admin:
-the same people who can run the Facilitator forms in the Actions tab; GitHub's Collaborators list decides) and
-gives facilitator-action.yml the same command the Actions form would. Nothing from the issue reaches a shell.
-
-FORMS, the templates and the facilitator-*.yml workflows must agree on titles, labels and
-fields; grader/tests/test_issue_form.py fails if they don't.
+The changes-from-issues.yml workflow runs this file with the issue's event, and only for issues from the owner, an
+organisation member or a collaborator (anyone else's issue starts no run). It checks the author may change this
+repository (write, maintain or admin: the same people who can run the Facilitator forms in the Actions tab; GitHub's
+Collaborators list decides) and gives facilitator-action.yml the command. Nothing from the issue reaches a shell.
 """
 import json
 import os
@@ -22,24 +17,13 @@ from typing import NamedTuple
 TITLE_PREFIX = 'Facilitator: '
 NO_RESPONSE = '_No response_'  # what GitHub writes for a field left empty
 MAY_CHANGE = {'admin', 'maintain', 'write'}
-# Each form: its title -> (leaderboard command, [(field label, workflow input)]), in the command's argument order.
-FORMS = {
-    'Award points': ('award', [('Person', 'person'), ('What for', 'kind'), ('Points (bonus only)', 'amount')]),
-    'Mark an exercise': ('mark', [('Person', 'person'), ('Exercise', 'lesson'), ('Result', 'status')]),
-    'Add a person': ('add', [('Full name', 'name'), ('GitHub username', 'github')]),
-    'Rename a person': ('rename', [('Person', 'person'), ('Name to show', 'new_name')]),
-    'Merge duplicate people': ('merge', [('Row to keep', 'keep'), ('Duplicate row', 'duplicate')]),
-    'Undo the last change': ('undo', []),
-}
-DEFAULTS = {'amount': '1'}  # as facilitator-award.yml defaults it
-# What the facilitator page sends: several changes in one issue (.github/ISSUE_TEMPLATE/facilitator-changes.yml),
-# one per line, each a JSON list such as ["award", "Asha Rao", "helped", "1"]. It becomes `leaderboard.py batch`.
+# The issue's changes are one per line, each a JSON list such as ["award", "Asha Rao", "helped", "1"].
 BATCH_TITLE = 'Changes'
 BATCH_FIELDS = [('Batch', 'batch'), ('Changes', 'changes')]
 
 
 class NotAForm(ValueError):
-    """The issue is not one of the facilitator forms (or its title was changed)."""
+    """The issue is not the facilitator page's Changes issue (or its title was changed)."""
 
 
 def fields(body):
@@ -53,17 +37,11 @@ def fields(body):
 
 
 def command(title, body):
-    """The leaderboard command an issue asks for, as the Actions form would pass it: [command, *values]."""
-    name = (title or '').removeprefix(TITLE_PREFIX).strip() if (title or '').startswith(TITLE_PREFIX) else None
-    if name == BATCH_TITLE:
-        return batch_command(body)
-    form = FORMS.get(name)
-    if form is None:
-        raise NotAForm('This issue is not a facilitator form. Its title must start with one of: '
-                       + ', '.join(TITLE_PREFIX + t for t in [*FORMS, BATCH_TITLE]) + '.')
-    name, inputs = form
-    given = fields(body)
-    return [name, *(given.get(label, '') or DEFAULTS.get(field, '') for label, field in inputs)]
+    """The leaderboard command the issue asks for: ["batch", id, rows]."""
+    if (title or '').strip() != TITLE_PREFIX + BATCH_TITLE:
+        raise NotAForm(f'This issue is not a facilitator form. Changes are sent from the facilitator page, as an issue '
+                       f'titled "{TITLE_PREFIX}{BATCH_TITLE}"; one change at a time is a form in the Actions tab.')
+    return batch_command(body)
 
 
 def batch_body(batch, rows):

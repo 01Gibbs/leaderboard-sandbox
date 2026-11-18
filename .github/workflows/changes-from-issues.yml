@@ -1,8 +1,7 @@
 # Facilitator changes sent as GitHub issues. Only the repository's collaborators get a run at all: an issue from
 # anyone else starts nothing (GitHub's author_association says who is a collaborator, and grader/issue_form.py then
 # asks for their permission, which must be write, maintain or admin). The facilitator page's Send opens
-# .github/ISSUE_TEMPLATE/facilitator-changes.yml already filled in, which becomes `leaderboard.py batch`; the
-# one-change templates (facilitator-*.yml, a fallback from New issue) become the same command as their Actions form.
+# .github/ISSUE_TEMPLATE/facilitator-changes.yml already filled in, which becomes `leaderboard.py batch`.
 # facilitator-action.yml makes and saves the change. The issue is then answered with what happened, closed and
 # locked. Nothing from the issue reaches a shell.
 name: 'Facilitator: change from an issue'

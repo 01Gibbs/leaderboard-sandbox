@@ -62,25 +62,11 @@ class ReadingTests(unittest.TestCase):
         self.assertEqual(issue_form.fields(text), {'Person': 'Asha Rao', 'What for': 'helped', 'Points (bonus only)': ''})
         self.assertEqual(issue_form.fields(text.replace('\n', '\r\n'))['Person'], 'Asha Rao')
 
-    def test_the_command_a_form_asks_for(self):
-        self.assertEqual(issue_form.command('Facilitator: Award points', body(**{'Person': 'Asha', 'What for': 'helped', 'Points (bonus only)': ''})),
-                         ['award', 'Asha', 'helped', '1'])  # How many left empty: 1, as the Actions form defaults it
-        self.assertEqual(issue_form.command('Facilitator: Add a person', body(**{'Full name': 'Pat', 'GitHub username': ''})),
-                         ['add', 'Pat', ''])
-        self.assertEqual(issue_form.command('Facilitator: Undo the last change', body(**{'Note (optional)': 'oops'})), ['undo'])
-
     def test_a_changed_title_or_another_issue_is_not_a_form(self):
-        for title in ('Award points', 'Facilitator: Delete everyone', 'Bug: the page is slow', None):
+        for title in ('Changes', 'Facilitator: Award points', 'Facilitator: Delete everyone', 'Bug: the page is slow', None):
             with self.subTest(title), self.assertRaises(issue_form.NotAForm):
                 issue_form.command(title, '')
 
-    def test_a_form_matches_its_actions_form_exactly(self):
-        """For the same field values, the issue and the Actions form run the same command."""
-        for title, (name, inputs) in issue_form.FORMS.items():
-            values = {field: f'value {i}' for i, (_, field) in enumerate(inputs)}
-            from_issue = issue_form.command('Facilitator: ' + title, body(**{label: values[field] for label, field in inputs}))
-            workflow = (WORKFLOWS / f'facilitator-{name}.yml').read_text()
-            self.assertEqual(from_issue, workflow_command(workflow, values), title)
 
 
 class BatchTests(unittest.TestCase):
@@ -134,8 +120,8 @@ class CommandLineTests(unittest.TestCase):
 
     def test_reading_an_allowed_issue_says_what_it_will_run(self):
         with tempfile.TemporaryDirectory() as tmp:
-            event = {'issue': {'title': 'Facilitator: Award points', 'user': {'login': 'pat'},
-                               'body': body(**{'Person': 'Asha', 'What for': 'helped', 'Points (bonus only)': '2'})}}
+            event = {'issue': {'title': 'Facilitator: Changes', 'user': {'login': 'pat'},
+                               'body': issue_form.batch_body('b1', [['award', 'Asha', 'helped', '2']])}}
             (Path(tmp) / 'event.json').write_text(json.dumps(event))
             code = ('import sys, runpy; sys.path.insert(0, "grader"); import issue_form\n'
                     'issue_form.permission = lambda *a, **k: "write"\n'
@@ -143,7 +129,7 @@ class CommandLineTests(unittest.TestCase):
             r = subprocess.run([sys.executable, '-c', code], cwd=REPO, capture_output=True, text=True, env={
                 **os.environ, 'GITHUB_EVENT_PATH': str(Path(tmp) / 'event.json'), 'GITHUB_OUTPUT': str(Path(tmp) / 'out'),
                 'GITHUB_REPOSITORY': 'o/board', 'GH_TOKEN': 'unused'})
-            self.assertEqual((r.returncode, r.stdout.strip()), (0, "Allowed: ['award', 'Asha', 'helped', '2']"))
+            self.assertEqual((r.returncode, r.stdout.strip()), (0, 'Allowed: ' + str(['batch', 'b1', '[["award", "Asha", "helped", "2"]]'])))
 
     def test_the_permission_is_asked_of_github_with_the_token(self):
         seen = {}
@@ -174,13 +160,13 @@ class WorkflowCommandTests(unittest.TestCase):
 
 
 class PermissionTests(unittest.TestCase):
-    EVENT = {'issue': {'title': 'Facilitator: Award points', 'user': {'login': 'pat'},
-                       'body': body(**{'Person': 'Asha', 'What for': 'helped', 'Points (bonus only)': '2'})}}
+    EVENT = {'issue': {'title': 'Facilitator: Changes', 'user': {'login': 'pat'},
+                       'body': issue_form.batch_body('b1', [['award', 'Asha', 'helped', '2']])}}
 
     def test_collaborators_who_can_write_may_change_it(self):
         for role in ('admin', 'maintain', 'write'):
             with self.subTest(role):
-                self.assertEqual(issue_form.decide(self.EVENT, 'o/board', 't', api(role)), (True, ['award', 'Asha', 'helped', '2'], ''))
+                self.assertEqual(issue_form.decide(self.EVENT, 'o/board', 't', api(role)), (True, ['batch', 'b1', '[["award", "Asha", "helped", "2"]]'], ''))
 
     def test_anyone_else_is_told_and_nothing_changes(self):
         for role in ('triage', 'read', 'none', None):
@@ -250,19 +236,10 @@ class WorkflowOutputTests(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which('ruby') and shutil.which('node'), 'needs Ruby (the YAML) and Node.js (the page\'s forms)')
 class AgreementTests(unittest.TestCase):
-    """One form, three places: the issue template, issue_form.FORMS and facilitator-*.yml."""
+    """One way to send changes as an issue: the page's Changes template, which issue_form reads."""
 
-    def test_one_template_per_form_with_the_same_title_labels_and_fields(self):
-        names = {f.name for f in TEMPLATES.glob('facilitator-*.yml')} - {'facilitator-changes.yml'}  # the batch, below
-        self.assertEqual(names, {f'facilitator-{name}.yml' for name, _ in issue_form.FORMS.values()})
-        for title, (name, inputs) in issue_form.FORMS.items():
-            with self.subTest(title):
-                t = yaml(TEMPLATES / f'facilitator-{name}.yml')
-                self.assertEqual((t['name'], t['title']), ('Facilitator: ' + title, 'Facilitator: ' + title))
-                self.assertIn('facilitator', t['labels'])
-                fields = [(b['attributes']['label'], b['id']) for b in t['body'] if b['type'] == 'input' and b['id'] != 'note']
-                self.assertEqual(fields, inputs)
-                self.assertTrue(all(b['type'] in ('input', 'markdown') for b in t['body']), 'a link can only fill in text fields')
+    def test_the_changes_template_is_the_only_facilitator_issue(self):
+        self.assertEqual(sorted(f.name for f in TEMPLATES.glob('facilitator-*.yml')), ['facilitator-changes.yml'])
 
     def test_the_changes_template_is_what_the_parser_reads(self):
         t = yaml(TEMPLATES / 'facilitator-changes.yml')
@@ -270,10 +247,6 @@ class AgreementTests(unittest.TestCase):
         fields = [(b['attributes']['label'], b['id']) for b in t['body'] if b['type'] in ('input', 'textarea')]
         self.assertEqual(fields, issue_form.BATCH_FIELDS)
         self.assertNotIn('render', json.dumps(t), 'a rendered textarea would wrap the rows in a code fence')
-
-    def test_each_form_runs_its_workflows_command(self):
-        for name, _ in issue_form.FORMS.values():
-            self.assertRegex((WORKFLOWS / f'facilitator-{name}.yml').read_text(), rf'args: \'\["{name}"')
 
     def test_only_collaborators_issues_start_a_run(self):
         read = yaml(WORKFLOWS / 'changes-from-issues.yml')['jobs']['read']['if']
