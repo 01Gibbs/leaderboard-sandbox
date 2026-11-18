@@ -223,7 +223,7 @@ A third-party cron service calls `workflow_dispatch` every minute. That is more 
 5. `grader/exercise-repo/notify-leaderboard.yml:1-29`
 6. `grader/setup-pr-trigger.sh:231, 245, 304-306` (admin check, leaderboard name, token resource owner and permission)
 7. `grader/run_and_push.sh:26-38` (commits only when something changed)
-8. `docs/research/adding-and-testing-a-lesson.md`, "Things a new host should know" and "Gaps found" (exercise repositories must be public; hand-over)
+8. `docs/research/adding-and-testing-a-lesson.md` (removed 17 Nov 2026; its answers are in README.md and docs/MAINTAINING.md; in git history), "Things a new host should know" and "Gaps found" (exercise repositories must be public; hand-over)
 9. `docs/research/architecture-recommendations.md` §3 (concurrency and pending runs)
 10. Events that trigger workflows (`schedule`, `workflow_run`, `check_suite`): https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows
 11. Disabling and enabling a workflow: https://docs.github.com/en/actions/how-tos/manage-workflow-runs/disable-and-enable-workflows

@@ -226,7 +226,8 @@ dialog::backdrop { background: rgb(0 0 0 / 0.4); }
 <script src="scoring.js"></script>
 <script src="github-reader.js"></script>
 <script>
-// Pick a person, then act: each action adds a row to the Changes box. Send turns every waiting row into ONE
+// Two tabs: Workshop (Grade now; the lessons, each live, checking or failed its trial; add or remove one) and People
+// (pick a person, then act). Each action, from either tab, adds a row to the Changes box. Send turns every waiting row into ONE
 // GitHub issue (.github/ISSUE_TEMPLATE/facilitator-changes.yml), opened already filled in, in the one GitHub tab
 // this page reuses. Submitting it starts changes-from-issues.yml: it checks the author is a collaborator who can
 // write, runs `leaderboard.py batch`, answers, closes and locks the issue. The page then reads grader/batches.json

@@ -7,6 +7,8 @@ description: Add a workshop lesson (an exercise repository people open pull requ
 
 A **lesson** is one entry in `lessons.json`: a repository whose pull requests are submissions, shown as one column on the page. Adding a lesson is plug-and-play: the page, the CSV column and the facilitator forms all follow from that entry. Only the **check** (how "correct" is decided) needs thought.
 
+**First, is a skill needed?** If the lesson is checked by its own tests (in its repository or a public solutions one), by building, or by hand, a facilitator adds it from the facilitator page (Workshop → **Add a lesson**), with no code and no pull request: say so and stop. Use this skill for a lesson that needs a check of its own (`grader/checks/<key>.py`), or to change how a lesson is graded.
+
 **Guardrail:** pull-request code runs only inside the GitHub Actions `grade` job. Locally, use `grade --no-run` and test checks against trusted inputs (the lesson's starter and reference submissions you write); a pull request's checkout is never built or run on this machine.
 
 ## Levels
