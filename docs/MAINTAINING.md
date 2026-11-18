@@ -20,6 +20,7 @@ Python 3 standard library only, in `grader/`, and plain HTML and JavaScript at t
 | `grader/leaderboard.py` | The command line, the same commands the workflows run; settles each facilitator change as changed, refused or broken. |
 | `grader/issue_form.py` | Facilitator issues: who may (write, maintain or admin), the command each form or batch asks for, and the answer. |
 | `facilitator.html`, `github-reader.js` | The facilitator page (two tabs, one Changes box) and its one way of reading GitHub without a token: conditional reads, one budget of 50 an hour, polls spaced to share it, waiting out GitHub's limit. |
+| `changes.js` | The Changes box without the page: what waits (no duplicates, at most 40), one issue per Send trimmed to fit GitHub's address, and each row's outcome from `grader/batches.json`, or giving up after a while (never while GitHub limits reads). Tested in Node (`test_changes_box.py`); its issue text matches `issue_form.batch_body`. |
 | `facilitator_walkthrough.py`, `walkthrough.py`, `walkthrough/` | The two tours, on practice copies; `data-tour` attributes link each step to the page, and tests fail if one goes missing. |
 
 ## How a facilitator change travels

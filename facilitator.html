@@ -225,6 +225,7 @@ dialog::backdrop { background: rgb(0 0 0 / 0.4); }
 
 <script src="scoring.js"></script>
 <script src="github-reader.js"></script>
+<script src="changes.js"></script>
 <script>
 // Two tabs: Workshop (Grade now; the lessons, each live, checking or failed its trial; add or remove one) and People
 // (pick a person, then act). Each action, from either tab, adds a row to the Changes box. Send turns every waiting row into ONE
@@ -243,13 +244,12 @@ const params = new URLSearchParams(location.search);
 const PRACTICE = params.has('practice');
 const API = PRACTICE ? new URL('practice-api', location.href).href.replace(/\/$/, '') : 'https://api.github.com';
 const REPO = PRACTICE ? 'practice/leaderboard' : (params.get('repo') || repoFromLocation());
-const MAX_ROWS = 40;
-const MAX_URL = 7000;  // GitHub refuses (414) a filled-in address that is too long: send what fits, keep the rest
 // How long to wait for GitHub before saying a change was not seen (?timeout=seconds, for the tests).
 const GIVE_UP = (parseFloat(params.get('timeout')) || (PRACTICE ? 30 : 600)) * 1000;
 const newBatchId = () => 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);  // as BATCH_ID in leaderboard.py
 const KEYS_KEY = 'lb-facilitator-keys';
-let lessons = [], people = [], history = [], selected = null, ticked = new Set(), queue = [], nextRow = 1, active = -1;
+let lessons = [], people = [], history = [], selected = null, ticked = new Set(), active = -1;
+const box = changesBox({ repo: REPO, giveUp: GIVE_UP, newBatchId });  // the Changes box's rows: changes.js
 
 function repoFromLocation() {
   const owner = (location.hostname.match(/^([\w-]+)\.github\.io$/) || [])[1];
@@ -604,62 +604,46 @@ function award(names, kind, amount) {
 }
 function queueRow(args, text) {
   showError('');
-  if (queue.some((r) => ['queued', 'waiting'].includes(r.state) && JSON.stringify(r.args) === JSON.stringify(args))) return say('Already in Changes.');
-  if (queue.filter((r) => r.state === 'queued').length >= MAX_ROWS) return check(`Send these ${MAX_ROWS} first.`);
-  queue.push({ key: nextRow++, args, text, state: 'queued' });
+  const refused = box.add(args, text);
+  if (refused) return refused.say ? say(refused.say) : check(refused.error);
   say('Added to Changes: ' + text);
   renderQueue();
 }
 function renderQueue() {
-  const waiting = queue.filter((r) => r.state === 'queued');
-  $('queue').replaceChildren(...queue.map((r) => {
+  const rows = box.rows(), waiting = rows.filter((r) => r.state === 'queued');
+  $('queue').replaceChildren(...rows.map((r) => {
     const li = el('li', r.state);
     const text = el('div', 'text');
     text.append(el('span', '', r.text));
     const state = { queued: ['Not sent yet', ''], waiting: ['Waiting for Submit on GitHub', ''], done: ['Done', 'ok'], failed: ['Not done', 'bad'] }[r.state];
     text.append(el('small', 'state ' + state[1], state[0] + (r.reason ? ': ' + r.reason : '')));
     li.append(text);
-    if (r.state === 'queued') li.append(button('Remove', () => { queue = queue.filter((x) => x !== r); renderQueue(); }, 'link'));
+    if (r.state === 'queued') li.append(button('Remove', () => { box.remove(r.key); renderQueue(); }, 'link'));
     if (r.state === 'failed') {
-      li.append(button('Try again', () => { queue = queue.filter((x) => x !== r); queueRow(r.args, r.text); }, 'link'),
-        button('Dismiss', () => { queue = queue.filter((x) => x !== r); renderQueue(); }, 'link'));
+      li.append(button('Try again', () => { box.remove(r.key); queueRow(r.args, r.text); }, 'link'),
+        button('Dismiss', () => { box.dismiss(r.key); renderQueue(); }, 'link'));
     }
     if (r.state === 'waiting' && r.url && !PRACTICE) text.append(' ', button('Open again', () => showOnGitHub(r.url), 'link'));
     return li;
   }));
   renderHistory();
-  $('noChanges').hidden = queue.length > 0;
+  $('noChanges').hidden = rows.length > 0;
   $('send').hidden = !waiting.length;
   $('send').textContent = `Send ${waiting.length} change${waiting.length === 1 ? '' : 's'}`;
   $('sendHint').hidden = !waiting.length || PRACTICE;
   $('sendHint').textContent = 'Opens GitHub with them filled in: press Submit new issue there. Only the leaderboard\'s collaborators can make changes.';
 }
-function issueUrl(batch, rows) {
-  const issue = issueText(batch, rows);
-  return `https://github.com/${REPO}/issues/new?` + new URLSearchParams({ template: 'facilitator-changes.yml', title: issue.title, batch, changes: issue.changes });
-}
-function issueText(batch, rows) {
-  return { title: 'Facilitator: Changes', batch, changes: rows.map((r) => JSON.stringify(r.args)).join('\n') };
-}
 async function send() {
-  let rows = queue.filter((r) => r.state === 'queued');
-  if (!rows.length) return;
-  const batch = newBatchId();
-  while (rows.length > 1 && issueUrl(batch, rows).length > MAX_URL) rows = rows.slice(0, -1);  // the rest wait for the next Send
-  rows.forEach((r, i) => Object.assign(r, { state: 'waiting', batch, row: i + 1, sentAt: Date.now() }));
+  const sent = box.send();
+  if (!sent) return;
   renderQueue();
-  const issue = issueText(batch, rows);
   if (PRACTICE) {
     await fetch(`${API}/repos/${REPO}/issues`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: issue.title, body: `### Batch\n\n${batch}\n\n### Changes\n\n${issue.changes}` }) });
+      body: JSON.stringify({ title: sent.title, body: sent.body }) });
   } else {
-    const url = issueUrl(batch, rows);
-    rows.forEach((r) => { r.url = url; });
-    showOnGitHub(url);
+    showOnGitHub(sent.url);
   }
-  const left = queue.filter((r) => r.state === 'queued').length;
-  say(`Sent ${rows.length} change${rows.length === 1 ? '' : 's'}.` + (left ? ` ${left} more did not fit: press Send again.` : ''));
-  renderQueue();
+  say(`Sent ${sent.count} change${sent.count === 1 ? '' : 's'}.` + (sent.left ? ` ${sent.left} more did not fit: press Send again.` : ''));
   follow();
 }
 
@@ -691,31 +675,15 @@ async function follow() {
     await github.poll({ first: PRACTICE ? 300 : 30000, every: PRACTICE ? 1000 : 60000, step: async () => {
       let batches = null, unreadable = null;
       try { batches = await readState('grader/batches.json', {}); } catch (e) { unreadable = e; }
-      let landed = false;
-      queue.filter((r) => r.state === 'waiting').forEach((r) => {
-        const b = batches && batches[r.batch];
-        if (b) {  // GitHub made it: what happened to this row
-          const o = b.error ? { ok: false, message: b.error } : b.rows[r.row - 1] || { ok: false, message: 'Not in the batch GitHub received.' };
-          landed = landed || o.ok;
-          Object.assign(r, o.ok ? { state: 'done', change: o.change, reason: '' } : { state: 'failed', reason: o.message });
-        } else if (unreadable && unreadable.limited) {  // say why, and never give up while reads are limited
-          r.reason = unreadable.message;
-        } else if (Date.now() - r.sentAt > GIVE_UP) {
-          Object.assign(r, { state: 'failed', reason: unreadable
-            ? `${unreadable.message}. The issue on GitHub says whether it was made.`
-            : 'GitHub has not made it yet. If you did not press Submit new issue, try again; otherwise the issue on GitHub says why.' });
-        } else {
-          r.reason = unreadable ? unreadable.message : '';
-        }
-      });
+      const { landed, waiting } = box.settle(batches, unreadable);
       renderQueue();
       if (landed) {
         await Promise.all([loadHistory(), loadLessons().then(() => loadBoard(true))
           .catch((e) => say(`The board updates when GitHub can be read again: ${e.message}.`))]);
-        if (queue.some((r) => r.state === 'done' && ['add-lesson', 'remove-lesson'].includes(r.args[0]))) followLessons();
+        if (box.rows().some((r) => r.state === 'done' && ['add-lesson', 'remove-lesson'].includes(r.args[0]))) followLessons();
         setTimeout(fadeDone, PRACTICE ? 800 : 4000);
       }
-      if (!queue.some((r) => r.state === 'waiting')) return 'done';
+      if (!waiting) return 'done';
       return unreadable && !unreadable.limited ? 'error' : 'again';
     } });
   } finally {
@@ -724,7 +692,7 @@ async function follow() {
 }
 function fadeDone() {
   document.querySelectorAll('#queue li.done').forEach((li) => li.classList.add('fading'));
-  setTimeout(() => { queue = queue.filter((r) => r.state !== 'done'); renderQueue(); }, 1000);
+  setTimeout(() => { box.clearDone(); renderQueue(); }, 1000);
 }
 
 /* ---- recent changes, each undoable on its own ---- */
@@ -746,7 +714,7 @@ function historyItem(h) {
   text.append(el('span', '', h.action), el('small', '', `${h.by}, ${new Date(h.at).toLocaleString()}`));
   li.append(text);
   if (h.id) {
-    const sent = queue.some((r) => ['queued', 'waiting'].includes(r.state) && r.args[0] === 'undo' && r.args[1] === h.id);
+    const sent = box.pending((args) => args[0] === 'undo' && args[1] === h.id);
     const b = button(sent ? 'Undo waiting' : 'Undo', () => queueRow(['undo', h.id], `Undo: ${h.action}`), 'link');
     b.disabled = sent;  // undone once only
     b.setAttribute('aria-label', (sent ? 'Undo waiting: ' : 'Undo: ') + h.action);
@@ -947,7 +915,6 @@ $('addLessonForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const checks = $('lessonChecks'), showProblems = (items) => checks.replaceChildren(...items.map((t) => el('li', 'state bad', t)));
   const where = repoAndFolder($('lessonRepo').value), label = $('lessonLabel').value.trim(), key = $('lessonKey').value.trim();
-  const waiting = queue.filter((r) => ['queued', 'waiting'].includes(r.state) && r.args[0] === 'add-lesson');
   const check = $('lessonCheck').value, elsewhere = check === 'tests' && document.querySelector('input[name="testsFrom"]:checked').value === 'elsewhere';
   const tests = elsewhere ? repoAndFolder($('lessonTests').value) : null;
   const problems = [];
@@ -956,9 +923,9 @@ $('addLessonForm').addEventListener('submit', async (e) => {
   if (!label) problems.push('Give the name shown on the leaderboard.');
   if (!key) problems.push('Give a column name: lowercase letters, digits and _ (the name shown has none to make one from).');
   else if (!/^[a-z][a-z0-9_]*$/.test(key)) problems.push('The column name must be lowercase letters, digits and _, starting with a letter.');
-  else if (allLessons.some((l) => l.key === key) || waiting.some((r) => r.args[1] === key)) problems.push(`The column name ${key} is already used.`);
+  else if (allLessons.some((l) => l.key === key) || box.pending((a) => a[0] === 'add-lesson' && a[1] === key)) problems.push(`The column name ${key} is already used.`);
   if (where && (allLessons.some((l) => l.repo.toLowerCase() === where[0].toLowerCase())
-    || waiting.some((r) => r.args[3].toLowerCase() === where[0].toLowerCase()))) problems.push(`${where[0]} is already a lesson's repository.`);
+    || box.pending((a) => a[0] === 'add-lesson' && a[3].toLowerCase() === where[0].toLowerCase()))) problems.push(`${where[0]} is already a lesson's repository.`);
   if (elsewhere && !tests) problems.push('Give the tests repository as owner/name/folder, or its GitHub folder address.');
   if (problems.length) return showProblems(problems);
   checks.replaceChildren(el('li', 'muted', 'Checking the repository on GitHub…'));

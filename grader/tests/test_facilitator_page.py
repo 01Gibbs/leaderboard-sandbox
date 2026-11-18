@@ -26,6 +26,7 @@ import issue_form  # noqa: E402
 WORKFLOWS = REPO / '.github' / 'workflows'
 FORM_WORKFLOWS = sorted(p.name for p in WORKFLOWS.glob('facilitator-*.yml') if p.name != 'facilitator-action.yml')
 PAGE = (REPO / 'facilitator.html').read_text()
+SCRIPTS = re.findall(r'<script src="([\w.-]+)"', PAGE)  # the page's own scripts, each a file beside it
 STEPS = (REPO / 'walkthrough' / 'facilitator-steps.js').read_text()
 
 
@@ -88,13 +89,15 @@ class PageTests(unittest.TestCase):
             with self.subTest(step['title']):
                 self.assertEqual(step.get('tab', ''), panels.where[step['target']], 'the tour opens the tab its target is on')
 
-    def test_the_page_is_published_with_the_leaderboard(self):
+    def test_the_page_and_every_script_it_loads_are_published_and_in_practice(self):
         publish = (WORKFLOWS / 'pages.yml').read_text()
-        for f in ('facilitator.html', 'scoring.js', 'github-reader.js', 'participants.csv', 'lessons.json'):
+        self.assertTrue(SCRIPTS)
+        for f in ('facilitator.html', *SCRIPTS, 'participants.csv', 'lessons.json'):
             self.assertRegex(publish, rf'cp [^\n]*\b{re.escape(f)}\b', f)
+        self.assertLessEqual({'facilitator.html', *SCRIPTS}, set(facilitator_walkthrough.COPY))
 
     def test_the_page_asks_for_no_token_and_talks_only_to_github(self):
-        for name, text in (('facilitator.html', PAGE), ('github-reader.js', (REPO / 'github-reader.js').read_text())):
+        for name, text in (('facilitator.html', PAGE), *((f, (REPO / f).read_text()) for f in SCRIPTS)):
             with self.subTest(name):
                 self.assertNotRegex(text, r'(?i)authorization|type="password"|localStorage\.setItem\(.*token')
                 self.assertEqual(re.findall(r'https?://(?!github\.com|api\.github\.com)[\w.-]+', text), [])
@@ -142,7 +145,7 @@ class PracticeServerTests(unittest.TestCase):
 
     def send(self, *rows, batch='prac'):
         """What the page's Send does: one Changes issue with these rows. Returns the issue as answered."""
-        body = f'### Batch\n\n{batch}\n\n### Changes\n\n' + '\n'.join(json.dumps(list(r)) for r in rows)
+        body = issue_form.batch_body(batch, [list(r) for r in rows])
         status, issue = self.api('/issues', {'title': 'Facilitator: Changes', 'body': body})
         self.assertEqual(status, 201)
         return issue
@@ -177,7 +180,7 @@ class PracticeServerTests(unittest.TestCase):
 
     def test_a_changes_issue_is_applied_row_by_row(self):
         rows = [['award', 'Asha Rao', 'helped', '1'], ['award', 'Nobody Here', 'helped', '1']]
-        body = '### Batch\n\nprac1\n\n### Changes\n\n' + '\n'.join(json.dumps(r) for r in rows)
+        body = issue_form.batch_body('prac1', rows)
         status, issue = self.api('/issues', {'title': 'Facilitator: Changes', 'body': body})
         self.assertEqual((status, issue['state'], issue['state_reason'], issue['locked']), (201, 'closed', 'completed', True))
         batch = self.api('/contents/grader/batches.json')[1]['prac1']

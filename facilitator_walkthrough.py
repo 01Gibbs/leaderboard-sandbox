@@ -36,7 +36,7 @@ REPO = 'practice/leaderboard'  # what facilitator.html?practice calls it
 API = '/practice-api'
 ACTOR = 'you'
 # What the page and the forms need: the pages, the rules, the lessons, the workflows (for their commands) and the grader.
-COPY = ['index.html', 'facilitator.html', 'scoring.js', 'github-reader.js', 'lessons.json', 'dashboard.json',
+COPY = ['index.html', 'facilitator.html', 'scoring.js', 'github-reader.js', 'changes.js', 'lessons.json', 'dashboard.json',
         'walkthrough', 'grader', '.github/workflows']
 
 
