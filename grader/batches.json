@@ -1369,5 +1369,84 @@
         "change": null
       }
     ]
+  },
+  "e2e-202614i": {
+    "at": "2026-11-18T20:33:56+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "add",
+          "E2E Check 202614i",
+          ""
+        ],
+        "ok": true,
+        "message": "Added E2E Check 202614i",
+        "change": "c7fa600"
+      },
+      {
+        "args": [
+          "award",
+          "E2E Check 202614i",
+          "helped",
+          "2"
+        ],
+        "ok": true,
+        "message": "Gave 2 helps to E2E Check 202614i (helped: 0 -> 2)",
+        "change": "c7faf4a"
+      },
+      {
+        "args": [
+          "mark",
+          "E2E Check 202614i",
+          "library_replacement",
+          "correct"
+        ],
+        "ok": true,
+        "message": "Marked E2E Check 202614i library_replacement as correct (was none).",
+        "change": "c2a47e3"
+      },
+      {
+        "args": [
+          "add",
+          "E2E Duplicate 202614i",
+          ""
+        ],
+        "ok": true,
+        "message": "Added E2E Duplicate 202614i",
+        "change": "c44b758"
+      },
+      {
+        "args": [
+          "merge",
+          "E2E Check 202614i",
+          "E2E Duplicate 202614i"
+        ],
+        "ok": true,
+        "message": "Merged E2E Duplicate 202614i into E2E Check 202614i",
+        "change": "cb23b83"
+      },
+      {
+        "args": [
+          "award",
+          "Nobody 202614i",
+          "helped",
+          "1"
+        ],
+        "ok": false,
+        "message": "Nobody called \"Nobody 202614i\" is on the leaderboard. Did you mean 'E2E Check 202614i'? To add someone new, use \"add\".",
+        "change": null
+      },
+      {
+        "args": [
+          "rename",
+          "E2E Check 202614i",
+          "E2E Check 202614i R"
+        ],
+        "ok": true,
+        "message": "Renamed E2E Check 202614i to E2E Check 202614i R",
+        "change": "ce05b86"
+      }
+    ]
   }
 }
