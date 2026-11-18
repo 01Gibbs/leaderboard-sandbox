@@ -539,5 +539,65 @@
         "change": "c6b0fd0"
       }
     ]
+  },
+  "e2e-110408i-undo": {
+    "at": "2026-11-18T11:16:09+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "undo",
+          "c6b0fd0"
+        ],
+        "ok": true,
+        "message": "Undid: Renamed E2E Check 110408i to E2E Check 110408i R (by 01Gibbs at 2026-11-18T11:15:27+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c9857b9"
+        ],
+        "ok": true,
+        "message": "Undid: Merged E2E Duplicate 110408i into E2E Check 110408i (by 01Gibbs at 2026-11-18T11:15:27+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "caed306"
+        ],
+        "ok": true,
+        "message": "Undid: Added E2E Duplicate 110408i (by 01Gibbs at 2026-11-18T11:15:27+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "cb1286e"
+        ],
+        "ok": true,
+        "message": "Undid: Marked E2E Check 110408i library_replacement as correct (was none). (by 01Gibbs at 2026-11-18T11:15:27+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c6f0327"
+        ],
+        "ok": true,
+        "message": "Undid: Gave 2 helps to E2E Check 110408i (helped: 0 -> 2) (by 01Gibbs at 2026-11-18T11:15:27+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c403a26"
+        ],
+        "ok": true,
+        "message": "Undid: Added E2E Check 110408i (by 01Gibbs at 2026-11-18T11:15:27+00:00)",
+        "change": null
+      }
+    ]
   }
 }
