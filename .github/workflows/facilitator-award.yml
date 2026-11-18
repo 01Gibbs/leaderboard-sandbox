@@ -10,7 +10,7 @@ on:
         type: choice
         options: [helped, stretch, bonus]
       amount:
-        description: 'How many helps / stretch tasks, or bonus points. Use a minus sign to take away.'
+        description: 'Points (bonus only). Keep 1 for one help or stretch task, -1 to take one away; for bonus, the points.'
         default: '1'
 permissions:
   contents: read  # the deploy key, not the token, saves the change

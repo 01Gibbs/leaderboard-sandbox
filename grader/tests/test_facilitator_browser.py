@@ -309,6 +309,50 @@ class FacilitatorJourneyTests(unittest.TestCase):
         expect(page.locator('#queue li.done')).to_have_count(1, timeout=15000)
         expect(page.locator('#queue li.failed')).to_have_count(0)
 
+    # ---------- points: help and stretch count one at a time; only bonus has an amount ----------
+
+    def more(self, item):
+        self.page.locator('#more').click()
+        self.page.get_by_role('menuitem', name=item).click()
+
+    def test_bonus_points_ask_only_for_the_points(self):
+        self.pick('Asha Rao')
+        self.more('Bonus points…')
+        expect(self.page.locator('#inline').get_by_label('Points', exact=True)).to_have_value('1')
+        self.page.locator('#inline').get_by_label('Points', exact=True).fill('3')
+        self.page.locator('#inline').get_by_role('button', name='Add to changes').click()
+        expect(self.queued()).to_contain_text('Give 3 bonus points to Asha Rao.')
+
+    def test_taking_away_a_help_or_a_stretch_takes_one_without_asking_how_many(self):
+        self.pick('Asha Rao')
+        self.page.get_by_role('button', name='Give Asha Rao a help').click()
+        self.send()
+        self.more('Take some away…')
+        box = self.page.locator('#inline')
+        box.get_by_label('What').select_option('helped')
+        expect(box.get_by_label('Points', exact=True)).to_be_hidden()
+        box.get_by_role('button', name='Add to changes').click()
+        expect(self.page.locator('#queue li.queued')).to_contain_text('Take 1 help from Asha Rao.')
+
+    def test_a_refused_take_away_keeps_its_box_open_and_says_why(self):
+        self.pick('Chloe Martin')  # no stretch tasks to take
+        self.more('Take some away…')
+        box = self.page.locator('#inline')
+        box.get_by_label('What').select_option('stretch')
+        box.get_by_role('button', name='Add to changes').click()
+        expect(box).to_be_visible()
+        expect(self.page.locator('#error')).to_contain_text('Chloe Martin has 0 stretch tasks; cannot take away 1.')
+        expect(self.queued()).to_have_count(0)
+
+    def test_taking_away_bonus_points_asks_how_many_points(self):
+        self.pick('Asha Rao')
+        self.more('Take some away…')
+        box = self.page.locator('#inline')
+        box.get_by_label('What').select_option('bonus')
+        box.get_by_label('Points', exact=True).fill('2')
+        box.get_by_role('button', name='Add to changes').click()
+        expect(self.queued()).to_contain_text('Take 2 bonus points from Asha Rao.')
+
     # ---------- the two tabs ----------
 
     def test_workshop_is_the_default_and_the_tabs_work_as_a_tab_list(self):
@@ -334,6 +378,18 @@ class FacilitatorJourneyTests(unittest.TestCase):
         page.keyboard.press('Home')
         expect(workshop).to_have_attribute('aria-selected', 'true')
         expect(people).to_have_attribute('tabindex', '-1')
+
+    def test_a_half_filled_form_survives_a_trip_to_the_other_tab_without_a_read(self):
+        page = self.open('/facilitator.html?practice')
+        expect(page.locator('#lessonList li').first).to_be_visible()
+        reads = []
+        page.on('request', lambda r: reads.append(r.url) if '/practice-api/' in r.url else None)
+        page.locator('#addLesson summary').click()
+        page.locator('#lessonRepo').fill('practice/half-done')
+        page.get_by_role('tab', name='People').click()
+        page.get_by_role('tab', name='Workshop').click()
+        expect(page.locator('#lessonRepo')).to_have_value('practice/half-done')
+        self.assertEqual(reads, [], 'switching tabs reads nothing')
 
     def test_slash_finds_a_person_from_either_tab_and_letters_act_only_on_people(self):
         page = self.open('/facilitator.html?practice')
@@ -368,6 +424,9 @@ class FacilitatorJourneyTests(unittest.TestCase):
         self.page.locator('#lessonList li', has_text='Old exercise').get_by_role('button', name='Remove lesson Old exercise').click()
         expect(self.queued()).to_have_count(2)
         expect(self.page.locator('#send')).to_have_text('Send 2 changes')
+        self.send()  # one Send for both tabs' changes
+        expect(self.page.locator('#queue li.failed')).to_have_count(0)
+        expect(self.page.locator('#lessonList li', has_text='Old exercise')).to_have_count(0)
 
     # ---------- lessons ----------
 
@@ -383,6 +442,9 @@ class FacilitatorJourneyTests(unittest.TestCase):
         expect(lessons.filter(has_text=first['label']).get_by_role('button', name=re.compile('^Remove'))).to_have_count(0)  # its own check
         old = lessons.filter(has_text='Old exercise')
         expect(old).to_contain_text('Failed its trial: the starter does not build')
+        self.pick('Asha Rao')  # a lesson still being checked is not one of their exercises yet
+        expect(self.page.locator('#person')).not_to_contain_text('Old exercise')
+        self.page.get_by_role('tab', name='Workshop').click()
         old.locator('summary').click()
         expect(old).to_contain_text('could not resolve org.example:retired:1.0')
         old.get_by_role('button', name='Try again').click()

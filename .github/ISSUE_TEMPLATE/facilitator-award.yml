@@ -22,7 +22,7 @@ body:
   - type: input
     id: amount
     attributes:
-      label: 'How many'
-      description: 'How many helps or stretch tasks, or bonus points. Use -1 to take one away.'
+      label: 'Points (bonus only)'
+      description: 'Leave empty for one help or stretch task (-1 takes one away). For bonus: the points, -2 to take two away.'
     validations:
       required: false

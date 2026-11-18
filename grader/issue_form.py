@@ -23,7 +23,7 @@ NO_RESPONSE = '_No response_'  # what GitHub writes for a field left empty
 MAY_CHANGE = {'admin', 'maintain', 'write'}
 # Each form: its title -> (leaderboard command, [(field label, workflow input)]), in the command's argument order.
 FORMS = {
-    'Award points': ('award', [('Person', 'person'), ('What for', 'kind'), ('How many', 'amount')]),
+    'Award points': ('award', [('Person', 'person'), ('What for', 'kind'), ('Points (bonus only)', 'amount')]),
     'Mark an exercise': ('mark', [('Person', 'person'), ('Exercise', 'lesson'), ('Result', 'status')]),
     'Add a person': ('add', [('Full name', 'name'), ('GitHub username', 'github')]),
     'Rename a person': ('rename', [('Person', 'person'), ('Name to show', 'new_name')]),

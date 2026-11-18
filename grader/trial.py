@@ -62,6 +62,7 @@ def run(lesson, source, adapter=None):
 def fetch(source, repo, dest, ref='HEAD'):
     """A repository the trial needs; one that cannot be fetched fails the trial, saying why."""
     try:
-        source.starter(repo, dest, ref)
+        source.fetch_repo(repo, dest, ref)
     except RuntimeError as e:
-        raise CheckFailed(f'could not fetch {repo}: is it public? ({str(e).strip().splitlines()[-1] if str(e).strip() else e})') from None
+        said = str(e).strip()
+        raise CheckFailed(f'could not fetch {repo}: is it public? ({said.splitlines()[-1] if said else "no reason given"})') from None

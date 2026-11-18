@@ -23,7 +23,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent  # this leaderboard repository
 # participants.csv columns that are not lessons, and header spellings read as one of them
 RESERVED = tuple(rules.BASE_COLUMNS + rules.COUNTS + rules.GENERATED + list(rules.RULES['headerAliases']))
-FIELDS = ('key', 'label', 'repo', 'check', 'tests_commit', 'tests_repo', 'tests_dir', 'status')  # what a lesson may have
+FIELDS = ('key', 'label', 'repo', 'check', 'tests_commit', 'tests_repo', 'tests_dir', 'status', 'added')  # what a lesson may have
 CHECKING = 'checking'  # status of a lesson not yet shown or graded
 # Used by every check, so a change to any of these regrades every automated lesson.
 SHARED_CODE = [HERE / 'executor.py'] + [HERE / 'checks' / f'{m}.py' for m in checks.SHARED]
@@ -46,6 +46,7 @@ class Lesson:
     tests_dir: str = ''   # the folder in that repository holding the project whose src/test/ is pinned
     status: str = ''      # CHECKING until its trial passes; empty once live
     tests_commit: str = ''  # the commit its tests were pinned from
+    added: str = ''       # when it was last added from the page: a lesson added again is a new trial
 
     @property
     def runner(self):
@@ -73,9 +74,9 @@ class Lesson:
 
 def trial_version(lesson):
     """What the trial of a checking lesson (grader/trial.py) depends on: the lesson itself (its check and pinned
-    tests), where its code and tests come from, and trial.py. A trial of another version does not count. Read here,
+    tests), where its code and tests come from, when it was added, and trial.py. A trial of another version does not count. Read here,
     not in trial.py, so putting a lesson live needs none of the grading code loaded."""
-    h = hashlib.sha256('\n'.join([lesson.version, lesson.repo, lesson.tests_repo, lesson.tests_dir, lesson.tests_commit]).encode())
+    h = hashlib.sha256('\n'.join([lesson.version, lesson.repo, lesson.tests_repo, lesson.tests_dir, lesson.tests_commit, lesson.added]).encode())
     h.update((HERE / 'trial.py').read_bytes())
     return h.hexdigest()[:12]  # no mutate: any length that is unlikely to collide
 
@@ -141,7 +142,7 @@ def _check(items, root, checking):
         if item.get('status', CHECKING) != CHECKING:
             problems.append(f'{where}: status can only be "{CHECKING}" (leave it out once the lesson is live)')
         lesson = Lesson(key, item.get('label', ''), item.get('repo', ''), check, fixtures(root) / key,
-                        item.get('tests_repo', ''), item.get('tests_dir', ''), item.get('status', ''), item.get('tests_commit', ''))
+                        item.get('tests_repo', ''), item.get('tests_dir', ''), item.get('status', ''), item.get('tests_commit', ''), item.get('added', ''))
         if checking or lesson.status != CHECKING:
             out.append(lesson)
     return out, problems

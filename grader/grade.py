@@ -67,8 +67,9 @@ class GitHub:
     def checkout(self, repo, number, dest):
         executor.fetch(f'https://github.com/{repo}.git', f'pull/{number}/head', dest)
 
-    def starter(self, repo, dest, ref='HEAD'):
-        """The repository at `ref` (default: its default branch, an exercise's starter), for a lesson's trial."""
+    def fetch_repo(self, repo, dest, ref='HEAD'):
+        """A repository at `ref` (default: its default branch), for a lesson's trial: the exercise's starter, or the
+        solutions repository its tests came from."""
         executor.fetch(f'https://github.com/{repo}.git', ref, dest)
 
 
@@ -87,7 +88,7 @@ def grade_submission(lesson, source, pr, adapter=None):
 
 
 def _verdict(passed, reasons):
-    return f"  {({True: 'PASS', False: 'FAIL'}).get(passed, 'RETRY')}: " + ' | '.join(r.splitlines()[0] for r in reasons)
+    return f"  {({True: 'PASS', False: 'FAIL'}).get(passed, 'RETRY')}: " + submissions.first_lines(reasons, ' | ')
 
 
 def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=print, try_lesson=None):
@@ -129,7 +130,9 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
             subs.record_result(lesson, pr, passed, reasons)
             subs.save()  # keep progress if a later one hangs
     if not (no_run or only):
-        for lesson in (lesson for lesson in lessons.load(root, checking=True) if lesson.status == lessons.CHECKING):
+        for lesson in lessons.load(root, checking=True):
+            if lesson.status != lessons.CHECKING:
+                continue
             version = lessons.trial_version(lesson)
             if subs.needs_trial(lesson.key, version, trial.RETRY_FAILED_AFTER):
                 log(f'Trying {lesson.key}, a lesson still being checked')

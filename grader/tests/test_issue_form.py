@@ -58,12 +58,12 @@ def api(role):
 
 class ReadingTests(unittest.TestCase):
     def test_each_section_and_an_empty_one(self):
-        text = body(**{'Person': 'Asha Rao', 'What for': 'helped', 'How many': ''})
-        self.assertEqual(issue_form.fields(text), {'Person': 'Asha Rao', 'What for': 'helped', 'How many': ''})
+        text = body(**{'Person': 'Asha Rao', 'What for': 'helped', 'Points (bonus only)': ''})
+        self.assertEqual(issue_form.fields(text), {'Person': 'Asha Rao', 'What for': 'helped', 'Points (bonus only)': ''})
         self.assertEqual(issue_form.fields(text.replace('\n', '\r\n'))['Person'], 'Asha Rao')
 
     def test_the_command_a_form_asks_for(self):
-        self.assertEqual(issue_form.command('Facilitator: Award points', body(**{'Person': 'Asha', 'What for': 'helped', 'How many': ''})),
+        self.assertEqual(issue_form.command('Facilitator: Award points', body(**{'Person': 'Asha', 'What for': 'helped', 'Points (bonus only)': ''})),
                          ['award', 'Asha', 'helped', '1'])  # How many left empty: 1, as the Actions form defaults it
         self.assertEqual(issue_form.command('Facilitator: Add a person', body(**{'Full name': 'Pat', 'GitHub username': ''})),
                          ['add', 'Pat', ''])
@@ -135,7 +135,7 @@ class CommandLineTests(unittest.TestCase):
     def test_reading_an_allowed_issue_says_what_it_will_run(self):
         with tempfile.TemporaryDirectory() as tmp:
             event = {'issue': {'title': 'Facilitator: Award points', 'user': {'login': 'pat'},
-                               'body': body(**{'Person': 'Asha', 'What for': 'helped', 'How many': '2'})}}
+                               'body': body(**{'Person': 'Asha', 'What for': 'helped', 'Points (bonus only)': '2'})}}
             (Path(tmp) / 'event.json').write_text(json.dumps(event))
             code = ('import sys, runpy; sys.path.insert(0, "grader"); import issue_form\n'
                     'issue_form.permission = lambda *a, **k: "write"\n'
@@ -175,7 +175,7 @@ class WorkflowCommandTests(unittest.TestCase):
 
 class PermissionTests(unittest.TestCase):
     EVENT = {'issue': {'title': 'Facilitator: Award points', 'user': {'login': 'pat'},
-                       'body': body(**{'Person': 'Asha', 'What for': 'helped', 'How many': '2'})}}
+                       'body': body(**{'Person': 'Asha', 'What for': 'helped', 'Points (bonus only)': '2'})}}
 
     def test_collaborators_who_can_write_may_change_it(self):
         for role in ('admin', 'maintain', 'write'):

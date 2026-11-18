@@ -81,6 +81,11 @@ class AddLessonTests(Sandbox):
         self.assertTrue((self.dir / 'grader/fixtures/greeting/src/test/java/GreetingTest.java').is_file())
         self.assertRegex(out, r'Added Greeting \(tests: 1 files from o/greeting at [0-9a-f]{7}\), checking until its trial passes')
 
+    def test_each_add_is_stamped_so_an_old_trial_never_matches_it(self):
+        self.exercise('o/essay', {'README.md': 'Write about it.'})
+        self.cli('add-lesson', 'essay', 'Essay', 'o/essay', 'none')
+        self.assertRegex(self.entries()['essay']['added'], r'^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$')
+
     def test_a_checking_lesson_is_not_graded_or_shown(self):
         self.exercise('o/greeting', STARTER)
         self.cli('add-lesson', 'greeting', 'Greeting', 'o/greeting', 'tests')
@@ -96,6 +101,13 @@ class AddLessonTests(Sandbox):
         self.assertEqual((entry['tests_repo'], entry['tests_dir']), ('o/solutions', 'greeting'))
         self.assertIn('solution', (self.dir / 'grader/fixtures/greeting/src/test/java/GreetingTest.java').read_text())
 
+    def test_a_lesson_checked_by_building_is_saved_as_build(self):
+        self.exercise('o/greeting', STARTER)
+        code, out, err = self.cli('add-lesson', 'greeting', 'Greeting', 'o/greeting', 'build')
+        self.assertEqual(code, 0, err)
+        self.assertEqual((self.entries()['greeting']['check'], self.entries()['greeting']['status']), ('build', 'checking'))
+        self.assertIn('Added Greeting (correct when it builds), checking until its trial passes.', out)
+
     def test_a_lesson_marked_by_hand_needs_no_tests(self):
         self.exercise('o/essay', {'README.md': 'Write about it.'})
         code, _, err = self.cli('add-lesson', 'essay', 'Essay', 'o/essay', 'none')
@@ -107,7 +119,7 @@ class AddLessonTests(Sandbox):
         self.exercise('o/essay', {'README.md': 'Write about it.'})
         code, _, err = self.cli('add-lesson', 'essay', 'Essay', 'o/essay', 'build')
         self.assertEqual(code, 1)
-        self.assertIn('no Gradle project', err)
+        self.assertRegex(err, r'o/essay has no Gradle project at [0-9a-f]{7}, so "build" cannot check it')
         self.assertNotIn('essay', self.entries())
 
     def test_only_the_generic_levels_never_a_custom_check(self):

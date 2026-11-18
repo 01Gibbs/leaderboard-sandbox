@@ -117,7 +117,8 @@ class RecordingTests(Sandbox):
         for trials, why in (([], 'trials must be an object'), ({'g': {**good, 'passed': 'yes'}}, 'trials: g'),
                             ({'g': {k: v for k, v in good.items() if k != 'reasons'}}, 'trials: g'),
                             ({'g': {**good, 'reasons': 'ok'}}, 'trials: g'), ({'g': {**good, 'version': 1}}, 'trials: g'),
-                            ({'g': {k: v for k, v in good.items() if k != 'at'}}, 'trials: g'), ({'g': 'passed'}, 'trials: g')):
+                            ({'g': {k: v for k, v in good.items() if k != 'at'}}, 'trials: g'), ({'g': 'passed'}, 'trials: g'),
+                            ({'Not A Key': good}, 'trials: Not A Key must be a lesson key')):
             with self.subTest(trials=trials):
                 (self.dir / 'grader' / 'results.json').write_text(json.dumps({'people': {}, 'submissions': {}, 'trials': trials}))
                 with self.assertRaises(ResultsInvalid) as e:

@@ -464,7 +464,7 @@ function renderSeveral(pane) {
   const names = [...ticked];
   const actions = el('div', 'actions');
   actions.append(button('+1 help each', () => award(names, 'helped', 1)), button('+1 stretch each', () => award(names, 'stretch', 1)),
-    button('Bonus points each…', () => showAmount(names, 'bonus')), button('Clear', () => { ticked.clear(); renderRoster(); renderPerson(); }));
+    button('Bonus points each…', () => showBonus(names)), button('Clear', () => { ticked.clear(); renderRoster(); renderPerson(); }));
   pane.replaceChildren(el('h2', '', `${names.length} selected`), el('p', 'muted', names.join(', ')), actions, el('div'));
   pane.children[3].id = 'inline';
 }
@@ -479,7 +479,7 @@ function toggleMenu(anchor) {
   const p = selected, menu = el('ul');
   menu.id = 'menu';
   menu.setAttribute('role', 'menu');
-  [['Bonus points…', () => showAmount([p.name], 'bonus')], ['Take some away…', () => showTakeAway(p)], ['Set a result…', () => showResult(p)],
+  [['Bonus points…', () => showBonus([p.name])], ['Take some away…', () => showTakeAway(p)], ['Set a result…', () => showResult(p)],
    ['Rename…', () => showRename(p)], ['Same person as…', () => showMerge(p)]].forEach(([text, fn]) => {
     const li = el('li');
     li.setAttribute('role', 'none');
@@ -518,16 +518,21 @@ function inline(title, fields, ok, onOk) {
 }
 function field(label, input) { const l = el('label', '', label); l.append(input); return l; }
 function input(name, value = '', type = 'text') { const i = el('input'); i.name = name; i.type = type; i.value = value; i.autocomplete = 'off'; return i; }
-function showAmount(names, kind) {
-  inline(`Bonus points for ${names.length > 1 ? names.length + ' people' : names[0]}`, [field('How many', input('amount', '1', 'number'))], 'Add to changes',
-    (box) => award(names, kind, parseInt(box.elements.amount.value, 10)));
+// Helps and stretch tasks count one at a time (+1 help, +1 stretch); only bonus points have an amount.
+function showBonus(names) {
+  inline(`Bonus points for ${names.length > 1 ? names.length + ' people' : names[0]}`, [field('Points', input('amount', '1', 'number'))], 'Add to changes',
+    (box) => award(names, 'bonus', parseInt(box.elements.amount.value, 10)));
 }
 function showTakeAway(p) {
   const kind = el('select');
   kind.name = 'kind';
-  ['helped', 'stretch', 'bonus'].forEach((k) => { const o = el('option', '', UNITS[k][1]); o.value = k; kind.append(o); });
-  inline(`Take away from ${p.name}`, [field('What', kind), field('How many', input('amount', '1', 'number'))], 'Add to changes',
-    (box) => award([p.name], box.elements.kind.value, -Math.abs(parseInt(box.elements.amount.value, 10))));
+  ['helped', 'stretch', 'bonus'].forEach((k) => { const o = el('option', '', k === 'bonus' ? UNITS[k][1] : '1 ' + UNITS[k][0]); o.value = k; kind.append(o); });
+  const points = field('Points', input('amount', '1', 'number'));
+  const showPoints = () => { points.hidden = kind.value !== 'bonus'; };
+  kind.addEventListener('change', showPoints);
+  inline(`Take away from ${p.name}`, [field('What', kind), points], 'Add to changes',
+    (box) => award([p.name], kind.value, kind.value === 'bonus' ? -Math.abs(parseInt(box.elements.amount.value, 10)) : -1));
+  showPoints();
 }
 function showResult(p) {
   const lesson = el('select'), status = el('select');
@@ -588,13 +593,14 @@ function mergePreview(keep, drop) {
 function check(text) { showError(text); return false; }
 
 /* ---- the Changes box ---- */
+// false when refused (the box stays open, saying why): every name is checked before any row is added.
 function award(names, kind, amount) {
   if (!Number.isInteger(amount) || amount === 0) return check('The amount must be a whole number other than 0.');
-  names.forEach((n) => {
+  for (const n of names) {
     const p = people.find((x) => x.name === n);
     if (amount < 0 && p && (p[kind] || 0) + amount < 0 && kind !== 'bonus') return check(`${n} has ${p[kind] || 0} ${UNITS[kind][1]}; cannot take away ${-amount}.`);
-    queueRow(['award', n, kind, String(amount)], `${amount < 0 ? 'Take' : 'Give'} ${plural(amount, kind)} ${amount < 0 ? 'from' : 'to'} ${n}.`);
-  });
+  }
+  names.forEach((n) => queueRow(['award', n, kind, String(amount)], `${amount < 0 ? 'Take' : 'Give'} ${plural(amount, kind)} ${amount < 0 ? 'from' : 'to'} ${n}.`));
 }
 function queueRow(args, text) {
   showError('');

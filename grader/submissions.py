@@ -49,7 +49,9 @@ def _check(data):
     if not isinstance(trials, dict):
         return problems + ['trials must be an object']
     for k, t in trials.items():
-        if not (isinstance(t, dict) and t.get('passed') in (True, False, None) and isinstance(t.get('version'), str)
+        if not re.fullmatch(r'[a-z][a-z0-9_]*', k):
+            problems.append(f'trials: {k} must be a lesson key')
+        elif not (isinstance(t, dict) and t.get('passed') in (True, False, None) and isinstance(t.get('version'), str)
                 and isinstance(t.get('at'), str) and isinstance(t.get('reasons'), list) and all(isinstance(r, str) for r in t['reasons'])):
             problems.append(f'trials: {k} must say passed (true, false or null), the version tried, when, and reasons')
     return problems
@@ -57,6 +59,11 @@ def _check(data):
 
 def _when(stamp):
     return datetime.strptime(stamp, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()
+
+
+def first_lines(reasons, sep):
+    """Each reason's first line, joined: a one-line summary of a result or a trial."""
+    return sep.join(r.splitlines()[0] for r in reasons if r)
 
 
 def key(lesson, pr):
@@ -100,6 +107,11 @@ class Submissions:
         # lesson key -> its trial; the section appears with the first trial, so a board without any is unchanged
         at = (now or datetime.now(timezone.utc)).strftime('%Y-%m-%dT%H:%M:%SZ')
         self._data.setdefault('trials', {})[key] = {'version': version, 'passed': passed, 'reasons': list(reasons), 'at': at}
+
+    def trial_passed(self, key, version):
+        """Whether lesson `key`'s trial passed for `version` (lessons.trial_version): only then may it go live."""
+        t = self.trial(key)
+        return bool(t) and t['passed'] is True and t['version'] == version
 
     def forget_trial(self, key):
         """Forget lesson `key`'s trial (it was added again, or removed). Returns whether there was one."""
