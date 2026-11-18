@@ -45,7 +45,18 @@ def _check(data):
             problems.append(f'{k}: task must be a lesson key')
         if s.get('passed') not in (True, False, None):
             problems.append(f'{k}: passed must be true, false or null')
+    trials = data.get('trials', {})
+    if not isinstance(trials, dict):
+        return problems + ['trials must be an object']
+    for k, t in trials.items():
+        if not (isinstance(t, dict) and t.get('passed') in (True, False, None) and isinstance(t.get('version'), str)
+                and isinstance(t.get('at'), str) and isinstance(t.get('reasons'), list) and all(isinstance(r, str) for r in t['reasons'])):
+            problems.append(f'trials: {k} must say passed (true, false or null), the version tried, when, and reasons')
     return problems
+
+
+def _when(stamp):
+    return datetime.strptime(stamp, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()
 
 
 def key(lesson, pr):
@@ -76,6 +87,27 @@ class Submissions:
         (ResultsInvalid) and nothing changes."""
         self._load(Path(path), "the grading run's results.json")
         self.save()
+
+    def needs_trial(self, key, version, retry_failed_after, now=None):
+        """Whether lesson `key` still needs trying: never tried at this `version`, not finished last time, or failed
+        more than `retry_failed_after` seconds ago."""
+        t = self.trial(key)
+        if not t or t['version'] != version or t['passed'] is None:
+            return True
+        return t['passed'] is False and (now or datetime.now(timezone.utc)).timestamp() - _when(t['at']) > retry_failed_after
+
+    def record_trial(self, key, version, passed, reasons, now=None):
+        # lesson key -> its trial; the section appears with the first trial, so a board without any is unchanged
+        at = (now or datetime.now(timezone.utc)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        self._data.setdefault('trials', {})[key] = {'version': version, 'passed': passed, 'reasons': list(reasons), 'at': at}
+
+    def forget_trial(self, key):
+        """Forget lesson `key`'s trial (it was added again, or removed). Returns whether there was one."""
+        return self._data.get('trials', {}).pop(key, None) is not None
+
+    def trial(self, key):
+        """The latest trial of lesson `key` ({version, passed, reasons}), or None."""
+        return self._data.get('trials', {}).get(key)
 
     def save(self):
         text = json.dumps(self._data, sort_keys=True,

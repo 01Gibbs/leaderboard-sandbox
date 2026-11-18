@@ -73,6 +73,12 @@ class WorkflowRulesTests(unittest.TestCase):
             if where != 'pages.yml/deploy':
                 self.assertNotIn('write', {granted.get('pages'), granted.get('id-token')}, f'{where} can deploy the page')
 
+    def test_a_change_to_the_lessons_on_main_starts_grading(self):
+        # A lesson added from the facilitator page is tried; one that passed and was put live gets graded.
+        push = self.workflows['grade.yml']['true']['push']
+        self.assertEqual(push['branches'], ['main'])
+        self.assertEqual(set(push['paths']), {'lessons.json', 'grader/fixtures/**'})
+
     def test_a_page_deploy_github_fails_once_is_tried_again(self):
         steps = self.workflows['pages.yml']['jobs']['deploy']['steps']
         deploys = [st for st in steps if str(st.get('uses', '')).startswith('actions/deploy-pages@')]

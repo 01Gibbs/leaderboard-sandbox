@@ -21,6 +21,7 @@ import checks
 import executor
 import lessons
 import submissions
+import trial
 
 
 class PullRequest(NamedTuple):
@@ -66,6 +67,10 @@ class GitHub:
     def checkout(self, repo, number, dest):
         executor.fetch(f'https://github.com/{repo}.git', f'pull/{number}/head', dest)
 
+    def starter(self, repo, dest, ref='HEAD'):
+        """The repository at `ref` (default: its default branch, an exercise's starter), for a lesson's trial."""
+        executor.fetch(f'https://github.com/{repo}.git', ref, dest)
+
 
 def grade_submission(lesson, source, pr, adapter=None):
     """Check out one pull request and run its lesson's check. Returns (passed, reasons): True or False for
@@ -81,9 +86,14 @@ def grade_submission(lesson, source, pr, adapter=None):
             return None, ['grader error, will retry:\n' + checks.tail(traceback.format_exc())]
 
 
-def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=print):
-    """Grade every new commit on every lesson's repository; record the results in grader/results.json.
-    no_run: only record who submitted. only: grade just one pull request, e.g. "owner/repo#3".
+def _verdict(passed, reasons):
+    return f"  {({True: 'PASS', False: 'FAIL'}).get(passed, 'RETRY')}: " + ' | '.join(r.splitlines()[0] for r in reasons)
+
+
+def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=print, try_lesson=None):
+    """Grade every new commit on every lesson's repository; record the results in grader/results.json. Then try
+    each lesson still being checked (trial.run, or `try_lesson`), once per version of it.
+    no_run: only record who submitted. only: grade just one pull request, e.g. "owner/repo#3" (no trials either).
     Returns the Submissions."""
     root = Path(root)
     source = source or GitHub()
@@ -115,8 +125,17 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
                 continue
             log(f'Grading {name} ({pr.login} @ {pr.sha[:7]})')
             passed, reasons = grade_submission(lesson, source, pr, adapter)
-            log(f"  {({True: 'PASS', False: 'FAIL'}).get(passed, 'RETRY')}: " + ' | '.join(r.splitlines()[0] for r in reasons))
+            log(_verdict(passed, reasons))
             subs.record_result(lesson, pr, passed, reasons)
             subs.save()  # keep progress if a later one hangs
+    if not (no_run or only):
+        for lesson in (lesson for lesson in lessons.load(root, checking=True) if lesson.status == lessons.CHECKING):
+            version = lessons.trial_version(lesson)
+            if subs.needs_trial(lesson.key, version, trial.RETRY_FAILED_AFTER):
+                log(f'Trying {lesson.key}, a lesson still being checked')
+                passed, reasons = (try_lesson or trial.run)(lesson, source, adapter)
+                log(_verdict(passed, reasons))
+                subs.record_trial(lesson.key, version, passed, reasons)
+                subs.save()
     subs.save()
     return subs

@@ -3,7 +3,7 @@
 Everything else (the grader, the roster, the walkthrough) reads lessons through `load(root)`, so a mistake in
 lessons.json is reported the same way everywhere, with every problem listed at once. This module also owns where
 lessons.json and each lesson's test files live in a leaderboard repository, and every write to lessons.json
-(`record_pinned`, `add`, `remove`).
+(`record_pinned`, `add`, `remove`, and `promote`, which puts a lesson whose trial passed live).
 
 A lesson added from the facilitator page starts as "checking" (status), until a trial shows its tests work. Only
 `load(root, checking=True)` returns those: grading, the roster and the pages never see them.
@@ -45,6 +45,7 @@ class Lesson:
     tests_repo: str = ''  # owner/name its tests are pinned from, when not `repo`
     tests_dir: str = ''   # the folder in that repository holding the project whose src/test/ is pinned
     status: str = ''      # CHECKING until its trial passes; empty once live
+    tests_commit: str = ''  # the commit its tests were pinned from
 
     @property
     def runner(self):
@@ -68,6 +69,15 @@ class Lesson:
                 if f.is_file():
                     h.update(f.relative_to(self.test_files).as_posix().encode() + f.read_bytes())
         return h.hexdigest()[:12]  # no mutate: any length that is unlikely to collide
+
+
+def trial_version(lesson):
+    """What the trial of a checking lesson (grader/trial.py) depends on: the lesson itself (its check and pinned
+    tests), where its code and tests come from, and trial.py. A trial of another version does not count. Read here,
+    not in trial.py, so putting a lesson live needs none of the grading code loaded."""
+    h = hashlib.sha256('\n'.join([lesson.version, lesson.repo, lesson.tests_repo, lesson.tests_dir, lesson.tests_commit]).encode())
+    h.update((HERE / 'trial.py').read_bytes())
+    return h.hexdigest()[:12]  # no mutate: any length that is unlikely to collide
 
 
 def lessons_file(root=ROOT):
@@ -131,7 +141,7 @@ def _check(items, root, checking):
         if item.get('status', CHECKING) != CHECKING:
             problems.append(f'{where}: status can only be "{CHECKING}" (leave it out once the lesson is live)')
         lesson = Lesson(key, item.get('label', ''), item.get('repo', ''), check, fixtures(root) / key,
-                        item.get('tests_repo', ''), item.get('tests_dir', ''), item.get('status', ''))
+                        item.get('tests_repo', ''), item.get('tests_dir', ''), item.get('status', ''), item.get('tests_commit', ''))
         if checking or lesson.status != CHECKING:
             out.append(lesson)
     return out, problems
@@ -154,6 +164,15 @@ def add(root, item):
     if problems:
         raise LessonsInvalid(problems)
     _write(root, json.loads(lessons_file(root).read_text(encoding='utf-8')) + [item])
+
+
+def promote(root, key):
+    """Put lesson `key` live: it is shown and graded from now on."""
+    items = json.loads(lessons_file(root).read_text(encoding='utf-8'))
+    for item in items:
+        if item.get('key') == key:
+            item.pop('status', None)
+    _write(root, items)
 
 
 def remove(root, key):

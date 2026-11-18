@@ -2,6 +2,8 @@
 
 *Research note, 17 November 2026. Audience: project lead.*
 
+> **Status (17 Nov 2026).** Slice 1 (the commands, hardened pinning, the bot's save) and the trial that puts a lesson live are built. The page form, the live e2e journey and the JUnit check are next.
+>
 > **Decisions (17 Nov 2026, project lead).**
 > - **Saving:** straight to main with the bot's deploy key (option a), behind guard checks, so a lesson is proved to work before it is used. A new lesson is saved as *checking* and hidden from the board. A trial in the grading job builds its starter with the pinned tests (they must compile; failing is expected), and, when a public solution repository is given, the solution must pass them. Only then does the lesson go live (its column appears and its pull requests are graded). A failed trial says why on the issue and the page, and the lesson stays hidden.
 > - **Tests:** public repositories only. A private solutions repository can be made public before the solution session, and the lesson's tests re-pinned from it then.

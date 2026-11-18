@@ -245,6 +245,124 @@ class GradingTests(Sandbox):
         self.assertEqual((row['name'], row['alpha'], row['beta']), ('Ann Lee', 'correct', 'submitted'))
 
 
+class TrialTests(Sandbox):
+    """A lesson added from the facilitator page is "checking" until its trial passes: grading tries it (once per
+    version of the lesson), and publishing promotes it when the trial passed."""
+
+    def setUp(self):
+        super().setUp()
+        entries = json.loads((self.dir / 'lessons.json').read_text())
+        entries.append({'key': 'gamma', 'label': 'Gamma', 'repo': 'o/gamma', 'check': 'build', 'status': 'checking'})
+        (self.dir / 'lessons.json').write_text(json.dumps(entries))
+        (self.dir / 'participants.csv').write_text('name,github_username,alpha,beta,stretch,helped,bonus,pr_stretch\n')
+        self.tried = []
+
+    def trial(self, verdict):
+        def run(lesson, source, adapter=None):
+            self.tried.append(lesson.key)
+            return verdict
+        return run
+
+    def trial_entry(self):
+        return self.results().get('trials', {}).get('gamma')
+
+    def test_a_checking_lesson_is_tried_and_its_pull_requests_are_not_graded(self):
+        self.github.add('o/gamma', 1, 'asha', 'g1')
+        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
+        self.assertEqual(self.tried, ['gamma'])
+        self.assertEqual((self.trial_entry()['passed'], self.trial_entry()['reasons']), (True, ['the starter builds']))
+        self.assertNotIn(('o/gamma', 1), self.github.checkouts)
+
+    def test_a_trial_is_run_once_for_each_version_of_the_lesson(self):
+        self.grade(try_lesson=self.trial((False, ['starter: Gradle build failed'])))
+        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
+        self.assertEqual(self.tried, ['gamma'], 'the same lesson is not tried again')
+        (self.dir / 'grader' / 'fixtures' / 'gamma').mkdir()
+        (self.dir / 'grader' / 'fixtures' / 'gamma' / 'note.txt').write_text('changed')  # a new version of the lesson
+        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
+        self.assertEqual(self.tried, ['gamma', 'gamma'])
+
+    def test_a_trial_the_grader_could_not_finish_is_tried_again(self):
+        self.grade(try_lesson=self.trial((None, ['grader error, will retry'])))
+        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
+        self.assertEqual(self.tried, ['gamma', 'gamma'])
+
+    def test_a_failed_trial_is_tried_again_a_day_later(self):
+        self.grade(try_lesson=self.trial((False, ['could not fetch o/gamma: is it public?'])))
+        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
+        self.assertEqual(self.tried, ['gamma'], 'not straight away')
+        results = self.results()
+        results['trials']['gamma']['at'] = '2026-01-01T00:00:00Z'  # long ago
+        (self.dir / 'grader' / 'results.json').write_text(json.dumps(results))
+        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
+        self.assertEqual(self.tried, ['gamma', 'gamma'])
+
+    def test_a_trial_is_tried_again_when_where_the_lesson_comes_from_changes(self):
+        self.grade(try_lesson=self.trial((False, ['starter: Gradle build failed'])))
+        entries = json.loads((self.dir / 'lessons.json').read_text())
+        entries[-1]['repo'] = 'o/gamma-fixed'
+        (self.dir / 'lessons.json').write_text(json.dumps(entries))
+        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
+        self.assertEqual(self.tried, ['gamma', 'gamma'])
+
+    def test_only_and_no_run_do_not_try_lessons(self):
+        self.grade(try_lesson=self.trial((True, [])), no_run=True)
+        self.grade(try_lesson=self.trial((True, [])), only='o/alpha#1')
+        self.assertEqual(self.tried, [])
+
+    def apply(self):
+        out = roster.Roster(self.dir).apply_results()
+        return json.loads((self.dir / 'lessons.json').read_text())[-1], (self.dir / 'participants.csv').read_text(), out
+
+    def test_a_passed_trial_puts_the_lesson_live(self):
+        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
+        gamma, sheet, (changes, _) = self.apply()
+        self.assertNotIn('status', gamma)
+        self.assertIn('gamma', sheet.splitlines()[0], 'its column appears')
+        self.assertIn('Gamma is live: the starter builds', changes)
+
+    def test_a_failed_trial_keeps_it_hidden(self):
+        self.grade(try_lesson=self.trial((False, ['starter: Gradle build failed'])))
+        gamma, sheet, _ = self.apply()
+        self.assertEqual(gamma['status'], 'checking')
+        self.assertNotIn('gamma', sheet.splitlines()[0])
+
+    def test_a_trial_of_an_older_version_does_not_count(self):
+        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
+        (self.dir / 'grader' / 'fixtures' / 'gamma').mkdir()
+        (self.dir / 'grader' / 'fixtures' / 'gamma' / 'note.txt').write_text('changed since the trial')
+        gamma, _, _ = self.apply()
+        self.assertEqual(gamma['status'], 'checking')
+
+
+class TrialRunTests(unittest.TestCase):
+    """trial.run's answers that need no build."""
+
+    def lesson(self, check):
+        import lessons
+        return lessons.Lesson('gamma', 'Gamma', 'o/gamma', check, Path('/nonexistent'), '', '', lessons.CHECKING)
+
+    def test_none_passes_without_fetching_anything(self):
+        import trial
+        self.assertEqual(trial.run(self.lesson('none'), source=None), (True, ['a facilitator marks it: nothing to run']))
+
+    def test_a_custom_check_is_never_tried(self):
+        import trial
+        passed, reasons = trial.run(self.lesson('fizzbuzz'), source=None)
+        self.assertFalse(passed)
+        self.assertIn('goes live through its pull request', reasons[0])
+
+    def test_a_repository_that_cannot_be_fetched_fails_the_trial_saying_why(self):
+        import trial
+
+        class Private:
+            def starter(self, repo, dest, ref='HEAD'):
+                raise RuntimeError("fatal: could not read Username for 'https://github.com': terminal prompts disabled")
+        passed, reasons = trial.run(self.lesson('build'), Private())
+        self.assertFalse(passed)
+        self.assertIn('could not fetch o/gamma: is it public?', reasons[0])
+
+
 class GitHubAdapterTests(unittest.TestCase):
     """The real adapter, with GitHub's HTTP responses replaced."""
 

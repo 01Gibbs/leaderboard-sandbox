@@ -20,6 +20,7 @@ import checks  # noqa: E402
 from checks import container_image, fizzbuzz  # noqa: E402
 import grade  # noqa: E402
 import lessons  # noqa: E402
+import trial  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tiers import slow  # noqa: E402
@@ -252,6 +253,50 @@ class GradleCheckTests(unittest.TestCase):
                                                      "implementation 'com.opencsv:opencsv:5.9'\n    implementation 'org.apache.logging.log4j:log4j-api:2.24.3'"))
         ok, reasons = run_check('library_replacement', project)
         self.assertTrue(ok, reasons)
+
+    def trial_of(self, check, test_files=None, tests_repo=''):
+        """A lesson's trial, with each repository it fetches standing in for a folder here."""
+        unsolved = self.copy('library_done')  # a "solution" with a bug its own tests catch
+        controller = unsolved / 'src/main/java/com/example/onboarding/controller/EmployeeController.java'
+        controller.write_text(controller.read_text().replace('Employee created: id=', 'Created employee '))
+        folders = {'o/starter': self.copy('library_starter'), 'o/solution': self.copy('library_done'), 'o/unsolved': unsolved}
+
+        fetched = self.fetched = []
+
+        class Source:
+            def starter(self, repo, dest, ref='HEAD'):
+                fetched.append((repo, ref))
+                shutil.copytree(folders[repo], dest, dirs_exist_ok=True)
+        lesson = lessons.Lesson('trial', 'Trial', 'o/starter', check, test_files or lessons.FIXTURES / 'library_replacement',
+                                tests_repo, '', lessons.CHECKING, 'f' * 40 if tests_repo else '')
+        return trial.run(lesson, Source())
+
+    def test_trial_pinned_tests_compiling_against_the_starter_pass(self):
+        passed, reasons = self.trial_of('tests')
+        self.assertTrue(passed, reasons)
+        self.assertEqual(reasons, ['the pinned tests compile against the starter'])
+
+    def test_trial_tests_that_do_not_compile_fail_and_say_so(self):
+        broken = Path(tempfile.mkdtemp()) / 'broken'
+        self.addCleanup(shutil.rmtree, broken.parent, True)
+        shutil.copytree(lessons.FIXTURES / 'library_replacement', broken)
+        test = next(broken.rglob('*.java'))
+        test.write_text(test.read_text() + '\nclass Broken { NoSuchType x; }\n')
+        passed, reasons = self.trial_of('tests', test_files=broken)
+        self.assertFalse(passed)
+        self.assertIn('the pinned tests do not compile against the starter', reasons[0])
+
+    def test_trial_tests_from_a_solutions_repository_must_pass_on_it(self):
+        passed, reasons = self.trial_of('tests', tests_repo='o/solution')
+        self.assertTrue(passed, reasons)
+        self.assertIn('the solution in o/solution passes them', reasons)
+        self.assertEqual(self.fetched, [('o/starter', 'HEAD'), ('o/solution', 'f' * 40)], 'the solution at the commit its tests were pinned from')
+        passed, reasons = self.trial_of('tests', tests_repo='o/unsolved')
+        self.assertFalse(passed)
+        self.assertIn('the solution in o/unsolved does not pass the pinned tests', reasons[0])
+
+    def test_trial_build_needs_the_starter_to_build(self):
+        self.assertEqual(self.trial_of('build'), (True, ['the starter builds']))
 
     def test_level_build(self):
         self.assertTrue(run_check('build', self.copy('rest_reference'))[0])

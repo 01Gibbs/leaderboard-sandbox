@@ -111,6 +111,21 @@ class RecordingTests(Sandbox):
                 with self.assertRaises(ResultsInvalid):
                     self.subs()
 
+    def test_trials_of_the_wrong_shape_are_refused(self):
+        # A trial in this file can put a lesson live, so it is checked like the rest before it is used.
+        good = {'version': 'v1', 'passed': True, 'reasons': ['ok'], 'at': '2026-11-17T10:00:00Z'}
+        for trials, why in (([], 'trials must be an object'), ({'g': {**good, 'passed': 'yes'}}, 'trials: g'),
+                            ({'g': {k: v for k, v in good.items() if k != 'reasons'}}, 'trials: g'),
+                            ({'g': {**good, 'reasons': 'ok'}}, 'trials: g'), ({'g': {**good, 'version': 1}}, 'trials: g'),
+                            ({'g': {k: v for k, v in good.items() if k != 'at'}}, 'trials: g'), ({'g': 'passed'}, 'trials: g')):
+            with self.subTest(trials=trials):
+                (self.dir / 'grader' / 'results.json').write_text(json.dumps({'people': {}, 'submissions': {}, 'trials': trials}))
+                with self.assertRaises(ResultsInvalid) as e:
+                    self.subs()
+                self.assertIn(why, str(e.exception))
+        (self.dir / 'grader' / 'results.json').write_text(json.dumps({'people': {}, 'submissions': {}, 'trials': {'g': good}}))
+        self.assertEqual(self.subs().trial('g'), good)
+
     def test_saved_with_sorted_keys_so_a_change_is_a_small_diff(self):
         (self.dir / 'grader' / 'results.json').write_text(json.dumps({'submissions': {}, 'people': {'zed': 'Z', 'amy': 'A'}}))
         self.subs().save()
