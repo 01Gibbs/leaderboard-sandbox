@@ -2,7 +2,7 @@
 
 *Research note, 16 November 2026. Audience: project lead.*
 
-> **Status (16 Nov 2026).** Nothing here is built yet; each recommendation stands as written. Related work since: grading and pages runs now queue instead of being cancelled (`concurrency.queue: max`), and refused facilitator changes no longer fail their run.
+> **Status (16 Nov 2026; checked 18 Nov).** Written before later work, some of which touched these areas (see the index): check the code before acting on a recommendation. Related work since: grading and pages runs now queue instead of being cancelled (`concurrency.queue: max`), and refused facilitator changes no longer fail their run.
 
 | # | Recommendation | Verdict |
 |---|---|---|

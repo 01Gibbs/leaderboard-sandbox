@@ -12,3 +12,4 @@ Dated notes on why the leaderboard works the way it does, each with a status lin
 | [adding-lessons.md](adding-lessons.md) | Pinning exercise tests; a generic spec check | Pinning built; spec check not built |
 | [architecture-recommendations.md](architecture-recommendations.md) | Five architecture recommendations | Partly built |
 | [stretch-automation.md](stretch-automation.md) | Crediting stretch tasks automatically | Proposal |
+| [ci-wait.md](ci-wait.md) | Cutting the `slow` check's wait: the runner's Chrome, and shards behind a `slow` gate | Built |

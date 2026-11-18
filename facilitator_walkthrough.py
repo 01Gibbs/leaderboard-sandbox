@@ -30,6 +30,7 @@ sys.path.insert(0, str(ROOT / 'grader'))
 sys.path.insert(0, str(ROOT))
 import lesson_lifecycle  # noqa: E402
 import lessons  # noqa: E402
+from submissions import Submissions  # noqa: E402
 import walkthrough  # noqa: E402
 
 REPO = 'practice/leaderboard'  # what facilitator.html?practice calls it
@@ -71,7 +72,7 @@ def practice_copy(dest):
     (dest / 'lessons.json').write_text(json.dumps(entries, indent=2) + '\n', encoding='utf-8')
     old = next(lesson for lesson in lessons.load(dest, checking=True) if lesson.key == 'old_exercise')
     results['trials'] = {'old_exercise': {  # its real version, failed just now: the real rule leaves it failed
-        'version': lesson_lifecycle.version(old), 'passed': False, 'at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'version': lesson_lifecycle.trial_version(old), 'passed': False, 'at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
         'reasons': ['the starter does not build (practice/old-exercise):\nGradle build failed: could not resolve org.example:retired:1.0']}}
     (dest / 'grader' / 'results.json').write_text(json.dumps(results, indent=2) + '\n', encoding='utf-8')
     exercise = dest / '.practice-exercise'  # what any repository added in practice is fetched from
@@ -138,9 +139,8 @@ class PracticeGitHub:
     def _grading_run(self):
         """What grading and publishing do to lessons being checked, by the real rule (lesson_lifecycle), with a
         pretend trial that passes: no Gradle, no network."""
-        import submissions
         with self.lock:
-            subs = submissions.Submissions(self.root)
+            subs = Submissions(self.root)
             lesson_lifecycle.try_due(self.root, subs, pretend_trial, log=lambda line: None)
             lesson_lifecycle.promote_passed(self.root, subs)
 

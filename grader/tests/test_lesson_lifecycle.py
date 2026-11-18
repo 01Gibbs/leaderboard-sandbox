@@ -39,7 +39,8 @@ class LifecycleTests(unittest.TestCase):
             self.tried.append(lesson.key)
             return verdict
         subs = Submissions(self.root)
-        lesson_lifecycle.try_due(self.root, subs, run_trial, now=now, log=lambda line: None)
+        self.log = []
+        lesson_lifecycle.try_due(self.root, subs, run_trial, now=now, log=self.log.append)
         subs.save()
 
     def promote(self):
@@ -65,6 +66,23 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(self.tried, ['gamma'], 'not straight away')
         self.try_due((True, ['the starter builds']), now=NOW + timedelta(hours=25))
         self.assertEqual(self.tried, ['gamma', 'gamma'])
+
+    def test_a_failed_trial_waits_exactly_a_day(self):
+        self.try_due((False, ['the starter does not build']))
+        self.try_due((True, ['the starter builds']), now=NOW + timedelta(days=1))
+        self.assertEqual(self.tried, ['gamma'], 'a day to the second: not yet')
+        self.try_due((True, ['the starter builds']), now=NOW + timedelta(days=1, seconds=1))
+        self.assertEqual(self.tried, ['gamma', 'gamma'])
+
+    def test_each_trial_says_what_it_tried_and_how_it_went(self):
+        self.try_due((False, ['the starter does not build\nGradle said more']))
+        self.assertEqual(self.log, ['Trying gamma, a lesson still being checked', '  FAIL: the starter does not build'])
+
+    def test_each_trial_is_dated_when_it_finished(self):
+        subs = Submissions(self.root)
+        lesson_lifecycle.try_due(self.root, subs, lambda lesson: (False, ['no']), log=lambda line: None)
+        at = datetime.strptime(subs.trial('gamma')['at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
+        self.assertLess(abs((datetime.now(timezone.utc) - at).total_seconds()), 60)
 
     def test_a_trial_the_grader_could_not_finish_is_tried_again_next_run(self):
         self.try_due((None, ['grader error, will try again']))
@@ -104,9 +122,9 @@ class LifecycleTests(unittest.TestCase):
 
     def test_the_version_is_what_the_trial_depends_on(self):
         gamma = next(lesson for lesson in lessons.load(self.root, checking=True) if lesson.key == 'gamma')
-        self.assertEqual(lesson_lifecycle.version(gamma), lesson_lifecycle.version(gamma))
+        self.assertEqual(lesson_lifecycle.trial_version(gamma), lesson_lifecycle.trial_version(gamma))
         moved = dataclasses.replace(gamma, repo='o/elsewhere')
-        self.assertNotEqual(lesson_lifecycle.version(gamma), lesson_lifecycle.version(moved))
+        self.assertNotEqual(lesson_lifecycle.trial_version(gamma), lesson_lifecycle.trial_version(moved))
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Lints and runs the fast tests before each commit (about 40 seconds). Turn it on once per clone:
-#   git config core.hooksPath .githooks
+# Lints and runs the fast tests before each commit (docs/MAINTAINING.md says how long). Use it per commit:
+#   git -c core.hooksPath=.githooks commit
 # Skip it for one commit with --no-verify; Test the grader still runs everything on the pull request.
 set -euo pipefail
 # Git exports GIT_DIR, GIT_INDEX_FILE and others to hooks (all of them when committing from a worktree). Tests that

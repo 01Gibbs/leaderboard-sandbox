@@ -1,8 +1,9 @@
 """The facilitator page (facilitator.html) and its practice copy (facilitator_walkthrough.py), and the facilitator
 forms (grader/issue_form.FORMS) matching their facilitator-*.yml workflows.
 
-The page starts the facilitator-*.yml workflows, so its forms must ask for exactly their inputs. The practice
-copy must run each form the way its workflow would, and never touch this repository.
+The page sends one Changes issue (changes.js); the one-change forms (issue templates and Actions forms) must ask
+for exactly their workflow's inputs. The practice copy must apply changes the way the workflows would, and never
+touch this repository.
 """
 import hashlib
 import json

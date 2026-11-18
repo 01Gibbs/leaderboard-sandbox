@@ -1,5 +1,5 @@
-# Sent by the facilitator page (facilitator.html), already filled in. Applied by changes-from-issues.yml
-# for collaborators with write access, then answered and closed. Fields match facilitator-mark.yml (tests).
+# A fallback: one change, from New issue. (The facilitator page sends facilitator-changes.yml.) Applied by
+# changes-from-issues.yml for collaborators with write access, then answered and closed. Fields match facilitator-mark.yml (tests).
 name: 'Facilitator: Mark an exercise'
 description: 'Set an exercise result you checked by hand.'
 title: 'Facilitator: Mark an exercise'

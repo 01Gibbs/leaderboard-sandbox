@@ -5,7 +5,7 @@
   try_due   grading: each lesson being checked whose trial is due is tried, through `run_trial` (the seam:
             trial.run on GitHub, a pretend trial in practice). Due means never tried at this version, not
             finished last time, or failed more than a day ago.
-  promote_passed   applying results: a lesson being checked goes live when its trial passed for `version`, the
+  promote_passed   applying results: a lesson being checked goes live when its trial passed for `trial_version`, the
             lesson as it is now: its check and pinned tests, where its code and tests come from, when it was added,
             and trial.py. A lesson added again is a new version, so an old trial never puts it live.
   remove    `leaderboard.py remove-lesson`: its results and participants.csv column stay, so adding it again
@@ -22,13 +22,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import lessons
-from submissions import Submissions, first_lines, when
+from submissions import Submissions, first_lines, verdict, when
 
 LEVELS = {'none': 'a facilitator marks it', 'build': 'correct when it builds'}
 RETRY_FAILED_AFTER = 24 * 3600  # seconds: a starter fixed since, or a network hiccup
 
 
-def version(lesson):
+def trial_version(lesson):
     """What a lesson's trial depends on (see the module's notes). A trial of another version does not count.
     Hashes trial.py's text rather than importing it, so putting a lesson live needs none of the grading code."""
     h = hashlib.sha256('\n'.join([lesson.version, lesson.repo, lesson.tests_repo, lesson.tests_dir, lesson.tests_commit, lesson.added]).encode())
@@ -48,17 +48,17 @@ def _due(trial, current, now):
 
 def try_due(root, subs, run_trial, now=None, log=print):
     """Try each lesson being checked whose trial is due: `run_trial(lesson)` returns (passed, reasons), passed True,
-    False, or None when the grader could not finish. Each trial is recorded in `subs` and saved straight away, so a
-    later one that hangs loses nothing. Returns the keys tried."""
-    now = now or datetime.now(timezone.utc)
+    False, or None when the grader could not finish. Each trial is recorded in `subs`, dated when it finished, and
+    saved straight away, so a later one that hangs loses nothing. `now` (for tests) fixes the time. Returns the keys
+    tried."""
     tried = []
     for lesson in _checking(root):
-        current = version(lesson)
-        if not _due(subs.trial(lesson.key), current, now):
+        current = trial_version(lesson)
+        if not _due(subs.trial(lesson.key), current, now or datetime.now(timezone.utc)):
             continue
         log(f'Trying {lesson.key}, a lesson still being checked')
         passed, reasons = run_trial(lesson)
-        log(f"  {({True: 'PASS', False: 'FAIL'}).get(passed, 'RETRY')}: " + first_lines(reasons, ' | '))
+        log(verdict(passed, reasons))
         subs.record_trial(lesson.key, current, passed, reasons, now=now)
         subs.save()
         tried.append(lesson.key)
@@ -71,7 +71,7 @@ def promote_passed(root, subs):
     live = []
     for lesson in _checking(root):
         t = subs.trial(lesson.key)
-        if t and t['passed'] is True and t['version'] == version(lesson):
+        if t and t['passed'] is True and t['version'] == trial_version(lesson):
             lessons.promote(root, lesson.key)
             live.append(f'{lesson.label} is live: ' + first_lines(t['reasons'], '; '))
     return live
@@ -80,8 +80,10 @@ def promote_passed(root, subs):
 def add(root, key, label, repo, check, tests_repo='', tests_dir=''):
     """Add lesson `key`, as checking, with its tests pinned when `check` is tests. Returns what was done. Raises
     PinFailed, and changes nothing, when it cannot be added."""
-    import exercise_tests  # pinning (and the check toolkit) loads only for adding and removing: never for grading's
-    from checks.toolkit import CheckFailed, gradle_project  # trials or putting lessons live, nor people's changes
+    # Pinning and the check toolkit load only for adding and removing a lesson: never for putting one live, nor for
+    # people's changes.
+    import exercise_tests
+    from checks.toolkit import CheckFailed, gradle_project
     from exercise_tests import GENERIC, PinFailed
     if check not in GENERIC:
         raise PinFailed(f'A lesson added here is checked with none, build or tests, not "{check}". '
@@ -114,6 +116,7 @@ def add(root, key, label, repo, check, tests_repo='', tests_dir=''):
 
 
 def forget_trial(root, key):
+    """Forget lesson `key`'s trial: a lesson added again, or removed, is tried afresh."""
     subs = Submissions(root)
     if subs.forget_trial(key):
         subs.save()

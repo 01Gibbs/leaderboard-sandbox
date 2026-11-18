@@ -5,11 +5,13 @@ the Changes box, send it, and see it done (or not, with the reason), undoable on
 with Chromium:
     uv run --no-project --with playwright python -m playwright install chromium
     uv run --no-project --with playwright python -m unittest grader/tests/test_facilitator_browser.py
-It skips when Playwright or its browser is missing.
+It skips when Playwright or its browser is missing, except on GitHub Actions, where it fails instead. There it drives
+the runner's own Google Chrome (GRADER_BROWSER_CHANNEL=chrome), so nothing is downloaded or installed.
 """
 import csv
 import io
 import json
+import os
 import re
 import shutil
 import sys
@@ -25,7 +27,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / 'grader'))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import facilitator_walkthrough  # noqa: E402
-from tiers import slow  # noqa: E402
+from tiers import ON_CI, slow  # noqa: E402
 
 try:
     from playwright.sync_api import expect, sync_playwright
@@ -40,9 +42,11 @@ class FacilitatorJourneyTests(unittest.TestCase):
     def setUpClass(cls):
         cls.pw = sync_playwright().start()
         try:
-            cls.browser = cls.pw.chromium.launch()
+            cls.browser = cls.pw.chromium.launch(channel=os.environ.get('GRADER_BROWSER_CHANNEL') or None)
         except Exception as e:  # browser not installed
             cls.pw.stop()
+            if ON_CI:
+                raise
             raise unittest.SkipTest(f'Playwright has no Chromium: {e}') from None
 
     @classmethod
