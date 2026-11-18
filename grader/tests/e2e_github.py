@@ -213,14 +213,15 @@ def lessons_journey(gh, exercise):
         failures += report('its save starts grading, whose trial puts it live',
                            run['conclusion'] == 'success' and live is not None and 'status' not in live and trial.get('passed') is True,
                            f'{run["html_url"]}: {"; ".join(trial.get("reasons", [])) or "no trial"}')
-        promoted = time.time()
-        run = gh.finish(gh.find_run('grade.yml', 'push', promoted - 300), every=15)
+        run = gh.finish(gh.find_run('grade.yml', 'push', _when(run['created_at'])), every=15)  # started by the trial run's push
         failures += report('going live starts grading again, for its pull requests', run['conclusion'] == 'success', run['html_url'])
     finally:
         if lesson():
+            removing = time.time()
             issue, reply, record = gh.send_batch(f'e2e-lesson-remove-{int(time.time())}', [['remove-lesson', LESSON]])
             failures += report('remove it again', issue.get('state_reason') == 'completed', reply.splitlines()[0] if reply else issue['html_url'])
-        gh.finish(gh.find_run('grade.yml', 'push', time.time() - 300), every=15)  # the removal's save starts grading too
+            # The removal's save starts grading too: wait for that run, not an earlier one, before the next journey's start.
+            gh.finish(gh.find_run('grade.yml', 'push', removing), every=15)
         same = gh.file('lessons.json') == start_lessons and gh.tree('grader/fixtures') == start_files
         failures += report('lessons.json and the pinned tests are back where they started', same, '')
     return failures

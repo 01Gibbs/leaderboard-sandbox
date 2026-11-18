@@ -90,15 +90,18 @@ def copy_repo(dest):
     shutil.copytree(REPO, dest, ignore=ignore, dirs_exist_ok=True)
 
 
+PASSED, FAILED, TIMEOUT = 'passed', 'failed', 'timeout'  # what one run of the tests did
+
+
 def run_tests(root, tests, timeout):
-    """'passed', 'failed' or 'timeout'."""
+    """PASSED, FAILED or TIMEOUT."""
     env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')} | {'GRADER_FAST': '1', 'PYTHONDONTWRITEBYTECODE': '1'}
     try:
         r = subprocess.run([sys.executable, '-m', 'unittest', '-q', *tests], cwd=root / 'grader' / 'tests', env=env,
                            capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
-        return 'timeout'
-    return 'passed' if r.returncode == 0 else 'failed'
+        return TIMEOUT
+    return PASSED if r.returncode == 0 else FAILED
 
 
 def main(argv):
@@ -107,7 +110,8 @@ def main(argv):
     p.add_argument('--tests', nargs='+', help='test modules to run (default: test_<module name>)')
     # Half the cores: copies run at once slow each other down, and a run slowed past its timeout is not a catch.
     p.add_argument('-j', '--jobs', type=int, default=max(1, (os.cpu_count() or 2) // 2))
-    p.add_argument('--timeout', type=int, default=120, help='seconds per run, at least 5 times the unmutated run')
+    p.add_argument('--timeout', type=int, default=120, help='least seconds per mutant run; each gets at least 5 times the unmutated run. A mutant caught only by '
+                   'timing out (a hang, or a busy machine) counts as caught and is listed as TIMEOUT')
     a = p.parse_args(argv)
     module = Path(a.module).resolve().relative_to(REPO)
     tests = a.tests or [f'test_{module.stem}']
@@ -125,7 +129,7 @@ def main(argv):
             roots.append(work / str(n))
         (roots[0] / module).write_text(source, encoding='utf-8')
         began = time.monotonic()
-        if run_tests(roots[0], tests, a.timeout * 10) != 'passed':
+        if run_tests(roots[0], tests, a.timeout * 10) != PASSED:  # generous: the baseline only has to finish
             raise SystemExit(f'The tests fail without any mutation: {" ".join(tests)}')
         timeout = max(a.timeout, 5 * (time.monotonic() - began))
         free = list(roots)
@@ -143,10 +147,10 @@ def main(argv):
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
-    survived = [m for m, r in results if r == 'passed']
-    timed_out = [m for m, r in results if r == 'timeout']  # caught, but say so: a hang, or a machine too busy
-    for word, found_ in (('SURVIVED', survived), ('TIMEOUT', timed_out)):
-        for line, before, after, _ in found_:
+    survived = [m for m, r in results if r == PASSED]
+    timed_out = [m for m, r in results if r == TIMEOUT]  # caught, but say so: a hang, or a machine too busy
+    for word, listed in (('SURVIVED', survived), ('TIMEOUT', timed_out)):
+        for line, before, after, _ in listed:
             print(f'{word} {module}:{line}: {before}  ->  {after}')
     total = len(results)
     print(f'{module}: {total - len(survived)} of {total} mutants killed ({(total - len(survived)) * 100 // max(total, 1)}%)'

@@ -15,6 +15,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / 'grader'))
+import lessons  # noqa: E402
 import walkthrough  # noqa: E402
 
 STEPS = (REPO / 'walkthrough' / 'steps.js').read_text()
@@ -90,10 +92,9 @@ class ContextTests(unittest.TestCase):
 
     def test_real_repository(self):
         ctx = walkthrough.build_context(REPO)
-        live = [l['key'] for l in json.loads((REPO / 'lessons.json').read_text()) if l.get('status') != 'checking']
+        live = [l['key'] for l in json.loads((REPO / 'lessons.json').read_text()) if l.get('status') != lessons.CHECKING]
         self.assertEqual([l['key'] for l in ctx['lessons']], live)  # main may have a lesson being checked
         self.assertTrue(any(f['file'] == 'facilitator-undo.yml' for f in ctx['forms']))
-
 
     def test_a_lesson_being_checked_is_not_in_the_tour(self):
         root = Path(tempfile.mkdtemp())
@@ -104,6 +105,7 @@ class ContextTests(unittest.TestCase):
         keys = [l['key'] for l in walkthrough.build_context(root)['lessons']]
         self.assertIn(entries[0]['key'], keys)
         self.assertNotIn('new_one', keys)
+
 
 class SampleDataTests(unittest.TestCase):
     KEYS = ['fizzbuzz', 'rest_api', 'framework_upgrade', 'container_image', 'kafka']

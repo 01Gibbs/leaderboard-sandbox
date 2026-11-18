@@ -178,16 +178,21 @@ class AddLessonTests(Sandbox):
         tests = [t for f, t in STARTER.items() if f.startswith('src/test/')]
         return len(tests), sum(len(t.encode()) for t in tests)
 
+    def at_the_cap_and_over(self, name, extra_files, refusal):
+        """Tests exactly at a cap are taken; one more (file or byte) is refused, saying `refusal` about the repo."""
+        for over in (0, 1):
+            with self.subTest(over=over):
+                key, repo = f'{name}{over}', f'o/{name}{over}'
+                self.exercise(repo, {**STARTER, **extra_files(over)})
+                code, _, err = self.cli('add-lesson', key, name, repo, 'tests')
+                self.assertEqual(code, over, err)
+                if over:
+                    self.assertIn(f'{repo} has {refusal} under src/test/.', err)
+
     def test_tests_of_exactly_5_mb_are_taken_and_a_byte_more_is_refused(self):
         _, size = self.starter_tests()
-        for extra, refused in ((0, False), (1, True)):
-            with self.subTest(over=extra):
-                key, repo = f'big{extra}', f'o/big{extra}'
-                self.exercise(repo, {**STARTER, 'src/test/resources/big.txt': 'x' * (5 * 1024 * 1024 - size + extra)})
-                code, _, err = self.cli('add-lesson', key, 'Big', repo, 'tests')
-                self.assertEqual(code, 1 if refused else 0, err)
-                if refused:
-                    self.assertIn(f'{repo} has more than 5 MB under src/test/.', err)
+        self.at_the_cap_and_over('big', lambda over: {'src/test/resources/big.txt': 'x' * (5 * 1024 * 1024 - size + over)},
+                                 'more than 5 MB')
 
     def test_where_tests_come_from_only_applies_to_tests(self):
         self.exercise('o/greeting', STARTER)
@@ -202,14 +207,8 @@ class AddLessonTests(Sandbox):
 
     def test_500_test_files_are_taken_and_501_are_refused(self):
         count, _ = self.starter_tests()
-        for extra, refused in ((0, False), (1, True)):
-            with self.subTest(over=extra):
-                key, repo = f'many{extra}', f'o/many{extra}'
-                self.exercise(repo, {**STARTER, **{f'src/test/resources/f{n}.txt': 'x' for n in range(500 - count + extra)}})
-                code, _, err = self.cli('add-lesson', key, 'Many', repo, 'tests')
-                self.assertEqual(code, 1 if refused else 0, err)
-                if refused:
-                    self.assertIn(f'{repo} has more than 500 files under src/test/.', err)
+        self.at_the_cap_and_over('many', lambda over: {f'src/test/resources/f{n}.txt': 'x' for n in range(500 - count + over)},
+                                 'more than 500 files')
 
     def test_it_can_go_in_a_batch(self):
         self.exercise('o/greeting', STARTER)

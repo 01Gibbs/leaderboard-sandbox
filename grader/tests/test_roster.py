@@ -795,7 +795,7 @@ class OutcomeTests(Sandbox):
             self.assertEqual(leaderboard.read_outcome(self.dir / 'outcome')[0], 'broken')
 
     def test_help_is_not_a_fault(self):
-        with self.assertRaises(SystemExit) as raised, contextlib.redirect_stdout(io.StringIO()):
+        with self.assertRaises(SystemExit) as raised:
             self.outcome('--help')
         self.assertEqual(raised.exception.code, 0)
         self.assertFalse((self.dir / 'outcome').exists())
@@ -803,8 +803,7 @@ class OutcomeTests(Sandbox):
     def test_a_listing_stays_off_the_run_page(self):
         summary = self.dir / 'summary.md'
         self.patch(leaderboard.os, 'environ', {'GITHUB_STEP_SUMMARY': str(summary)})
-        code, out, _ = self.cli('award', 'Stuart Smith', 'helped')
-        self.assertEqual(code, 0)
+        self.assertEqual(self.cli('award', 'Stuart Smith', 'helped')[0], 0)
         written = summary.read_text()
         code, out, _ = self.cli('history', '3')
         self.assertEqual(code, 0)
