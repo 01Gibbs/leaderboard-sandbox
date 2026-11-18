@@ -246,17 +246,16 @@ def main(argv):
     me = gh.me()
     stamp = datetime.now(timezone.utc).strftime('%H%M%S')
     lesson = json.loads(gh.file('lessons.json'))[-1]['key']
-    start = Start(gh.file('participants.csv'), json.loads(gh.file('grader/history.json') or '[]'))
     failures = []
     if a.all or a.lessons:
         print('\n--- A lesson added from the page: tried, put live, removed')
         failures += lessons_journey(gh, a.exercise)
     if a.all or not (a.issues or a.lessons):
         print('\n--- Changes through the Actions forms')
-        failures += actions_journey(gh, me, f'{stamp}a', lesson, start)
+        failures += actions_journey(gh, me, f'{stamp}a', lesson, Start.now(gh))
     if a.all or a.issues:
         print('\n--- Changes sent as issues, as the facilitator page sends them')
-        failures += issues_journey(gh, f'{stamp}i', lesson, start)
+        failures += issues_journey(gh, f'{stamp}i', lesson, Start.now(gh))
 
     if a.all:
         print('\n--- Grading and the other workflows')
@@ -288,10 +287,15 @@ def main(argv):
 
 
 class Start:
-    """main as it was before the test: participants.csv and grader/history.json."""
+    """main as it was before a journey: participants.csv and grader/history.json. Taken as each journey begins,
+    not once: the lesson journey's trial starts real grading, which may rightly raise people's results."""
 
     def __init__(self, csv_text, history):
         self.csv, self.history = csv_text, history
+
+    @classmethod
+    def now(cls, gh):
+        return cls(gh.file('participants.csv'), json.loads(gh.file('grader/history.json') or '[]'))
 
     def problem(self, gh):
         """None when main is back where it started; otherwise what differs."""

@@ -789,9 +789,27 @@ class OutcomeTests(Sandbox):
 
     def test_arguments_the_workflow_should_never_send_are_broken(self):
         for argv in (('--args-json', 'not a JSON array'), ('award', 'Stuart Smith', 'gold')):
+            (self.dir / 'outcome').write_text('changed\n')  # a stale file: broken must be written, not just missing
             with self.subTest(argv=argv), self.assertRaises((ValueError, SystemExit)):
                 self.outcome(*argv)
             self.assertEqual(leaderboard.read_outcome(self.dir / 'outcome')[0], 'broken')
+
+    def test_help_is_not_a_fault(self):
+        with self.assertRaises(SystemExit) as raised, contextlib.redirect_stdout(io.StringIO()):
+            self.outcome('--help')
+        self.assertEqual(raised.exception.code, 0)
+        self.assertFalse((self.dir / 'outcome').exists())
+
+    def test_a_listing_stays_off_the_run_page(self):
+        summary = self.dir / 'summary.md'
+        self.patch(leaderboard.os, 'environ', {'GITHUB_STEP_SUMMARY': str(summary)})
+        code, out, _ = self.cli('award', 'Stuart Smith', 'helped')
+        self.assertEqual(code, 0)
+        written = summary.read_text()
+        code, out, _ = self.cli('history', '3')
+        self.assertEqual(code, 0)
+        self.assertIn('Gave 1 help to Stuart Smith', out)
+        self.assertEqual(summary.read_text(), written)
 
     def test_a_listing_has_no_outcome(self):
         self.patch(leaderboard.os, 'environ', {'LEADERBOARD_OUTCOME': str(self.dir / 'outcome')})

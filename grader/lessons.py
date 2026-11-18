@@ -156,7 +156,7 @@ def _write(root, items):
 def problems_adding(root, item):
     """What would be wrong with lessons.json after appending lesson `item` (a dict of FIELDS): [] when nothing."""
     items = json.loads(lessons_file(root).read_text(encoding='utf-8'))
-    return _check(items + [item], root, True)[1] if isinstance(items, list) else ['lessons.json is not a list']
+    return _check(items + [item], root, True)[1] if isinstance(items, list) else ['lessons.json is not a list']  # no mutate: True or False, only the problems are read
 
 
 def add(root, item):

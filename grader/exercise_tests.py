@@ -60,7 +60,7 @@ def pin(root, key, commit=None, url=None):
             raise PinFailed(f'{where} has no Gradle project at {sha[:7]}.') from None
         new = Path(staged) / key
         _copy_tests(clone, project, new, where)
-        if not new.is_dir() or not any(f.is_file() for f in new.rglob('*')):
+        if not new.is_dir():  # made only when a file is copied into it
             raise PinFailed(f'{where} has no tests (src/test/) at {sha[:7]}.')
         _swap(new, fixtures / key, Path(staged) / 'old')
     lessons.record_pinned(root, key, sha)

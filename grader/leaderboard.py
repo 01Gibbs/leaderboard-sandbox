@@ -202,7 +202,7 @@ def main(argv, root=ROOT):
         if not (isinstance(e, SystemExit) and e.code in (0, None)):
             record('broken')
         raise
-    if argv[:1] and argv[0] in CHANGES:
+    if argv and argv[0] in CHANGES:
         record('changed')
     if summary and argv[:1] == ['history']:
         print(summary)  # a listing, not a change: keep it off the run page's ✅ line
