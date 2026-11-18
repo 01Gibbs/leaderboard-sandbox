@@ -59,7 +59,7 @@ export function steps(ctx) {
       title: 'Try it: add a lesson',
       target: 'add-lesson',
       tab: 'workshop',
-      text: '<p>Open <b>Add a lesson</b>. Give the exercise’s public repository (paste its GitHub address), the name to show, and how it is checked: its tests, whether it builds, or by hand. If the tests live elsewhere, such as a solutions repository, paste that folder’s address. Then <b>Add to changes</b>, and <b>Send</b>.</p><p>Here it goes live a few seconds later. On GitHub the next grading run tries it first.</p>',
+      text: '<p>Open <b>Add a lesson</b>. Give the exercise’s public repository (paste its GitHub address), the name to show, and how it is checked: its tests, whether it builds, or by hand. Its tests are the exercise’s own src/test/; only if they live elsewhere, such as a solutions repository, paste that folder’s address. Then <b>Add to changes</b>, and <b>Send</b>.</p><p>Here it goes live a few seconds later. On GitHub the next grading run tries it first.</p>',
     },
 
     // ---------- 3. One person ----------

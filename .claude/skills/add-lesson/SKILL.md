@@ -19,7 +19,7 @@ Pick the lowest level that decides "correct" honestly. Every level counts any pu
 |---|---|---|
 | `none` | a facilitator marks it | the facilitator page (Workshop → Add a lesson), not this skill |
 | `build` | the submission's Gradle project builds | the facilitator page, not this skill |
-| `tests` | the exercise's own tests (or a public solutions repository's) pass, our pinned copy | the facilitator page, not this skill: it pins them and tries the lesson before it goes live |
+| `tests` | the exercise's own `src/test/` (or, optionally, a public solutions repository's) pass, our pinned copy | the facilitator page, not this skill: it pins them and tries the lesson before it goes live |
 | custom | anything else: calling the running app, inspecting a Dockerfile, planted-bug tests | this skill: a module `grader/checks/<key>.py`, through a pull request |
 
 The existing custom checks in `grader/checks/` (`rest_api.py`, `framework_upgrade.py`, `container_image.py`, `fizzbuzz.py`, `library_replacement.py`, which is the closest pattern for a lesson about changing dependencies) are the patterns to copy, built from `grader/checks/toolkit.py` (`gradle_project`, `gradle`, `overlay`, `employee_api_checks`, and `RunningApp` with its `Jar` and `Container` adapters for calling a running app). Participant code runs only through the workspace (`ws.run`, `ws.start`), which handles the CI sandbox and clean-up; the one exception is a container image, which `Container` runs with Docker. A test (`grader/tests/test_boundaries.py`) fails if a check starts processes any other way, or imports grader modules other than its toolkit.
@@ -28,7 +28,7 @@ The existing custom checks in `grader/checks/` (`rest_api.py`, `framework_upgrad
 
 1. **Read the lesson.** Fetch the repository's problem statement or README (`gh api repos/<owner>/<repo>/contents/...`) and list its pull requests (`gh pr list -R <owner>/<repo> --state all`) to see where submissions put their work. Done when you can state in one sentence what a correct submission does, every requirement in the problem statement is either something a check can observe or something only a human can judge, and the repository is public (the grader reads it without a token; `gh api repos/<owner>/<repo> --jq .visibility`).
 
-2. **Agree the level** with the user: propose one from the table with the reason. Try `tests` with `pin-tests` first when the repository has `src/test/` that defines "correct"; it does not fit an exercise where writing the tests is the task (FizzBuzz) or a repository with no project yet (REST API). Name any requirement it will not check. Done when the user has confirmed it.
+2. **Agree the level** with the user: propose one from the table with the reason. When the exercise's own `src/test/` (or a public solutions repository's folder) defines "correct", it is a `tests` lesson: tell the user to add it from the facilitator page and stop. A custom check is for the rest, such as an exercise where writing the tests is the task (FizzBuzz) or one with no project yet (REST API). Name any requirement it will not check. Done when the user has confirmed it.
 
 3. **Add the entry** to `lessons.json`: `key` (lowercase, digits, `_`; becomes the CSV column), `label` (shown on the page), `repo` (`owner/name`), `check`. Done when `python3 -m unittest discover grader/tests -p test_lessons.py` passes (it validates the real `lessons.json`).
 

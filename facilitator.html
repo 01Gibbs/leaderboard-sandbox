@@ -161,13 +161,11 @@ dialog::backdrop { background: rgb(0 0 0 / 0.4); }
               <option value="none">By hand: a facilitator marks it correct</option>
             </select>
           </label>
-          <fieldset id="testsFrom">
-            <legend>Where the tests are</legend>
-            <label><input type="radio" name="testsFrom" value="here" checked> In the exercise repository (src/test/)</label>
-            <label><input type="radio" name="testsFrom" value="elsewhere"> In another public repository, such as a solutions one</label>
-            <label id="testsWhere" hidden>Tests repository and folder
-              <input id="lessonTests" placeholder="owner/name/folder, or its GitHub folder address" autocomplete="off"></label>
-          </fieldset>
+          <div id="testsFrom">
+            <label>Tests from another repository (optional)
+              <input id="lessonTests" placeholder="owner/name/folder, or its GitHub folder address" autocomplete="off" aria-describedby="lessonTestsHint"></label>
+            <p class="hint" id="lessonTestsHint">Leave empty to use the exercise's own src/test/. Or a public repository's folder, such as a solutions one.</p>
+          </div>
           <ul class="checks" id="lessonChecks" aria-live="polite"></ul>
           <button type="submit" class="primary">Add to changes</button>
         </form>
@@ -877,9 +875,6 @@ let keyEdited = false;
 $('lessonLabel').addEventListener('input', () => { if (!keyEdited) $('lessonKey').value = keyFrom($('lessonLabel').value); });
 $('lessonKey').addEventListener('input', () => { keyEdited = true; });
 $('lessonCheck').addEventListener('change', () => { $('testsFrom').hidden = $('lessonCheck').value !== 'tests'; });
-document.querySelectorAll('input[name="testsFrom"]').forEach((r) => r.addEventListener('change', () => {
-  $('testsWhere').hidden = document.querySelector('input[name="testsFrom"]:checked').value !== 'elsewhere';
-}));
 // "owner/name[/folder]", or a GitHub address (github.com/owner/name[/tree/branch[/folder]], with or without https://):
 // [owner/name, folder], or null. A file's address (/blob/) is not a folder. The default branch is always used.
 function repoAndFolder(text) {
@@ -915,7 +910,7 @@ $('addLessonForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const checks = $('lessonChecks'), showProblems = (items) => checks.replaceChildren(...items.map((t) => el('li', 'state bad', t)));
   const where = repoAndFolder($('lessonRepo').value), label = $('lessonLabel').value.trim(), key = $('lessonKey').value.trim();
-  const check = $('lessonCheck').value, elsewhere = check === 'tests' && document.querySelector('input[name="testsFrom"]:checked').value === 'elsewhere';
+  const check = $('lessonCheck').value, elsewhere = check === 'tests' && $('lessonTests').value.trim() !== '';  // empty: its own src/test/
   const tests = elsewhere ? repoAndFolder($('lessonTests').value) : null;
   const problems = [];
   if (!where) problems.push('Give the exercise repository as owner/name, or its GitHub address.');
@@ -926,7 +921,7 @@ $('addLessonForm').addEventListener('submit', async (e) => {
   else if (allLessons.some((l) => l.key === key) || box.pending((a) => a[0] === 'add-lesson' && a[1] === key)) problems.push(`The column name ${key} is already used.`);
   if (where && (allLessons.some((l) => l.repo.toLowerCase() === where[0].toLowerCase())
     || box.pending((a) => a[0] === 'add-lesson' && a[3].toLowerCase() === where[0].toLowerCase()))) problems.push(`${where[0]} is already a lesson's repository.`);
-  if (elsewhere && !tests) problems.push('Give the tests repository as owner/name/folder, or its GitHub folder address.');
+  if (elsewhere && !tests) problems.push('The tests repository is owner/name/folder, or its GitHub folder address; leave it empty for the exercise\'s own src/test/.');
   if (problems.length) return showProblems(problems);
   checks.replaceChildren(el('li', 'muted', 'Checking the repository on GitHub…'));
   const submit = e.submitter || $('addLessonForm').querySelector('[type=submit]');
@@ -935,7 +930,7 @@ $('addLessonForm').addEventListener('submit', async (e) => {
   if (found.length) return showProblems(found);
   checks.replaceChildren();
   queueRow(['add-lesson', key, label, where[0], check, tests ? tests[0] : '', tests ? tests[1] : ''], `Add lesson ${label} (${where[0]}, ${CHECKED[check]})`);
-  $('addLessonForm').reset(); keyEdited = false; $('testsWhere').hidden = true; $('testsFrom').hidden = false;
+  $('addLessonForm').reset(); keyEdited = false; $('testsFrom').hidden = false;
   $('addLesson').open = false;
 });
 
