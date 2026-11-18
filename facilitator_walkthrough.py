@@ -20,6 +20,7 @@ import tempfile
 import threading
 import traceback
 import webbrowser
+from datetime import datetime, timezone
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -27,6 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / 'grader'))
 sys.path.insert(0, str(ROOT))
+import lesson_lifecycle  # noqa: E402
 import lessons  # noqa: E402
 import walkthrough  # noqa: E402
 
@@ -67,8 +69,10 @@ def practice_copy(dest):
     entries = json.loads((dest / 'lessons.json').read_text(encoding='utf-8'))
     entries.append({'key': 'old_exercise', 'label': 'Old exercise', 'repo': 'practice/old-exercise', 'check': 'build', 'status': 'checking'})
     (dest / 'lessons.json').write_text(json.dumps(entries, indent=2) + '\n', encoding='utf-8')
-    results['trials'] = {'old_exercise': {'version': 'practice', 'passed': False, 'at': '2026-11-17T09:00:00Z', 'reasons': [
-        'the starter does not build (practice/old-exercise):\nGradle build failed: could not resolve org.example:retired:1.0']}}
+    old = next(lesson for lesson in lessons.load(dest, checking=True) if lesson.key == 'old_exercise')
+    results['trials'] = {'old_exercise': {  # its real version, failed just now: the real rule leaves it failed
+        'version': lesson_lifecycle.version(old), 'passed': False, 'at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'reasons': ['the starter does not build (practice/old-exercise):\nGradle build failed: could not resolve org.example:retired:1.0']}}
     (dest / 'grader' / 'results.json').write_text(json.dumps(results, indent=2) + '\n', encoding='utf-8')
     exercise = dest / '.practice-exercise'  # what any repository added in practice is fetched from
     for rel, text in {'build.gradle': "plugins { id 'java' }\n", 'gradlew': '#!/bin/sh\n', 'src/main/java/Greeting.java': 'class Greeting {}\n',
@@ -82,6 +86,11 @@ def practice_copy(dest):
     except (OSError, subprocess.CalledProcessError) as e:
         print(f'Adding a lesson will not work in practice: could not make its example repository ({e}).', file=sys.stderr)
     return dest
+
+
+def pretend_trial(lesson):
+    """Practice's stand-in for trial.run: the other side of lesson_lifecycle's seam. It always passes."""
+    return True, ['practice: on GitHub, the next grading run tries it']
 
 
 class PracticeGitHub:
@@ -112,30 +121,28 @@ class PracticeGitHub:
         return 201, issue
 
     def _pretend_trials(self, argv):
-        """On GitHub a lesson added from the page is tried by the next grading run, then put live. Here its trial
-        passes a few seconds later, so practice shows it go from checking to live."""
+        """On GitHub a lesson added from the page is tried by the next grading run, then put live. Here a pretend
+        grading run follows a few seconds later, so practice shows it go from checking to live."""
         rows = json.loads(argv[2]) if argv[:1] == ['batch'] and len(argv) > 2 else []
-        added = [r[1] for r in rows if isinstance(r, list) and r[:1] == ['add-lesson'] and len(r) > 1]
-        if added:
-            timer = threading.Timer(self.trial_after, self._pass_trials, [added])
+        if any(isinstance(r, list) and r[:1] == ['add-lesson'] for r in rows):
+            timer = threading.Timer(self.trial_after, self._pass_trials)
             timer.daemon = True
             timer.start()
 
-    def _pass_trials(self, keys):
+    def _pass_trials(self):
         try:
-            self._promote(keys)
+            self._grading_run()
         except Exception:  # a timer's error would otherwise vanish
             traceback.print_exc(file=sys.__stderr__)
 
-    def _promote(self, keys):
+    def _grading_run(self):
+        """What grading and publishing do to lessons being checked, by the real rule (lesson_lifecycle), with a
+        pretend trial that passes: no Gradle, no network."""
         import submissions
         with self.lock:
-            live = {lesson.key for lesson in lessons.load(self.root, checking=True) if lesson.status == lessons.CHECKING}
             subs = submissions.Submissions(self.root)
-            for key in [k for k in keys if k in live]:
-                subs.record_trial(key, 'practice', True, ['practice: on GitHub, the next grading run tries it'])
-                lessons.promote(self.root, key)
-            subs.save()
+            lesson_lifecycle.try_due(self.root, subs, pretend_trial, log=lambda line: None)
+            lesson_lifecycle.promote_passed(self.root, subs)
 
     def _apply(self, argv):
         """(outcome, summary): a leaderboard command run on the practice copy, as the workflow runs it: the outcome

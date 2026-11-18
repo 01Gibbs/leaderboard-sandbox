@@ -246,8 +246,9 @@ class GradingTests(Sandbox):
 
 
 class TrialTests(Sandbox):
-    """A lesson added from the facilitator page is "checking" until its trial passes: grading tries it (once per
-    version of the lesson), and publishing promotes it when the trial passed."""
+    """Grading and publishing call the lesson lifecycle: grading tries a lesson being checked and grades none of its
+    pull requests; publishing puts it live when its trial passed. When a trial is due, and what counts as passed for
+    the lesson as it is now, are tested in test_lesson_lifecycle."""
 
     def setUp(self):
         super().setUp()
@@ -273,38 +274,6 @@ class TrialTests(Sandbox):
         self.assertEqual((self.trial_entry()['passed'], self.trial_entry()['reasons']), (True, ['the starter builds']))
         self.assertNotIn(('o/gamma', 1), self.github.checkouts)
 
-    def test_a_trial_is_run_once_for_each_version_of_the_lesson(self):
-        self.grade(try_lesson=self.trial((False, ['starter: Gradle build failed'])))
-        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
-        self.assertEqual(self.tried, ['gamma'], 'the same lesson is not tried again')
-        (self.dir / 'grader' / 'fixtures' / 'gamma').mkdir()
-        (self.dir / 'grader' / 'fixtures' / 'gamma' / 'note.txt').write_text('changed')  # a new version of the lesson
-        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
-        self.assertEqual(self.tried, ['gamma', 'gamma'])
-
-    def test_a_trial_the_grader_could_not_finish_is_tried_again(self):
-        self.grade(try_lesson=self.trial((None, ['grader error, will retry'])))
-        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
-        self.assertEqual(self.tried, ['gamma', 'gamma'])
-
-    def test_a_failed_trial_is_tried_again_a_day_later(self):
-        self.grade(try_lesson=self.trial((False, ['could not fetch o/gamma: is it public?'])))
-        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
-        self.assertEqual(self.tried, ['gamma'], 'not straight away')
-        results = self.results()
-        results['trials']['gamma']['at'] = '2026-01-01T00:00:00Z'  # long ago
-        (self.dir / 'grader' / 'results.json').write_text(json.dumps(results))
-        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
-        self.assertEqual(self.tried, ['gamma', 'gamma'])
-
-    def test_a_trial_is_tried_again_when_where_the_lesson_comes_from_changes(self):
-        self.grade(try_lesson=self.trial((False, ['starter: Gradle build failed'])))
-        entries = json.loads((self.dir / 'lessons.json').read_text())
-        entries[-1]['repo'] = 'o/gamma-fixed'
-        (self.dir / 'lessons.json').write_text(json.dumps(entries))
-        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
-        self.assertEqual(self.tried, ['gamma', 'gamma'])
-
     def test_only_and_no_run_do_not_try_lessons(self):
         self.grade(try_lesson=self.trial((True, [])), no_run=True)
         self.grade(try_lesson=self.trial((True, [])), only='o/alpha#1')
@@ -326,24 +295,6 @@ class TrialTests(Sandbox):
         gamma, sheet, _ = self.apply()
         self.assertEqual(gamma['status'], 'checking')
         self.assertNotIn('gamma', sheet.splitlines()[0])
-
-    def test_a_lesson_added_again_is_not_put_live_on_its_old_trial(self):
-        # Removed and added again while a grading run was going: that run's results.json still holds the old
-        # trial, and publishing takes it whole. Each add stamps the lesson, so the old trial no longer matches.
-        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
-        entries = json.loads((self.dir / 'lessons.json').read_text())
-        entries[-1]['added'] = '2026-11-18T09:00:00Z'
-        (self.dir / 'lessons.json').write_text(json.dumps(entries))
-        gamma, _, _ = self.apply()
-        self.assertEqual(gamma['status'], 'checking')
-
-    def test_a_trial_of_an_older_version_does_not_count(self):
-        self.grade(try_lesson=self.trial((True, ['the starter builds'])))
-        (self.dir / 'grader' / 'fixtures' / 'gamma').mkdir()
-        (self.dir / 'grader' / 'fixtures' / 'gamma' / 'note.txt').write_text('changed since the trial')
-        gamma, _, _ = self.apply()
-        self.assertEqual(gamma['status'], 'checking')
-
 
 class TrialRunTests(unittest.TestCase):
     """trial.run's answers that need no build."""

@@ -27,7 +27,7 @@ jobs:
           - { module: grader/submissions.py, tests: test_submissions test_grading test_roster test_slices test_add_lesson }
           - { module: grader/roster.py, tests: test_roster test_slices test_regressions test_grading }
           - { module: grader/lessons.py, tests: test_lessons test_exercise_tests test_add_lesson test_grading }
-          - { module: grader/lesson_changes.py, tests: test_add_lesson }
+          - { module: grader/lesson_lifecycle.py, tests: test_lesson_lifecycle test_add_lesson test_grading }
           - { module: grader/exercise_tests.py, tests: test_exercise_tests test_add_lesson }
           - { module: grader/issue_form.py, tests: test_issue_form test_facilitator_page }
           - { module: grader/leaderboard.py, tests: test_roster test_add_lesson test_issue_form }

@@ -109,10 +109,10 @@ def run(argv, root, board=None, parser_class=argparse.ArgumentParser):
     if a.cmd == 'history':
         return board.recent(a.count)
     if a.cmd in ('add-lesson', 'remove-lesson'):
-        import lesson_changes
+        import lesson_lifecycle
         if a.cmd == 'remove-lesson':
-            return lesson_changes.remove(root, a.key)
-        return lesson_changes.add(root, a.key, a.label, a.repo, a.check, a.tests_repo, a.tests_dir)
+            return lesson_lifecycle.remove(root, a.key)
+        return lesson_lifecycle.add(root, a.key, a.label, a.repo, a.check, a.tests_repo, a.tests_dir)
     if a.cmd == 'pin-tests':
         import exercise_tests
         sha, count = exercise_tests.pin(root, a.lesson, a.commit)
