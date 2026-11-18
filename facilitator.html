@@ -6,8 +6,9 @@
 <meta name="referrer" content="no-referrer">
 <title>Facilitator</title>
 <style>
-/* The facilitator page: pick a person, then act on them. Changes wait in the Changes box and go to GitHub together
-   as one filled-in issue (docs/research/facilitator-ui.md, docs/research/facilitator-batching.md). */
+/* The facilitator page: two tabs, Workshop (grading and lessons, the mainstay) and People (pick a person, then act on
+   them). Changes from either wait in the Changes box and go to GitHub together as one filled-in issue
+   (docs/research/facilitator-page-layout.md, facilitator-ui.md, facilitator-batching.md). */
 :root {
   color-scheme: light dark;
   --bg: #f5f6f3; --surface: #ffffff; --fg: #1a2420; --muted: #5b6862; --line: #dde2dc;
@@ -41,20 +42,39 @@ header h1 { font-size: 18px; margin: 0; margin-right: auto; }
 .hint { font-size: 13px; margin: 4px 0 0; }
 .banner { border-radius: 10px; padding: 10px 14px; background: var(--accent-soft); margin: 12px 16px 0; }
 #error { border-radius: 10px; padding: 10px 14px; background: var(--bad-soft); margin: 12px 16px 0; }
-main { display: grid; grid-template-columns: 280px minmax(0, 1fr) 330px; gap: 16px; padding: 16px; align-items: start; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; padding: 16px; align-items: start; }
+/* Tabs (WAI-ARIA Tabs pattern) */
+[role="tablist"] { display: flex; gap: 4px; padding: 12px 16px 0; border-bottom: 1px solid var(--line); }
+[role="tab"] { border-radius: 8px 8px 0 0; border-bottom: 0; background: none; font-weight: 600; min-width: 120px; }
+[role="tab"][aria-selected="true"] { background: var(--surface); border-color: var(--line); border-bottom: 2px solid var(--accent); }
+[role="tabpanel"]:focus-visible { outline-offset: 4px; }
+.people-grid { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; align-items: start; }
+.stack { display: grid; gap: 16px; }
+/* Lessons */
+#lessonList li .label { font-weight: 600; }
+#lessonList li .actions-row { display: flex; gap: 4px; flex-wrap: wrap; }
+#lessonList details { font-size: 13px; }
+#lessonList pre { white-space: pre-wrap; font-size: 12px; margin: 4px 0 0; }
+#addLesson summary { cursor: pointer; font-weight: 600; margin-top: 12px; }
+#addLesson form { display: grid; gap: 10px; margin-top: 10px; }
+#addLesson label { display: grid; gap: 3px; font-size: 14px; font-weight: 600; }
+#addLesson fieldset { border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 6px; }
+#addLesson fieldset label { display: flex; gap: 6px; font-weight: 400; align-items: center; }
+#addLesson fieldset input[type=radio] { width: auto; }
+#addLesson .checks { list-style: none; padding: 0; margin: 0; font-size: 14px; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
 .panel h2 { font-size: 16px; margin: 0 0 8px; }
 /* Roster */
 #roster .tools { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 14px; }
 #roster .tools label { display: flex; gap: 6px; align-items: center; }
 #roster .tools input { width: auto; }
-#people { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow: auto; display: grid; gap: 2px; }
-#people li { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
-#people li:hover, #people li.active { background: var(--accent-soft); }
-#people li[aria-selected="true"] { outline: 2px solid var(--accent); }
-#people li .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-#people li .pts { color: var(--muted); font-size: 13px; white-space: nowrap; }
-#people li input { width: auto; }
+#roster-list { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow: auto; display: grid; gap: 2px; }
+#roster-list li { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+#roster-list li:hover, #roster-list li.active { background: var(--accent-soft); }
+#roster-list li[aria-selected="true"] { outline: 2px solid var(--accent); }
+#roster-list li .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+#roster-list li .pts { color: var(--muted); font-size: 13px; white-space: nowrap; }
+#roster-list li input { width: auto; }
 #addRow { margin-top: 8px; font-size: 14px; }
 /* Person */
 #person .head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
@@ -86,10 +106,12 @@ li.failed { background: var(--bad-soft); }
 #send { width: 100%; margin-top: 10px; }
 dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--fg); max-width: 420px; }
 dialog::backdrop { background: rgb(0 0 0 / 0.4); }
-@media (max-width: 1000px) { main { grid-template-columns: 260px minmax(0, 1fr); } #side { grid-column: 1 / -1; } }
+@media (max-width: 1000px) { main { grid-template-columns: minmax(0, 1fr); } .people-grid { grid-template-columns: 240px minmax(0, 1fr); } }
 @media (max-width: 700px) {
-  main { grid-template-columns: minmax(0, 1fr); padding: 12px; }
-  #people { max-height: 40vh; }
+  main, .people-grid { grid-template-columns: minmax(0, 1fr); }
+  main { padding: 12px; }
+  #roster-list { max-height: 40vh; }
+  [role="tab"] { flex: 1; min-width: 0; }
   button { min-height: 44px; }
 }
 </style>
@@ -103,28 +125,82 @@ dialog::backdrop { background: rgb(0 0 0 / 0.4); }
 </header>
 <p id="practice" class="banner" hidden data-tour="practice"><b>Practice mode.</b> These are made-up people on a copy of the
   leaderboard on your own computer. Nothing you do here changes the real one.</p>
-<p id="how" class="banner" data-tour="how" hidden><b>Changes wait in the Changes box.</b> <b>Send</b> opens GitHub with all
-  of them filled in: press <b>Submit new issue</b> there, once. If you are one of the leaderboard's collaborators they are made
-  in about a minute, and each shows as done here. An issue from anyone else changes nothing.</p>
 <p id="error" role="alert" hidden></p>
 <p id="status" class="visually-hidden" aria-live="polite"></p>
 
-<main>
-  <nav id="roster" class="panel" aria-label="People" data-tour="roster">
-    <h2>People</h2>
-    <input id="find" type="search" autocomplete="off" placeholder="Find a person…  /" aria-label="Find a person"
-      role="combobox" aria-controls="people" aria-expanded="true" aria-autocomplete="list">
-    <div class="tools">
-      <label><input type="checkbox" id="multi"> Select several</label>
-      <span class="muted" id="count"></span>
-    </div>
-    <ul id="people" role="listbox" aria-label="People on the leaderboard"></ul>
-    <p id="addRow" data-tour="add" hidden></p>
-  </nav>
+<div role="tablist" aria-label="Facilitator" data-tour="tabs">
+  <button type="button" role="tab" id="tab-workshop" aria-controls="workshop-panel" aria-selected="true">Workshop</button>
+  <button type="button" role="tab" id="tab-people" aria-controls="people-panel" aria-selected="false" tabindex="-1">People</button>
+</div>
 
-  <section id="person" class="panel" aria-live="off" data-tour="person">
-    <p class="muted" id="nobody">Pick someone on the left, or start typing a name.</p>
-  </section>
+<main>
+  <div id="workshop-panel" role="tabpanel" aria-labelledby="tab-workshop" tabindex="0" class="stack">
+    <section id="grading" class="panel" data-tour="grading" aria-label="Grading">
+      <h2>Grading</h2>
+      <p class="hint" id="gradeLast"></p>
+      <button type="button" id="gradeNow">Grade now</button>
+      <p class="hint" id="gradeHint" hidden></p>
+    </section>
+    <section id="lessonsPanel" class="panel" data-tour="lessons" aria-label="Lessons">
+      <h2>Lessons</h2>
+      <p class="hint">Each exercise on the leaderboard. A lesson you add is <b>checking</b> until a trial shows its tests work, then
+        <b>live</b>: its column appears and its pull requests are graded.</p>
+      <ul class="list" id="lessonList"><li class="muted">Reading the lessons…</li></ul>
+      <details id="addLesson" data-tour="add-lesson">
+        <summary>Add a lesson</summary>
+        <form id="addLessonForm" novalidate>
+          <label>Exercise repository <input id="lessonRepo" name="repo" placeholder="owner/name, or its GitHub address" autocomplete="off" required></label>
+          <label>Name shown on the leaderboard <input id="lessonLabel" name="label" placeholder="Roman numerals" autocomplete="off" required></label>
+          <label>Column name <input id="lessonKey" name="key" placeholder="roman_numerals" autocomplete="off" required
+            pattern="[a-z][a-z0-9_]*" aria-describedby="lessonKeyHint"></label>
+          <p class="hint" id="lessonKeyHint">Lowercase letters, digits and _. Made from the name; change it if you like.</p>
+          <label>How it is checked
+            <select id="lessonCheck" name="check">
+              <option value="tests">Tests: correct when the exercise's tests pass</option>
+              <option value="build">Build: correct when the project builds</option>
+              <option value="none">By hand: a facilitator marks it correct</option>
+            </select>
+          </label>
+          <fieldset id="testsFrom">
+            <legend>Where the tests are</legend>
+            <label><input type="radio" name="testsFrom" value="here" checked> In the exercise repository (src/test/)</label>
+            <label><input type="radio" name="testsFrom" value="elsewhere"> In another public repository, such as a solutions one</label>
+            <label id="testsWhere" hidden>Tests repository and folder
+              <input id="lessonTests" placeholder="owner/name/folder, or its GitHub folder address" autocomplete="off"></label>
+          </fieldset>
+          <ul class="checks" id="lessonChecks" aria-live="polite"></ul>
+          <button type="submit" class="primary">Add to changes</button>
+        </form>
+      </details>
+    </section>
+    <p class="hint">Points, names and results for a person: see <a href="#people">People</a>.</p>
+  </div>
+
+  <div id="people-panel" role="tabpanel" aria-labelledby="tab-people" tabindex="0" hidden>
+    <div class="people-grid">
+      <nav id="roster" class="panel" aria-label="People" data-tour="roster">
+        <h2>People</h2>
+        <input id="find" type="search" autocomplete="off" placeholder="Find a person…  /" aria-label="Find a person"
+          role="combobox" aria-controls="roster-list" aria-expanded="true" aria-autocomplete="list">
+        <div class="tools">
+          <label><input type="checkbox" id="multi"> Select several</label>
+          <span class="muted" id="count"></span>
+        </div>
+        <ul id="roster-list" role="listbox" aria-label="People on the leaderboard"></ul>
+        <p id="addRow" data-tour="add" hidden></p>
+      </nav>
+      <div class="stack">
+        <section id="person" class="panel" aria-live="off" data-tour="person">
+          <p class="muted" id="nobody">Pick someone on the left, or start typing a name.</p>
+        </section>
+        <section class="panel" data-tour="history">
+          <h2>Recent changes</h2>
+          <p class="hint">By anyone, newest first. <b>Undo</b> reverses just that change.</p>
+          <ul class="list" id="history"></ul>
+        </section>
+      </div>
+    </div>
+  </div>
 
   <div id="side">
     <section id="changes" class="panel" data-tour="changes" aria-label="Changes">
@@ -134,22 +210,12 @@ dialog::backdrop { background: rgb(0 0 0 / 0.4); }
       <button type="button" id="send" class="primary" hidden></button>
       <p class="hint" id="sendHint" hidden></p>
     </section>
-    <section id="grading" class="panel" data-tour="grading" aria-label="Grading" style="margin-top:16px">
-      <h2>Grading</h2>
-      <p class="hint" id="gradeLast"></p>
-      <button type="button" id="gradeNow">Grade now</button>
-      <p class="hint" id="gradeHint" hidden></p>
-    </section>
-    <section class="panel" data-tour="history" style="margin-top:16px">
-      <h2>Recent changes</h2>
-      <p class="hint">By anyone, newest first. <b>Undo</b> reverses just that change.</p>
-      <ul class="list" id="history"></ul>
-    </section>
   </div>
 </main>
 
 <dialog id="keys">
   <h2>Keyboard shortcuts</h2>
+  <p><kbd>←</kbd> <kbd>→</kbd> on the tabs: Workshop or People</p>
   <p><kbd>/</kbd> find a person · <kbd>Enter</kbd> pick the first match · <kbd>Esc</kbd> clear</p>
   <p><kbd>h</kbd> +1 help · <kbd>s</kbd> +1 stretch, for the person picked</p>
   <p><kbd>?</kbd> this list</p>
@@ -284,7 +350,7 @@ async function gradeNow() {
       if (run.status !== 'completed') return 'again';
       $('gradeHint').hidden = true;
       if (run.conclusion !== 'success') say('Grading did not finish. The run on GitHub says why; tell the repository owner.');
-      else await loadBoard(true).then(() => say('Grading finished: scores updated.'),
+      else await loadLessons().then(() => loadBoard(true)).then(() => say('Grading finished: scores updated.'),
         (e) => say(`Grading finished. The scores here update when GitHub can be read again: ${e.message}.`));
       return 'done';
     } });
@@ -296,10 +362,10 @@ async function gradeNow() {
 
 /* ---- the people, as the leaderboard shows them ---- */
 async function loadBoard(fromGitHub) {
-  const csv = fromGitHub && !PRACTICE ? await readState('participants.csv', '')
-    : await fetch('participants.csv', { cache: 'no-store' }).then((r) => (r.ok ? r.text() : ''));
+  const published = () => fetch('participants.csv', { cache: 'no-store' }).then((r) => (r.ok ? r.text() : ''));
+  const csv = fromGitHub && !PRACTICE ? (await readState('participants.csv', null)) ?? await published() : await published();
   if (!lessons.length) lessons = await fetch('lessons.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : []))
-    .then((all) => all.filter((l) => l.status !== 'checking'));  // checking: not live yet
+    .then((all) => all.filter((l) => l.status !== 'checking'));  // checking: not live yet (loadLessons keeps this current)
   const tracks = lessons.map((l) => ({ k: l.key, label: l.label }));
   const read = readParticipants(csv, tracks);
   const table = parseCSV(csv), head = (table[0] || []).map(normHeader);
@@ -323,7 +389,7 @@ function findExact(q) {
 function renderRoster() {
   const q = $('find').value, list = people.filter((p) => matches(p, q));
   active = Math.min(active, list.length - 1);
-  $('people').replaceChildren(...list.map((p, i) => {
+  $('roster-list').replaceChildren(...list.map((p, i) => {
     const li = el('li', i === active ? 'active' : '');
     li.setAttribute('role', 'option');
     li.id = 'person-' + i;
@@ -559,7 +625,7 @@ function renderQueue() {
   $('send').hidden = !waiting.length;
   $('send').textContent = `Send ${waiting.length} change${waiting.length === 1 ? '' : 's'}`;
   $('sendHint').hidden = !waiting.length || PRACTICE;
-  $('sendHint').textContent = 'Opens GitHub with them filled in: press Submit new issue there.';
+  $('sendHint').textContent = 'Opens GitHub with them filled in: press Submit new issue there. Only the leaderboard\'s collaborators can make changes.';
 }
 function issueUrl(batch, rows) {
   const issue = issueText(batch, rows);
@@ -637,7 +703,9 @@ async function follow() {
       });
       renderQueue();
       if (landed) {
-        await Promise.all([loadHistory(), loadBoard(true).catch((e) => say(`The board updates when GitHub can be read again: ${e.message}.`))]);
+        await Promise.all([loadHistory(), loadLessons().then(() => loadBoard(true))
+          .catch((e) => say(`The board updates when GitHub can be read again: ${e.message}.`))]);
+        if (queue.some((r) => r.state === 'done' && ['add-lesson', 'remove-lesson'].includes(r.args[0]))) followLessons();
         setTimeout(fadeDone, PRACTICE ? 800 : 4000);
       }
       if (!queue.some((r) => r.state === 'waiting')) return 'done';
@@ -684,21 +752,21 @@ function historyItem(h) {
 function keysOn() { return store(KEYS_KEY) !== 'off'; }
 document.addEventListener('keydown', (e) => {
   const typing = e.target.closest('input, select, textarea, dialog');
-  if (e.key === '/' && !typing) { e.preventDefault(); $('find').focus(); return; }
+  if (e.key === '/' && !typing) { e.preventDefault(); showTab('people'); $('find').focus(); return; }
   if (typing || e.altKey || e.ctrlKey || e.metaKey) return;
   if (e.key === '?') { $('keys').showModal(); return; }
-  if (!keysOn() || !selected || $('multi').checked) return;
+  if (!keysOn() || !selected || $('multi').checked || $('people-panel').hidden) return;
   if (e.key === 'h') award([selected.name], 'helped', 1);
   if (e.key === 's') award([selected.name], 'stretch', 1);
 });
 $('find').addEventListener('input', () => { active = -1; renderRoster(); });
 $('find').addEventListener('keydown', (e) => {
-  const options = $('people').querySelectorAll('li');
+  const options = $('roster-list').querySelectorAll('li');
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {  // move through the list, as a combobox does (WAI-ARIA APG)
     e.preventDefault();
     active = Math.max(0, Math.min(options.length - 1, active + (e.key === 'ArrowDown' ? 1 : -1)));
     renderRoster();
-    $('people').querySelector('li.active')?.scrollIntoView({ block: 'nearest' });
+    $('roster-list').querySelector('li.active')?.scrollIntoView({ block: 'nearest' });
     return;
   }
   const first = options[active >= 0 ? active : 0];
@@ -721,14 +789,191 @@ $('keysButton').addEventListener('click', () => $('keys').showModal());
 $('keysClose').addEventListener('click', () => $('keys').close());
 $('keysOn').addEventListener('change', () => store(KEYS_KEY, $('keysOn').checked ? 'on' : 'off'));
 
+/* ---- tabs: Workshop (grading and lessons) and People (WAI-ARIA Tabs pattern, activated as they get focus) ---- */
+const TABS = ['workshop', 'people'];
+function showTab(name, focus) {
+  for (const t of TABS) {
+    const on = t === name;
+    $('tab-' + t).setAttribute('aria-selected', String(on));
+    $('tab-' + t).tabIndex = on ? 0 : -1;
+    $(t + '-panel').hidden = !on;
+  }
+  if (location.hash !== '#' + name) window.history.replaceState(null, '', location.pathname + location.search + '#' + name);  // not `history`: that is this page's list of changes
+  if (focus) $('tab-' + name).focus();  // switching only shows a panel: nothing is read or redrawn
+}
+for (const t of TABS) $('tab-' + t).addEventListener('click', () => showTab(t));
+document.querySelector('[role="tablist"]').addEventListener('keydown', (e) => {
+  const at = TABS.indexOf(document.activeElement.id.replace('tab-', ''));
+  const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: TABS.length - 1 }[e.key];
+  if (at < 0 || to === undefined) return;
+  e.preventDefault();
+  showTab(TABS[(to + TABS.length) % TABS.length], true);
+});
+// A link such as "see People" changes the hash: show that tab, with focus on it (not left in the hidden panel).
+window.addEventListener('hashchange', () => { if (TABS.includes(location.hash.slice(1))) showTab(location.hash.slice(1), true); });
+
+/* ---- lessons: live, checking or failed its trial; added and removed through the Changes box ---- */
+let allLessons = [], trials = {};
+let lessonsLoading = null;
+function loadLessons() {
+  lessonsLoading = lessonsLoading || (async () => {
+    try {
+      // Not on GitHub (an unpublished copy, or a read that failed): the published copy, as the board uses.
+      const [read, readTrials] = await Promise.all([
+        readState('lessons.json', null).then((l) => l || fetch('lessons.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : []))),
+        readState('grader/results.json', {}).then((r) => r.trials || {})]);
+      if (JSON.stringify([read, readTrials]) === JSON.stringify([allLessons, trials]) && $('lessonList').dataset.read) return;
+      [allLessons, trials] = [read, readTrials];
+      $('lessonList').dataset.read = 'yes';
+      const live = allLessons.filter((l) => l.status !== 'checking');
+      const columnsChanged = live.map((l) => l.key).join() !== lessons.map((l) => l.key).join();
+      lessons = live;
+      renderLessons();
+      if (columnsChanged) await loadBoard(true).catch(() => loadBoard(false));  // the columns, and so the points
+    } catch (e) {
+      $('lessonList').replaceChildren(el('li', 'muted', `Could not read the lessons: ${e.message}.`));
+    } finally {
+      lessonsLoading = null;
+    }
+  })();
+  return lessonsLoading;
+}
+// After a lesson is added or removed: look again about once a minute (sharing the page's reads) until every lesson
+// has settled, live or failed its trial; on GitHub the grading run its save started decides that.
+let followingLessons = false;
+async function followLessons() {
+  if (followingLessons) return;
+  followingLessons = true;
+  try {
+    await github.poll({ first: PRACTICE ? 1000 : 60000, every: PRACTICE ? 1000 : 60000, giveUpAfter: 45 * 60000, step: async () => {
+      await loadLessons();
+      return allLessons.some((l) => l.status === 'checking' && !(trials[l.key] && trials[l.key].passed === false)) ? 'again' : 'done';
+    } });
+  } finally {
+    followingLessons = false;
+  }
+}
+const GENERIC = ['none', 'build', 'tests'];
+const CHECKED = { none: 'marked by hand', build: 'correct when it builds', tests: 'correct when its tests pass' };
+function lessonState(l) {
+  if (l.status !== 'checking') return { text: 'Live', cls: 'ok' };
+  const t = trials[l.key];
+  if (!t) return { text: 'Checking: tried at the next grading run', cls: '' };
+  if (t.passed === false) return { text: 'Failed its trial: ' + (t.reasons[0] || '').split('\n')[0], cls: 'bad', failed: t };
+  if (t.passed === null) return { text: 'Checking: the grader could not finish its trial, and tries again at the next run', cls: '' };
+  return { text: 'Checking: being tried again (it changed since its last trial)', cls: '' };
+}
+function addLessonRow(l) {
+  return ['add-lesson', l.key, l.label, l.repo, l.check, l.tests_repo || '', l.tests_dir || ''];
+}
+function renderLessons() {
+  $('lessonList').replaceChildren(...(allLessons.length ? allLessons.map((l) => {
+    const st = lessonState(l), li = el('li', st.failed ? 'failed' : '');
+    li.dataset.key = l.key;
+    const text = el('div', 'text');
+    const repo = el('a', '', l.repo);
+    repo.href = `https://github.com/${l.repo}`; repo.target = '_blank'; repo.rel = 'noopener';
+    text.append(el('span', 'label', l.label), ' ', el('small', 'muted', ''));
+    text.querySelector('small').append(repo, ` · ${CHECKED[l.check] || 'its own check'} · column ${l.key}`);
+    text.append(el('small', 'state ' + st.cls, st.text));
+    if (st.failed) {
+      const why = el('details'); why.append(el('summary', '', 'Full reason'), el('pre', '', st.failed.reasons.join('\n\n')));
+      const again = new Date(Date.parse(st.failed.at) + 24 * 3600 * 1000).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+      text.append(why, el('small', 'muted', `Tried again after ${again}, or now with Try again.`));
+    }
+    li.append(text);
+    const acts = el('div', 'actions-row');
+    if (st.failed && GENERIC.includes(l.check)) {
+      acts.append(button('Try again', () => { queueRow(['remove-lesson', l.key], `Remove lesson ${l.label}`); queueRow(addLessonRow(l), `Add lesson ${l.label} again`); }, 'link'));
+    }
+    if (GENERIC.includes(l.check)) {  // a custom check is code: added and removed through a pull request
+      const rm = button('Remove', () => queueRow(['remove-lesson', l.key], `Remove lesson ${l.label}`), 'link');
+      rm.setAttribute('aria-label', `Remove lesson ${l.label}`);
+      acts.append(rm);
+    }
+    li.append(acts);
+    return li;
+  }) : [el('li', 'muted', 'No lessons yet.')]));
+}
+
+/* ---- add a lesson: the form, its checks without a token, then a row in the Changes box ---- */
+const keyFrom = (label) => label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^[^a-z]+/, '').slice(0, 40).replace(/_+$/, '');
+let keyEdited = false;
+$('lessonLabel').addEventListener('input', () => { if (!keyEdited) $('lessonKey').value = keyFrom($('lessonLabel').value); });
+$('lessonKey').addEventListener('input', () => { keyEdited = true; });
+$('lessonCheck').addEventListener('change', () => { $('testsFrom').hidden = $('lessonCheck').value !== 'tests'; });
+document.querySelectorAll('input[name="testsFrom"]').forEach((r) => r.addEventListener('change', () => {
+  $('testsWhere').hidden = document.querySelector('input[name="testsFrom"]:checked').value !== 'elsewhere';
+}));
+// "owner/name[/folder]", or a GitHub address (github.com/owner/name[/tree/branch[/folder]], with or without https://):
+// [owner/name, folder], or null. A file's address (/blob/) is not a folder. The default branch is always used.
+function repoAndFolder(text) {
+  const t = text.trim().replace(/^(https?:\/\/)?(www\.)?github\.com\//i, '').replace(/\.git$/, '').replace(/\/+$/, '');
+  const m = t.match(/^([\w.-]+\/[\w.-]+)(?:\/tree\/[^/]+(?:\/(.+))?|\/(?!blob\/|tree\/)(.+))?$/);
+  return m ? [m[1], m[2] || m[3] || ''] : null;
+}
+async function lessonChecks(repo, check, testsRepo, folder) {
+  // At most a few reads, without a token: the repository (public?) and its files (one tree read). GitHub checks it
+  // all again before anything is saved; these only save a facilitator a wasted Send.
+  const problems = [];
+  if (PRACTICE) return problems;
+  const about = await github.read(`${API}/repos/${repo}`, { json: true });
+  if (about.status === 'missing') return [`${repo} cannot be found. It must exist and be public.`];
+  if (!github.readable(about)) return [];  // limited or unreachable: leave it to GitHub's own checks
+  if (about.value.private) return [`${repo} is private. The grader reads public repositories only.`];
+  if (check === 'none') return problems;
+  // The exercise must build; the tests' project (the exercise itself, or another repository's folder) must have tests.
+  const look = [[repo, '', 'gradlew']];
+  if (check === 'tests') look.push([testsRepo || repo, testsRepo ? folder : '', 'tests']);
+  for (const [source, within, need] of look) {
+    const where = source + (within ? '/' + within : '');
+    const tree = await github.read(`${API}/repos/${source}/git/trees/HEAD?recursive=1`, { json: true });
+    if (tree.status === 'missing') { problems.push(`${source} cannot be found. It must exist and be public.`); continue; }
+    if (!github.readable(tree) || tree.value.truncated) continue;  // too big to list, or unreadable: GitHub checks again
+    const paths = (tree.value.tree || []).map((f) => f.path).filter((f) => !within || f.startsWith(within + '/')).map((f) => (within ? f.slice(within.length + 1) : f));
+    if (need === 'gradlew' && !paths.some((f) => /(^|\/)gradlew$/.test(f))) problems.push(`${where} has no Gradle wrapper (gradlew), so it cannot be built.`);
+    if (need === 'tests' && !paths.some((f) => /(^|\/)src\/test\//.test(f))) problems.push(`${where} has no tests (src/test/).`);
+  }
+  return problems;
+}
+$('addLessonForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const checks = $('lessonChecks'), showProblems = (items) => checks.replaceChildren(...items.map((t) => el('li', 'state bad', t)));
+  const where = repoAndFolder($('lessonRepo').value), label = $('lessonLabel').value.trim(), key = $('lessonKey').value.trim();
+  const waiting = queue.filter((r) => ['queued', 'waiting'].includes(r.state) && r.args[0] === 'add-lesson');
+  const check = $('lessonCheck').value, elsewhere = check === 'tests' && document.querySelector('input[name="testsFrom"]:checked').value === 'elsewhere';
+  const tests = elsewhere ? repoAndFolder($('lessonTests').value) : null;
+  const problems = [];
+  if (!where) problems.push('Give the exercise repository as owner/name, or its GitHub address.');
+  else if (where[1]) problems.push('The exercise is a whole repository: give owner/name, without a folder.');
+  if (!label) problems.push('Give the name shown on the leaderboard.');
+  if (!key) problems.push('Give a column name: lowercase letters, digits and _ (the name shown has none to make one from).');
+  else if (!/^[a-z][a-z0-9_]*$/.test(key)) problems.push('The column name must be lowercase letters, digits and _, starting with a letter.');
+  else if (allLessons.some((l) => l.key === key) || waiting.some((r) => r.args[1] === key)) problems.push(`The column name ${key} is already used.`);
+  if (where && (allLessons.some((l) => l.repo.toLowerCase() === where[0].toLowerCase())
+    || waiting.some((r) => r.args[3].toLowerCase() === where[0].toLowerCase()))) problems.push(`${where[0]} is already a lesson's repository.`);
+  if (elsewhere && !tests) problems.push('Give the tests repository as owner/name/folder, or its GitHub folder address.');
+  if (problems.length) return showProblems(problems);
+  checks.replaceChildren(el('li', 'muted', 'Checking the repository on GitHub…'));
+  const submit = e.submitter || $('addLessonForm').querySelector('[type=submit]');
+  submit.disabled = true;  // one check at a time: each costs reads
+  const found = await lessonChecks(where[0], check, tests && tests[0], tests ? tests[1] : '').finally(() => { submit.disabled = false; });
+  if (found.length) return showProblems(found);
+  checks.replaceChildren();
+  queueRow(['add-lesson', key, label, where[0], check, tests ? tests[0] : '', tests ? tests[1] : ''], `Add lesson ${label} (${where[0]}, ${CHECKED[check]})`);
+  $('addLessonForm').reset(); keyEdited = false; $('testsWhere').hidden = true; $('testsFrom').hidden = false;
+  $('addLesson').open = false;
+});
+
 /* ---- start ---- */
 (async function start() {
   $('keysOn').checked = keysOn();
   if (!REPO) return showError('Open this page from the leaderboard\'s GitHub Pages address, or add ?repo=owner/name to the address.');
-  if (PRACTICE) { $('practice').hidden = false; $('who').textContent = 'Practising'; } else $('how').hidden = false;
+  if (PRACTICE) { $('practice').hidden = false; $('who').textContent = 'Practising'; }
+  showTab(location.hash === '#people' ? 'people' : 'workshop');
   try { await loadBoard(false); } catch (e) { showError('Could not read the leaderboard: ' + e.message); }
   renderQueue();
-  await loadHistory();
+  await Promise.all([loadHistory(), loadLessons()]);
 })();
 </script>
 </body>

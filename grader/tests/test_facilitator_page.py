@@ -60,6 +60,33 @@ class PageTests(unittest.TestCase):
             with self.subTest(name):
                 self.assertRegex((REPO / name).read_text(), r"\.filter\(\(l\) => l\.status !== 'checking'\)")
 
+    @unittest.skipUnless(shutil.which('node'), 'needs Node.js to read the tour')
+    def test_each_tour_step_names_the_tab_its_target_is_on(self):
+        from html.parser import HTMLParser
+
+        class Panels(HTMLParser):  # data-tour name -> the tab panel it sits in ('' for none)
+            def __init__(self):
+                super().__init__()
+                self.open, self.where = [], {}
+
+            def handle_starttag(self, tag, attrs):
+                a = dict(attrs)
+                self.open.append((tag, a.get('role') == 'tabpanel' and a.get('id', '').removesuffix('-panel')))
+                if 'data-tour' in a:
+                    self.where[a['data-tour']] = next((panel for _, panel in reversed(self.open) if panel), '')
+
+            def handle_endtag(self, tag):
+                while self.open and self.open.pop()[0] != tag:
+                    pass
+        panels = Panels()
+        panels.feed(PAGE)
+        script = "import(process.argv[1]).then((m) => process.stdout.write(JSON.stringify(m.steps({people: [], lessons: []}))))"
+        steps = json.loads(subprocess.run(['node', '--input-type=module', '-e', script, (REPO / 'walkthrough' / 'facilitator-steps.js').as_uri()],
+                                          capture_output=True, text=True, check=True).stdout)
+        for step in (s for s in steps if s.get('target') in panels.where):
+            with self.subTest(step['title']):
+                self.assertEqual(step.get('tab', ''), panels.where[step['target']], 'the tour opens the tab its target is on')
+
     def test_the_page_is_published_with_the_leaderboard(self):
         publish = (WORKFLOWS / 'pages.yml').read_text()
         for f in ('facilitator.html', 'scoring.js', 'github-reader.js', 'participants.csv', 'lessons.json'):

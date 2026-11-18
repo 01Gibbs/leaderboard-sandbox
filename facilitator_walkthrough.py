@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import threading
@@ -61,7 +62,25 @@ def practice_copy(dest):
             shutil.copy(src, dest / name)
     loaded = lessons.load(dest)
     (dest / 'participants.csv').write_text(walkthrough.sample_csv([l.key for l in loaded]), encoding='utf-8')
-    (dest / 'grader' / 'results.json').write_text(json.dumps(practice_results(loaded), indent=2) + '\n', encoding='utf-8')
+    results = practice_results(loaded)
+    # One lesson added from the page whose trial failed, so the Workshop tab shows every state.
+    entries = json.loads((dest / 'lessons.json').read_text(encoding='utf-8'))
+    entries.append({'key': 'old_exercise', 'label': 'Old exercise', 'repo': 'practice/old-exercise', 'check': 'build', 'status': 'checking'})
+    (dest / 'lessons.json').write_text(json.dumps(entries, indent=2) + '\n', encoding='utf-8')
+    results['trials'] = {'old_exercise': {'version': 'practice', 'passed': False, 'at': '2026-11-17T09:00:00Z', 'reasons': [
+        'the starter does not build (practice/old-exercise):\nGradle build failed: could not resolve org.example:retired:1.0']}}
+    (dest / 'grader' / 'results.json').write_text(json.dumps(results, indent=2) + '\n', encoding='utf-8')
+    exercise = dest / '.practice-exercise'  # what any repository added in practice is fetched from
+    for rel, text in {'build.gradle': "plugins { id 'java' }\n", 'gradlew': '#!/bin/sh\n', 'src/main/java/Greeting.java': 'class Greeting {}\n',
+                      'src/test/java/GreetingTest.java': 'class GreetingTest {}\n'}.items():
+        (exercise / rel).parent.mkdir(parents=True, exist_ok=True)
+        (exercise / rel).write_text(text, encoding='utf-8')
+    try:  # without git, adding a lesson in practice says it cannot fetch it; everything else still works
+        git = ['git', '-c', 'user.name=practice', '-c', 'user.email=practice@example.com', '-c', 'commit.gpgsign=false']
+        for args in (['init', '-q', '-b', 'main'], ['add', '-A'], ['commit', '-q', '-m', 'starter']):
+            subprocess.run(git + args, cwd=exercise, check=True, capture_output=True)
+    except (OSError, subprocess.CalledProcessError) as e:
+        print(f'Adding a lesson will not work in practice: could not make its example repository ({e}).', file=sys.stderr)
     return dest
 
 
@@ -70,10 +89,11 @@ class PracticeGitHub:
     reading grader/history.json and grader/batches.json. An issue is applied straight away, on the practice copy,
     and answered as changes-from-issues.yml would answer it (grader/issue_form.answer)."""
 
-    def __init__(self, root):
+    def __init__(self, root, trial_after=3.0):
         self.root = Path(root)
         self.issues = []
         self.lock = threading.Lock()
+        self.trial_after = trial_after  # seconds before a lesson added here passes its (pretend) trial
 
     def open_issue(self, title, body):
         """What submitting a facilitator issue does: the same command, answered and closed straight away."""
@@ -83,6 +103,7 @@ class PracticeGitHub:
         except issue_form.NotAForm as e:
             return 422, {'message': str(e)}
         outcome, summary = self._apply(argv)
+        self._pretend_trials(argv)
         reply = issue_form.answer('', summary, outcome)  # the answer changes-from-issues.yml gives
         number = len(self.issues) + 1
         issue = {'number': number, 'title': title, 'state': 'closed', 'locked': bool(reply.lock_reason),
@@ -90,10 +111,38 @@ class PracticeGitHub:
         self.issues.append(issue)
         return 201, issue
 
+    def _pretend_trials(self, argv):
+        """On GitHub a lesson added from the page is tried by the next grading run, then put live. Here its trial
+        passes a few seconds later, so practice shows it go from checking to live."""
+        rows = json.loads(argv[2]) if argv[:1] == ['batch'] and len(argv) > 2 else []
+        added = [r[1] for r in rows if isinstance(r, list) and r[:1] == ['add-lesson'] and len(r) > 1]
+        if added:
+            timer = threading.Timer(self.trial_after, self._pass_trials, [added])
+            timer.daemon = True
+            timer.start()
+
+    def _pass_trials(self, keys):
+        try:
+            self._promote(keys)
+        except Exception:  # a timer's error would otherwise vanish
+            traceback.print_exc(file=sys.__stderr__)
+
+    def _promote(self, keys):
+        import submissions
+        with self.lock:
+            live = {lesson.key for lesson in lessons.load(self.root, checking=True) if lesson.status == lessons.CHECKING}
+            subs = submissions.Submissions(self.root)
+            for key in [k for k in keys if k in live]:
+                subs.record_trial(key, 'practice', True, ['practice: on GitHub, the next grading run tries it'])
+                lessons.promote(self.root, key)
+            subs.save()
+
     def _apply(self, argv):
         """(outcome, summary): a leaderboard command run on the practice copy, as the workflow runs it: the outcome
         leaderboard.py settles (changed, refused or broken) and the run page's summary, read as the workflow reads them."""
         import leaderboard  # the copy's grader is the same code; import late so the copy exists first
+        import exercise_tests
+        exercise_tests.repo_url = lambda repo: str(self.root / '.practice-exercise')  # practice: never the network
         out, err = io.StringIO(), io.StringIO()
         with self.lock, contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             env = {k: os.environ.pop(k, None) for k in ('GITHUB_STEP_SUMMARY', 'GITHUB_ACTOR', 'LEADERBOARD_OUTCOME')}
@@ -148,8 +197,8 @@ class Handler(SimpleHTTPRequestHandler):
         if sub == '':
             return self.send_json(200, {'full_name': REPO})
         if sub is not None:
-            if m := re.fullmatch(r'/contents/grader/(history|batches)\.json', sub):
-                path = root / 'grader' / f'{m.group(1)}.json'
+            if m := re.fullmatch(r'/contents/(lessons\.json|grader/(?:history|batches|results)\.json)', sub):
+                path = root / m.group(1)
                 if not path.exists():
                     return self.send_json(404, {'message': 'Not Found'})
                 text = path.read_text(encoding='utf-8')
