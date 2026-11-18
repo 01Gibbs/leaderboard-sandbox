@@ -387,43 +387,5 @@
         "after": null
       }
     ]
-  },
-  {
-    "id": "c2ac59e",
-    "at": "2026-11-18T11:12:36+00:00",
-    "by": "01Gibbs",
-    "action": "Renamed E2E Check 110408a to E2E Check 110408a R",
-    "changes": [
-      {
-        "before": {
-          "name": "E2E Check 110408a",
-          "github_username": "",
-          "fizzbuzz": "",
-          "rest_api": "",
-          "framework_upgrade": "",
-          "stretch": "",
-          "pr_stretch": "",
-          "helped": "2",
-          "container_image": "",
-          "bonus": "",
-          "library_replacement": "correct",
-          "e2e_lesson": ""
-        },
-        "after": {
-          "name": "E2E Check 110408a R",
-          "github_username": "",
-          "fizzbuzz": "",
-          "rest_api": "",
-          "framework_upgrade": "",
-          "stretch": "",
-          "pr_stretch": "",
-          "helped": "2",
-          "container_image": "",
-          "bonus": "",
-          "library_replacement": "correct",
-          "e2e_lesson": ""
-        }
-      }
-    ]
   }
 ]
