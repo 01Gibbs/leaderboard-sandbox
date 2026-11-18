@@ -394,5 +394,20 @@
         "change": null
       }
     ]
+  },
+  "e2e-lesson-remove-1795000144": {
+    "at": "2026-11-18T11:09:30+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "remove-lesson",
+          "e2e_lesson"
+        ],
+        "ok": true,
+        "message": "Removed E2E lesson. Its results are kept: adding it again brings them back.",
+        "change": null
+      }
+    ]
   }
 }

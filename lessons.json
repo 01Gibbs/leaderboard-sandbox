@@ -28,13 +28,5 @@
     "label": "Replace a library",
     "repo": "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary",
     "check": "library_replacement"
-  },
-  {
-    "key": "e2e_lesson",
-    "label": "E2E lesson",
-    "repo": "01Gibbs/leaderboard-sandbox-exercise",
-    "check": "tests",
-    "added": "2026-11-18T11:04:36.080585Z",
-    "tests_commit": "bf05804ec13ebbe6270025a676d2da4f047ed407"
   }
 ]
