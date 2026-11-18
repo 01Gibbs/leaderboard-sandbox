@@ -25,7 +25,7 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # no mutate: first or later, the grader's own modules are found
 import roster  # noqa: E402  (grade and exercise_tests load the checks, so only their commands import them)
 import submissions  # noqa: E402
 from rules import COUNTS, STATUSES  # noqa: E402
@@ -133,7 +133,7 @@ class RowParser(argparse.ArgumentParser):
     def error(self, message):
         raise roster.ActionError(message)
 
-    def exit(self, status=0, message=None):
+    def exit(self, status=0, message=None):  # no mutate: the status is never used
         raise roster.ActionError(message or 'that is not a change')
 
     def print_help(self, file=None):

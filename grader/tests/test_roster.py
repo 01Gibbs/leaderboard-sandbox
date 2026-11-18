@@ -8,6 +8,7 @@ import contextlib
 import io
 import json
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -801,6 +802,55 @@ class OutcomeTests(Sandbox):
         reason = self.outcome('batch', 'oc4', json.dumps([['grade']]))[2]
         self.assertIn('the whole batch oc4 was refused.', reason)
         self.assertIn('"grade" cannot go in a batch', reason)
+
+
+class CommandLineTests(Sandbox):
+    """leaderboard.py's own edges, from a terminal or a workflow."""
+
+    def batch(self, batch_id, *rows):
+        return self.cli('batch', batch_id, json.dumps([list(r) for r in rows]))
+
+    def outcomes(self, batch_id):
+        return json.loads((self.dir / 'grader' / 'batches.json').read_text())[batch_id]['rows']
+
+    def test_the_run_page_shows_every_line_of_a_batch(self):
+        summary = self.dir / 'summary.md'
+        self.patch(leaderboard.os, 'environ', {'GITHUB_STEP_SUMMARY': str(summary)})
+        self.batch('lines', ('award', 'Stuart Smith', 'helped', '1'), ('award', 'Bukky Adeyemi', 'stretch', '1'))
+        text = summary.read_text()
+        self.assertTrue(text.startswith('### ✅ 2 of 2 changes made (batch lines).\n\n✅ Gave 1 help to Stuart Smith'), text)
+        self.assertIn('✅ Gave 1 stretch task to Bukky Adeyemi', text)
+
+    def test_run_as_a_script_it_reads_its_arguments(self):
+        r = subprocess.run([sys.executable, str(GRADER / 'leaderboard.py'), 'history', '1'], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_no_command_is_an_error_not_an_apply(self):
+        before = self.csv_text()
+        with self.assertRaises(SystemExit) as e, contextlib.redirect_stderr(io.StringIO()):
+            leaderboard.main([], root=self.dir)
+        self.assertEqual(e.exception.code, 2)
+        self.assertEqual(self.csv_text(), before)
+
+    def test_the_repository_is_the_one_this_file_is_in(self):
+        self.assertEqual(leaderboard.ROOT, GRADER.parent)
+
+    def test_history_shows_the_last_ten_unless_asked(self):
+        for n in range(12):
+            self.cli('award', 'Stuart Smith', 'bonus', str(n + 1))
+        self.assertEqual(len(self.cli('history')[1].strip().splitlines()), 10)
+        self.assertEqual(len(self.cli('history', '3')[1].strip().splitlines()), 3)
+
+    def test_a_row_asking_for_help_is_not_a_change(self):
+        code, _, _ = self.batch('helprow', ('award', '-h'))
+        self.assertEqual(code, 0)
+        self.assertEqual(self.outcomes('helprow')[0]['message'], 'that is not a change')
+
+    def test_rows_that_are_not_lists_refuse_the_whole_batch(self):
+        code, _, err = self.cli('batch', 'notlists', json.dumps(['award', 'Stuart Smith']))
+        self.assertEqual(code, 0)
+        self.assertIn('not a JSON list of changes', err)
+        self.assertEqual(self.csv_text(), CSV)
 
 
 class BrokenLessonsTests(Sandbox):

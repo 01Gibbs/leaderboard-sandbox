@@ -199,6 +199,16 @@ class AddLessonTests(Sandbox):
         self.assertEqual(self.entries()['greeting']['status'], 'checking')
 
 
+class PinTestsCommandTests(Sandbox):
+    def test_pin_tests_says_how_many_files_and_the_short_commit(self):
+        repo = self.exercise('o/greeting', STARTER)
+        entries = LESSONS + [{'key': 'greeting', 'label': 'Greeting', 'repo': 'o/greeting', 'check': 'none'}]
+        (self.dir / 'lessons.json').write_text(json.dumps(entries, indent=2) + '\n')
+        code, out, err = self.cli('pin-tests', 'greeting')
+        self.assertEqual(code, 0, err)
+        self.assertEqual(out.strip(), f"greeting is graded with its repository's 1 test files as of {git(repo, 'rev-parse', 'HEAD')[:7]}")
+
+
 class RemoveLessonTests(Sandbox):
     def test_removes_the_lesson_and_its_tests(self):
         self.exercise('o/greeting', STARTER)
