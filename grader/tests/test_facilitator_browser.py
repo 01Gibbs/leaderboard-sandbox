@@ -474,13 +474,23 @@ class FacilitatorJourneyTests(unittest.TestCase):
         self.page.locator('#lessonLabel').fill('Again')
         self.page.locator('#lessonKey').fill(first['key'])
         self.page.locator('#lessonCheck').select_option('tests')
-        self.page.get_by_label('In another public repository, such as a solutions one').check()
+        self.page.get_by_label('Tests from another repository (optional)').fill('not a repository')
         self.page.get_by_role('button', name='Add to changes').click()
         checks = self.page.locator('#lessonChecks')
         expect(checks).to_contain_text(f'The column name {first["key"]} is already used.')
         expect(checks).to_contain_text(f'{first["repo"]} is already a lesson')
-        expect(checks).to_contain_text('Give the tests repository')
+        expect(checks).to_contain_text('The tests repository is owner/name/folder')
         expect(self.queued()).to_have_count(0)
+
+    def test_tests_are_the_exercises_own_src_test_unless_another_repository_is_given(self):
+        self.workshop()
+        self.page.locator('#addLesson summary').click()
+        other = self.page.get_by_label('Tests from another repository (optional)')
+        expect(other).to_have_value('')
+        self.page.locator('#lessonCheck').select_option('build')
+        expect(other).to_be_hidden()  # only a tests lesson has tests to find
+        self.page.locator('#lessonCheck').select_option('tests')
+        expect(other).to_be_visible()
 
     def test_remove_a_lesson(self):
         lessons = self.workshop()

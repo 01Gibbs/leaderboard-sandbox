@@ -249,7 +249,7 @@ export function steps(ctx) {
           <p class="hint">Until they are fixed, grading and facilitator forms stop with this message, and nothing is changed.</p>` : ''}
         <h3>Adding an exercise</h3>
         <ol class="flow">
-          <li><b>Facilitator page → Workshop → Add a lesson</b><span>its repository, its name, how it is checked, where its tests are</span></li>
+          <li><b>Facilitator page → Workshop → Add a lesson</b><span>its repository, its name, how it is checked (tests come from its src/test/ unless you say otherwise)</span></li>
           <li><b>Checking</b><span>the next grading run tries it: the starter compiles with its tests</span></li>
           <li><b>Live</b><span>its column appears and its pull requests are graded</span></li>
           <li><b>A custom check</b><span>(code) is added through a pull request, with Claude Code’s add-lesson skill</span></li>
