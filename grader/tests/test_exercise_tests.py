@@ -100,8 +100,8 @@ class PinTests(unittest.TestCase):
         self.exercise.commit(STARTER)
         self.pin()
         before = self.lessons_file.read_text(), self.fixture_files()
-        for change, reason in (({'app/src/test/java/GreeterTest.java': None, 'app/src/test/resources/names.txt': None}, 'no tests'),
-                               ({'app/build.gradle': None}, 'no Gradle project')):
+        for change, reason in (({'app/src/test/java/GreeterTest.java': None, 'app/src/test/resources/names.txt': None}, r'has no tests \(src/test/\) at [0-9a-f]{7}\.$'),
+                               ({'app/build.gradle': None}, r'has no Gradle project at [0-9a-f]{7}\.$')):
             self.exercise.commit(change)
             with self.assertRaisesRegex(exercise_tests.PinFailed, reason):
                 self.pin()

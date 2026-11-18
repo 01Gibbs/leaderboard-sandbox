@@ -173,14 +173,26 @@ class AddLessonTests(Sandbox):
         self.assertFalse((self.dir / 'grader/fixtures/greeting').exists())
         self.assertNotIn('greeting', self.entries())
 
-    def test_tests_over_the_size_cap_are_refused(self):
-        real = exercise_tests.MAX_BYTES
-        exercise_tests.MAX_BYTES = 100  # the same rule as 5 MB, without a 5 MB file
-        self.addCleanup(setattr, exercise_tests, 'MAX_BYTES', real)
-        self.exercise('o/greeting', {**STARTER, 'src/test/resources/big.txt': 'x' * 200})
-        code, _, err = self.cli('add-lesson', 'greeting', 'Greeting', 'o/greeting', 'tests')
-        self.assertEqual(code, 1)
-        self.assertIn('MB under src/test/', err)
+    def starter_tests(self):
+        """STARTER's own files under src/test/: how many, and their bytes."""
+        tests = [t for f, t in STARTER.items() if f.startswith('src/test/')]
+        return len(tests), sum(len(t.encode()) for t in tests)
+
+    def at_the_cap_and_over(self, name, extra_files, refusal):
+        """Tests exactly at a cap are taken; one more (file or byte) is refused, saying `refusal` about the repo."""
+        for over in (0, 1):
+            with self.subTest(over=over):
+                key, repo = f'{name}{over}', f'o/{name}{over}'
+                self.exercise(repo, {**STARTER, **extra_files(over)})
+                code, _, err = self.cli('add-lesson', key, name, repo, 'tests')
+                self.assertEqual(code, over, err)
+                if over:
+                    self.assertIn(f'{repo} has {refusal} under src/test/.', err)
+
+    def test_tests_of_exactly_5_mb_are_taken_and_a_byte_more_is_refused(self):
+        _, size = self.starter_tests()
+        self.at_the_cap_and_over('big', lambda over: {'src/test/resources/big.txt': 'x' * (5 * 1024 * 1024 - size + over)},
+                                 'more than 5 MB')
 
     def test_where_tests_come_from_only_applies_to_tests(self):
         self.exercise('o/greeting', STARTER)
@@ -193,14 +205,10 @@ class AddLessonTests(Sandbox):
         self.assertEqual(code, 1)
         self.assertIn('lowercase', err)
 
-    def test_too_many_test_files_are_refused(self):
-        real = exercise_tests.MAX_FILES
-        exercise_tests.MAX_FILES = 3  # the same rule as 500, without making 501 files
-        self.addCleanup(setattr, exercise_tests, 'MAX_FILES', real)
-        self.exercise('o/greeting', {**STARTER, **{f'src/test/resources/f{n}.txt': 'x' for n in range(3)}})
-        code, _, err = self.cli('add-lesson', 'greeting', 'Greeting', 'o/greeting', 'tests')
-        self.assertEqual(code, 1)
-        self.assertIn(f'more than {exercise_tests.MAX_FILES} files', err)
+    def test_500_test_files_are_taken_and_501_are_refused(self):
+        count, _ = self.starter_tests()
+        self.at_the_cap_and_over('many', lambda over: {f'src/test/resources/f{n}.txt': 'x' for n in range(500 - count + over)},
+                                 'more than 500 files')
 
     def test_it_can_go_in_a_batch(self):
         self.exercise('o/greeting', STARTER)

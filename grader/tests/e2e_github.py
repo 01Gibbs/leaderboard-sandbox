@@ -213,14 +213,15 @@ def lessons_journey(gh, exercise):
         failures += report('its save starts grading, whose trial puts it live',
                            run['conclusion'] == 'success' and live is not None and 'status' not in live and trial.get('passed') is True,
                            f'{run["html_url"]}: {"; ".join(trial.get("reasons", [])) or "no trial"}')
-        promoted = time.time()
-        run = gh.finish(gh.find_run('grade.yml', 'push', promoted - 300), every=15)
+        run = gh.finish(gh.find_run('grade.yml', 'push', _when(run['created_at'])), every=15)  # started by the trial run's push
         failures += report('going live starts grading again, for its pull requests', run['conclusion'] == 'success', run['html_url'])
     finally:
         if lesson():
+            removing = time.time()
             issue, reply, record = gh.send_batch(f'e2e-lesson-remove-{int(time.time())}', [['remove-lesson', LESSON]])
             failures += report('remove it again', issue.get('state_reason') == 'completed', reply.splitlines()[0] if reply else issue['html_url'])
-        gh.finish(gh.find_run('grade.yml', 'push', time.time() - 300), every=15)  # the removal's save starts grading too
+            # The removal's save starts grading too: wait for that run, not an earlier one, before the next journey's start.
+            gh.finish(gh.find_run('grade.yml', 'push', removing), every=15)
         same = gh.file('lessons.json') == start_lessons and gh.tree('grader/fixtures') == start_files
         failures += report('lessons.json and the pinned tests are back where they started', same, '')
     return failures
@@ -246,17 +247,16 @@ def main(argv):
     me = gh.me()
     stamp = datetime.now(timezone.utc).strftime('%H%M%S')
     lesson = json.loads(gh.file('lessons.json'))[-1]['key']
-    start = Start(gh.file('participants.csv'), json.loads(gh.file('grader/history.json') or '[]'))
     failures = []
     if a.all or a.lessons:
         print('\n--- A lesson added from the page: tried, put live, removed')
         failures += lessons_journey(gh, a.exercise)
     if a.all or not (a.issues or a.lessons):
         print('\n--- Changes through the Actions forms')
-        failures += actions_journey(gh, me, f'{stamp}a', lesson, start)
+        failures += actions_journey(gh, me, f'{stamp}a', lesson, Start.now(gh))
     if a.all or a.issues:
         print('\n--- Changes sent as issues, as the facilitator page sends them')
-        failures += issues_journey(gh, f'{stamp}i', lesson, start)
+        failures += issues_journey(gh, f'{stamp}i', lesson, Start.now(gh))
 
     if a.all:
         print('\n--- Grading and the other workflows')
@@ -288,10 +288,15 @@ def main(argv):
 
 
 class Start:
-    """main as it was before the test: participants.csv and grader/history.json."""
+    """main as it was before a journey: participants.csv and grader/history.json. Taken as each journey begins,
+    not once: the lesson journey's trial starts real grading, which may rightly raise people's results."""
 
     def __init__(self, csv_text, history):
         self.csv, self.history = csv_text, history
+
+    @classmethod
+    def now(cls, gh):
+        return cls(gh.file('participants.csv'), json.loads(gh.file('grader/history.json') or '[]'))
 
     def problem(self, gh):
         """None when main is back where it started; otherwise what differs."""
