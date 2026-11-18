@@ -387,5 +387,43 @@
         "after": null
       }
     ]
+  },
+  {
+    "id": "caa6073",
+    "at": "2026-11-18T19:24:23+00:00",
+    "by": "01Gibbs",
+    "action": "Renamed E2E Check 191805a to E2E Check 191805a R",
+    "changes": [
+      {
+        "before": {
+          "name": "E2E Check 191805a",
+          "github_username": "",
+          "fizzbuzz": "",
+          "rest_api": "",
+          "framework_upgrade": "",
+          "stretch": "",
+          "pr_stretch": "",
+          "helped": "2",
+          "container_image": "",
+          "bonus": "",
+          "library_replacement": "correct",
+          "e2e_lesson": ""
+        },
+        "after": {
+          "name": "E2E Check 191805a R",
+          "github_username": "",
+          "fizzbuzz": "",
+          "rest_api": "",
+          "framework_upgrade": "",
+          "stretch": "",
+          "pr_stretch": "",
+          "helped": "2",
+          "container_image": "",
+          "bonus": "",
+          "library_replacement": "correct",
+          "e2e_lesson": ""
+        }
+      }
+    ]
   }
 ]
