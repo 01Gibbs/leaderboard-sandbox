@@ -460,5 +460,84 @@
         "change": null
       }
     ]
+  },
+  "e2e-110408i": {
+    "at": "2026-11-18T11:15:27+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "add",
+          "E2E Check 110408i",
+          ""
+        ],
+        "ok": true,
+        "message": "Added E2E Check 110408i",
+        "change": "c403a26"
+      },
+      {
+        "args": [
+          "award",
+          "E2E Check 110408i",
+          "helped",
+          "2"
+        ],
+        "ok": true,
+        "message": "Gave 2 helps to E2E Check 110408i (helped: 0 -> 2)",
+        "change": "c6f0327"
+      },
+      {
+        "args": [
+          "mark",
+          "E2E Check 110408i",
+          "library_replacement",
+          "correct"
+        ],
+        "ok": true,
+        "message": "Marked E2E Check 110408i library_replacement as correct (was none).",
+        "change": "cb1286e"
+      },
+      {
+        "args": [
+          "add",
+          "E2E Duplicate 110408i",
+          ""
+        ],
+        "ok": true,
+        "message": "Added E2E Duplicate 110408i",
+        "change": "caed306"
+      },
+      {
+        "args": [
+          "merge",
+          "E2E Check 110408i",
+          "E2E Duplicate 110408i"
+        ],
+        "ok": true,
+        "message": "Merged E2E Duplicate 110408i into E2E Check 110408i",
+        "change": "c9857b9"
+      },
+      {
+        "args": [
+          "award",
+          "Nobody 110408i",
+          "helped",
+          "1"
+        ],
+        "ok": false,
+        "message": "Nobody called \"Nobody 110408i\" is on the leaderboard. Did you mean 'E2E Check 110408i'? To add someone new, use \"add\".",
+        "change": null
+      },
+      {
+        "args": [
+          "rename",
+          "E2E Check 110408i",
+          "E2E Check 110408i R"
+        ],
+        "ok": true,
+        "message": "Renamed E2E Check 110408i to E2E Check 110408i R",
+        "change": "c6b0fd0"
+      }
+    ]
   }
 }
