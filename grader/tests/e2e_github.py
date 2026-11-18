@@ -99,8 +99,9 @@ class GitHub:
     def send_batch(self, batch_id, rows):
         """What the facilitator page's Send does: one Changes issue with every row, answered and closed. Returns
         (the issue, its reply, the batch's record in grader/batches.json)."""
-        body = f'### Batch\n\n{batch_id}\n\n### Changes\n\n' + '\n'.join(json.dumps(r) for r in rows)
-        issue = self.open_issue('Facilitator: Changes', body)
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+        import issue_form
+        issue = self.open_issue('Facilitator: Changes', issue_form.batch_body(batch_id, rows))
         for _ in range(60):
             time.sleep(5)
             issue = self.call('GET', f'/repos/{self.repo}/issues/{issue["number"]}')

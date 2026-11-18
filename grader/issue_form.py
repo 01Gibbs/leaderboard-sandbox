@@ -65,6 +65,12 @@ def command(title, body):
     return [name, *(given.get(label, '') or DEFAULTS.get(field, '') for label, field in inputs)]
 
 
+def batch_body(batch, rows):
+    """A Changes issue's body, as the facilitator page writes it (changes.js issueBody; a test holds them to the same
+    text): the batch id, then one change a line, each a JSON list."""
+    return f'### Batch\n\n{batch}\n\n### Changes\n\n' + '\n'.join(json.dumps(r, ensure_ascii=False, separators=(',', ':')) for r in rows)
+
+
 def batch_command(body):
     """["batch", id, JSON list of rows] from a Changes issue. A line that is not JSON is passed on as it is, for
     `leaderboard.py batch` to refuse with a reason."""
