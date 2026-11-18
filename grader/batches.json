@@ -1078,5 +1078,56 @@
         "change": null
       }
     ]
+  },
+  "e2e-191805a-undo": {
+    "at": "2026-11-18T19:25:33+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "undo",
+          "cc72271"
+        ],
+        "ok": true,
+        "message": "Undid: Merged E2E Duplicate 191805a into E2E Check 191805a (by 01Gibbs at 2026-11-18T19:24:03+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c84d713"
+        ],
+        "ok": true,
+        "message": "Undid: Added E2E Duplicate 191805a (by 01Gibbs at 2026-11-18T19:23:44+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c0cb7ce"
+        ],
+        "ok": true,
+        "message": "Undid: Marked E2E Check 191805a library_replacement as correct (was none). (by 01Gibbs at 2026-11-18T19:23:19+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c51c2bd"
+        ],
+        "ok": true,
+        "message": "Undid: Gave 2 helps to E2E Check 191805a (helped: 0 -> 2) (by 01Gibbs at 2026-11-18T19:22:58+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c783e65"
+        ],
+        "ok": true,
+        "message": "Undid: Added E2E Check 191805a (by 01Gibbs at 2026-11-18T19:22:32+00:00)",
+        "change": null
+      }
+    ]
   }
 }
