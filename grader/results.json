@@ -383,16 +383,30 @@
       "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/10",
       "version": "8aec7018e500"
     },
+    "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#11": {
+      "check": "library_replacement",
+      "checked_at": "2026-11-18T11:06:18+00:00",
+      "created_at": "2026-11-17T15:05:08Z",
+      "login": "agomes24",
+      "passed": true,
+      "reasons": [
+        "old libraries gone, tests pass unchanged: same API, CSV and log message"
+      ],
+      "sha": "fa7ff812114e764c31b1aeab28d951c248aa7148",
+      "task": "library_replacement",
+      "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/11",
+      "version": "8aec7018e500"
+    },
     "AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary#2": {
       "check": "library_replacement",
-      "checked_at": "2026-11-17T11:22:54+00:00",
+      "checked_at": "2026-11-18T11:06:31+00:00",
       "created_at": "2026-11-16T12:36:22Z",
       "login": "j-r-wil",
       "passed": true,
       "reasons": [
         "old libraries gone, tests pass unchanged: same API, CSV and log message"
       ],
-      "sha": "217796893e16a5eb1cf2e4d4a23fedb92566644e",
+      "sha": "3e03ba62a78fb57268bd59298858338c346d4266",
       "task": "library_replacement",
       "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/2",
       "version": "8aec7018e500"
@@ -494,20 +508,6 @@
       "task": "library_replacement",
       "url": "https://github.com/AtulKumarSharma79/ReplaceUnsupportedthirdpartylibrary/pull/9",
       "version": "8aec7018e500"
-    },
-    "AtulKumarSharma79/containerbaseimage#1": {
-      "check": "container_image",
-      "checked_at": "2026-11-17T11:20:46+00:00",
-      "created_at": "2026-11-17T11:17:49Z",
-      "login": "01Gibbs",
-      "passed": true,
-      "reasons": [
-        "approved pinned JRE base, multi-stage, non-root, app works in the container"
-      ],
-      "sha": "8311065ec0208c4951caae89f3abd4e75a74005e",
-      "task": "container_image",
-      "url": "https://github.com/AtulKumarSharma79/containerbaseimage/pull/1",
-      "version": "4e4ea39705e5"
     },
     "meswright/excersize-1#1": {
       "check": "fizzbuzz",
@@ -648,6 +648,16 @@
       "task": "fizzbuzz",
       "url": "https://github.com/meswright/excersize-1/pull/9",
       "version": "e2efb175ca1f"
+    }
+  },
+  "trials": {
+    "e2e_lesson": {
+      "at": "2026-11-18T11:06:37Z",
+      "passed": true,
+      "reasons": [
+        "the pinned tests compile against the starter"
+      ],
+      "version": "6fa5fa415be1"
     }
   }
 }
