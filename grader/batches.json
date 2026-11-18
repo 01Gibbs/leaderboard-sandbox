@@ -1208,5 +1208,65 @@
         "change": "c531834"
       }
     ]
+  },
+  "e2e-191805i-undo": {
+    "at": "2026-11-18T19:27:55+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "undo",
+          "c531834"
+        ],
+        "ok": true,
+        "message": "Undid: Renamed E2E Check 191805i to E2E Check 191805i R (by 01Gibbs at 2026-11-18T19:27:10+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c27fa13"
+        ],
+        "ok": true,
+        "message": "Undid: Merged E2E Duplicate 191805i into E2E Check 191805i (by 01Gibbs at 2026-11-18T19:27:10+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c84aa16"
+        ],
+        "ok": true,
+        "message": "Undid: Added E2E Duplicate 191805i (by 01Gibbs at 2026-11-18T19:27:10+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c4eb7c7"
+        ],
+        "ok": true,
+        "message": "Undid: Marked E2E Check 191805i library_replacement as correct (was none). (by 01Gibbs at 2026-11-18T19:27:10+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c2ef8a7"
+        ],
+        "ok": true,
+        "message": "Undid: Gave 2 helps to E2E Check 191805i (helped: 0 -> 2) (by 01Gibbs at 2026-11-18T19:27:10+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c75159b"
+        ],
+        "ok": true,
+        "message": "Undid: Added E2E Check 191805i (by 01Gibbs at 2026-11-18T19:27:10+00:00)",
+        "change": null
+      }
+    ]
   }
 }
