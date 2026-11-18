@@ -762,5 +762,65 @@
         "change": "cb7c60e"
       }
     ]
+  },
+  "e2e-141228i-undo": {
+    "at": "2026-11-18T14:22:59+00:00",
+    "by": "01Gibbs",
+    "rows": [
+      {
+        "args": [
+          "undo",
+          "cb7c60e"
+        ],
+        "ok": true,
+        "message": "Undid: Renamed E2E Check 141228i to E2E Check 141228i R (by 01Gibbs at 2026-11-18T14:22:15+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "cd0e713"
+        ],
+        "ok": true,
+        "message": "Undid: Merged E2E Duplicate 141228i into E2E Check 141228i (by 01Gibbs at 2026-11-18T14:22:15+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c69f066"
+        ],
+        "ok": true,
+        "message": "Undid: Added E2E Duplicate 141228i (by 01Gibbs at 2026-11-18T14:22:15+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c2e2be0"
+        ],
+        "ok": true,
+        "message": "Undid: Marked E2E Check 141228i library_replacement as correct (was none). (by 01Gibbs at 2026-11-18T14:22:15+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "c8cc10e"
+        ],
+        "ok": true,
+        "message": "Undid: Gave 2 helps to E2E Check 141228i (helped: 0 -> 2) (by 01Gibbs at 2026-11-18T14:22:15+00:00)",
+        "change": null
+      },
+      {
+        "args": [
+          "undo",
+          "cd9bcbd"
+        ],
+        "ok": true,
+        "message": "Undid: Added E2E Check 141228i (by 01Gibbs at 2026-11-18T14:22:15+00:00)",
+        "change": null
+      }
+    ]
   }
 }
