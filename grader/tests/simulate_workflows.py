@@ -14,6 +14,8 @@ import tempfile
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(SRC / 'grader'))
+import lessons  # noqa: E402
 WF = SRC / '.github' / 'workflows'
 work = Path(tempfile.mkdtemp())
 origin, clone = work / 'origin.git', work / 'clone'
@@ -183,7 +185,7 @@ expect(ok and "❌ Nothing was changed" in s and "Did you mean 'Stuart Smith'" i
 expect(outputs.get('outcome') == 'refused', "typo: the run's outcome is refused")
 expect(csv_at_origin() == before, 'typo: origin unchanged')
 ok, s = run_facilitator('facilitator-mark.yml', {'person': 'Bukky Adeyemi', 'lesson': 'docker', 'status': 'correct'})
-keys = ', '.join(lesson['key'] for lesson in json.loads((SRC / 'lessons.json').read_text()))
+keys = ', '.join(lesson.key for lesson in lessons.load(SRC))  # the live ones: main may have a lesson being checked
 expect(ok and keys in s, 'mark: unknown exercise lists the valid keys, run succeeds')
 
 workflow = yaml(WF / 'facilitator-action.yml')
