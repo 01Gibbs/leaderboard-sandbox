@@ -30,7 +30,7 @@ jobs:
           - { module: grader/lesson_lifecycle.py, tests: test_lesson_lifecycle test_add_lesson test_grading }
           - { module: grader/exercise_tests.py, tests: test_exercise_tests test_add_lesson }
           - { module: grader/issue_form.py, tests: test_issue_form test_facilitator_page test_changes_box }
-          - { module: grader/leaderboard.py, tests: test_roster test_add_lesson test_issue_form }
+          - { module: grader/leaderboard.py, tests: test_roster test_add_lesson test_issue_form test_actions }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:

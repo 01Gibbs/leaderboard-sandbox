@@ -21,7 +21,7 @@ def _load(path=SCORING_JS):
 
 
 RULES = _load()
-STATUSES = ['none', 'submitted', 'correct']  # lowest to highest
+STATUSES = list(RULES['statusOrder'])  # lowest to highest: a higher one is never lowered, and merging keeps it
 RANK = {s: i for i, s in enumerate(STATUSES)}
 BASE_COLUMNS = list(RULES['baseColumns'])
 COUNTS = list(RULES['counts'])

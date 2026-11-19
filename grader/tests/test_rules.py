@@ -12,6 +12,7 @@ from pathlib import Path
 GRADER = Path(__file__).resolve().parents[1]
 ROOT = GRADER.parent
 sys.path.insert(0, str(GRADER))
+import roster  # noqa: E402
 import rules  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -133,6 +134,14 @@ class ParityTests(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         # Zed, Amy and Ben all have 40 points: Zed and Ben have one correct exercise, so they come first (by name).
         self.assertEqual(json.loads(r.stdout), [[1, 'Ben', 40], [1, 'Zed', 40], [1, 'Amy', 40], [4, 'Cal', 0]])
+
+    def test_each_row_has_its_logins_split_as_the_grader_splits_them_and_its_whole_name(self):
+        long_name = 'Ann ' + 'Very ' * 30 + 'Long'
+        cells = 'ann-a, @ann-b;ann-c|ann-d  ann-e'
+        rows = page.read(f'name,github_username\n"{long_name}","{cells}"\nBo,\n', [])['rows']
+        self.assertEqual([(p['name'], p['logins']) for p in rows],
+                         [(long_name, ['ann-a', 'ann-b', 'ann-c', 'ann-d', 'ann-e']), ('Bo', [])])
+        self.assertEqual(rows[0]['logins'], roster.logins({'github_username': cells}))
 
     def test_cases_cover_what_they_claim(self):
         self.assertEqual([p['name'] for p in self.page['quotes_commas_and_blank_rows']['rows']], ['Rao, Asha "AR"'])
