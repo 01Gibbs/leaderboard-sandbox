@@ -14,6 +14,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / 'grader'))
+import exercise_tests  # noqa: E402
 import leaderboard  # noqa: E402
 import lessons  # noqa: E402
 
@@ -191,6 +192,9 @@ class LessonActionTests(Grader):
         out = run(f"const l = {json.dumps(lesson)}; log.push(act.removeLesson(l), act.tryLessonAgain(l));")
         self.assertEqual(out[0]['changes'], [{'args': ['remove-lesson', 'fizzbuzz'], 'text': 'Remove lesson FizzBuzz'}])
         self.assertEqual(rows(out[1:]), [['remove-lesson', 'fizzbuzz'], ['add-lesson', 'fizzbuzz', 'FizzBuzz', 'o/fizz', 'build', 'o/t', 'app']])
+
+    def test_only_the_levels_the_grader_adds_a_lesson_with_are_offered(self):
+        self.assertEqual(run("log.push(GENERIC);")[0], list(exercise_tests.GENERIC))
 
     def test_a_column_name_is_made_from_the_name_shown(self):
         out = run("log.push(['Replace a Library!', '2nd go', 'x'.repeat(60)].map(keyFrom));")

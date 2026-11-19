@@ -129,7 +129,9 @@ def change(a, root, board):
     import lesson_lifecycle
     if a.cmd == 'remove-lesson':
         return lesson_lifecycle.remove(root, a.key), None
-    return lesson_lifecycle.add(root, a.key, a.label, a.repo, a.check, a.tests_repo, a.tests_dir), None
+    if a.cmd == 'add-lesson':
+        return lesson_lifecycle.add(root, a.key, a.label, a.repo, a.check, a.tests_repo, a.tests_dir), None
+    raise ValueError(f'{a.cmd} is not a facilitator change')  # BATCHABLE and this list name the same commands
 
 
 class RowParser(argparse.ArgumentParser):
