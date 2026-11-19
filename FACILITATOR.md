@@ -21,7 +21,7 @@ Find the person (press `/` and type a name or GitHub username), then:
 | Take away a help, a stretch task or bonus points | **More → Take some away…** (one help or stretch at a time; bonus asks how many points) |
 | Give the same to a group | Tick **Select several**, tick them, **+1 help each** |
 | Mark an exercise you checked by hand | **Mark correct** next to it |
-| Show a real name instead of a GitHub username | **More → Rename…** |
+| Show a real name instead of a GitHub username | **More → Rename…** (a name someone else has is refused) |
 | Fix someone who appears twice | Pick the row to keep, **More → Same person as…** |
 | Add someone with no pull request yet | Type their name; **Add** appears when nobody matches |
 | Reverse a mistake | **Undo** next to it, under *Recent changes* |

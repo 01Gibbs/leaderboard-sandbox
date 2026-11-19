@@ -221,6 +221,7 @@ dialog::backdrop { background: rgb(0 0 0 / 0.4); }
 <script src="scoring.js"></script>
 <script src="github-reader.js"></script>
 <script src="changes.js"></script>
+<script src="actions.js"></script>
 <script>
 // Two tabs: Workshop (Grade now; the lessons, each live, checking or failed its trial; add or remove one) and People
 // (pick a person, then act). Each action, from either tab, adds a row to the Changes box. Send turns every waiting row into ONE
@@ -363,22 +364,16 @@ async function loadBoard(fromGitHub) {
   if (!lessons.length) lessons = await fetch('lessons.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : []))
     .then((all) => all.filter((l) => l.status !== 'checking'));  // checking: not live yet (loadLessons keeps this current)
   const tracks = lessons.map((l) => ({ k: l.key, label: l.label }));
-  const read = readParticipants(csv, tracks);
-  const table = parseCSV(csv), head = (table[0] || []).map(normHeader);
-  const logins = new Map(table.slice(1).map((r) => [(r[head.indexOf('name')] || '').trim(), (r[head.indexOf('github_username')] || '').trim()]));
-  people = rankParticipants(read.rows, tracks).map(({ p, pts, rank }) => ({
-    ...p, points: pts, rank, logins: (logins.get(p.name) || '').split(/[\s,;|]+/).filter(Boolean) }));
-  if (selected) selected = people.find((p) => p.name === selected.name) || null;
+  people = rankParticipants(readParticipants(csv, tracks).rows, tracks).map(({ p, pts, rank }) => ({ ...p, points: pts, rank }));
+  if (selected) selected = byHandle(handleOf(selected));
   renderRoster();
   renderPerson();
 }
+// A person is picked, ticked and sent by their handle (actions.js): their login, or their name when they have none.
+const byHandle = (h) => people.find((p) => handleOf(p) === h) || null;
 function matches(p, q) {
   q = q.trim().replace(/^@/, '').toLowerCase();
   return !q || p.name.toLowerCase().includes(q) || p.logins.some((l) => l.toLowerCase().includes(q));
-}
-function findExact(q) {
-  q = q.trim().replace(/^@/, '').toLowerCase();
-  return people.find((p) => p.name.toLowerCase() === q || p.logins.some((l) => l.toLowerCase() === q));
 }
 
 /* ---- roster ---- */
@@ -390,17 +385,18 @@ function renderRoster() {
     li.setAttribute('role', 'option');
     li.id = 'person-' + i;
     li.dataset.name = p.name;
-    li.setAttribute('aria-selected', String(!!selected && selected.name === p.name));
+    li.dataset.handle = handleOf(p);
+    li.setAttribute('aria-selected', String(selected === p));
     if ($('multi').checked) {
       const box = el('input');
       box.type = 'checkbox';
-      box.checked = ticked.has(p.name);
+      box.checked = ticked.has(handleOf(p));
       box.setAttribute('aria-label', 'Select ' + p.name);
-      box.addEventListener('click', (e) => { e.stopPropagation(); toggleTick(p.name); });
+      box.addEventListener('click', (e) => { e.stopPropagation(); toggleTick(handleOf(p)); });
       li.append(box);
     }
     li.append(el('span', 'name', p.name), el('span', 'pts', `${p.points} · #${p.rank}`));
-    li.addEventListener('click', () => ($('multi').checked ? toggleTick(p.name) : pick(p.name)));
+    li.addEventListener('click', () => ($('multi').checked ? toggleTick(handleOf(p)) : pick(handleOf(p))));
     return li;
   }));
   $('find').setAttribute('aria-activedescendant', active >= 0 && list.length ? 'person-' + active : '');
@@ -409,12 +405,10 @@ function renderRoster() {
   $('addRow').hidden = !typed || list.length > 0;  // Add appears where a search finds nobody
   if (!$('addRow').hidden) $('addRow').replaceChildren(el('span', 'muted', `No one called “${typed}”. `), button(`Add ${typed}`, () => showAdd(typed), 'link'));
 }
-function pick(name) { selected = people.find((p) => p.name === name) || null; closeMenu(); renderRoster(); renderPerson(); }
-function toggleTick(name) { ticked.has(name) ? ticked.delete(name) : ticked.add(name); renderRoster(); renderPerson(); }
+function pick(handle) { selected = byHandle(handle); closeMenu(); renderRoster(); renderPerson(); }
+function toggleTick(handle) { ticked.has(handle) ? ticked.delete(handle) : ticked.add(handle); renderRoster(); renderPerson(); }
 
 /* ---- one person, or several ticked ---- */
-const UNITS = { helped: ['help', 'helps'], stretch: ['stretch task', 'stretch tasks'], bonus: ['bonus point', 'bonus points'] };
-function plural(n, kind) { return `${Math.abs(n)} ${UNITS[kind][Math.abs(n) === 1 ? 0 : 1]}`; }
 function renderPerson() {
   const pane = $('person');
   if ($('multi').checked && ticked.size) return renderSeveral(pane);
@@ -431,7 +425,7 @@ function renderPerson() {
   more.id = 'more';
   more.setAttribute('aria-haspopup', 'menu');
   more.setAttribute('aria-expanded', 'false');
-  actions.append(button('+1 help', () => award([p.name], 'helped', 1)), button('+1 stretch', () => award([p.name], 'stretch', 1)), more);
+  actions.append(button('+1 help', () => award([p], 'helped', 1)), button('+1 stretch', () => award([p], 'stretch', 1)), more);
   actions.firstChild.setAttribute('aria-label', `Give ${p.name} a help`);
   actions.children[1].setAttribute('aria-label', `Give ${p.name} a stretch task`);
   const facts = el('dl', 'facts');
@@ -441,7 +435,7 @@ function renderPerson() {
     const dd = el('dd', '', RULES.labels[status]);
     const cell = el('dd');
     if (status !== 'correct') {
-      const b = button('Mark correct', () => queueRow(['mark', p.name, l.key, 'correct'], `Mark ${p.name}'s ${l.label} as correct.`), 'link');
+      const b = button('Mark correct', () => queue(act().mark(p, l.key, 'correct')), 'link');
       b.setAttribute('aria-label', `Mark ${p.name}'s ${l.label} correct`);
       cell.append(b);
     }
@@ -456,16 +450,17 @@ function renderPerson() {
   pane.children[2].id = 'inline';
 }
 function renderSeveral(pane) {
-  const names = [...ticked];
+  const who = [...ticked].map(byHandle).filter(Boolean);
   const actions = el('div', 'actions');
-  actions.append(button('+1 help each', () => award(names, 'helped', 1)), button('+1 stretch each', () => award(names, 'stretch', 1)),
-    button('Bonus points each…', () => showBonus(names)), button('Clear', () => { ticked.clear(); renderRoster(); renderPerson(); }));
-  pane.replaceChildren(el('h2', '', `${names.length} selected`), el('p', 'muted', names.join(', ')), actions, el('div'));
+  actions.append(button('+1 help each', () => award(who, 'helped', 1)), button('+1 stretch each', () => award(who, 'stretch', 1)),
+    button('Bonus points each…', () => showBonus(who)), button('Clear', () => { ticked.clear(); renderRoster(); renderPerson(); }));
+  pane.replaceChildren(el('h2', '', `${who.length} selected`), el('p', 'muted', who.map((p) => p.name).join(', ')), actions, el('div'));
   pane.children[3].id = 'inline';
 }
 function touches(h, p) {
+  const mine = new Set(p.logins.map((l) => l.toLowerCase()));
   return (h.changes || []).some((c) => [c.before, c.after].some((r) => r && (r.name === p.name
-    || p.logins.some((l) => (r.github_username || '').toLowerCase().split(/\s+/).includes(l.toLowerCase())))));
+    || loginsOf(r.github_username).some((l) => mine.has(l.toLowerCase())))));
 }
 
 /* ---- More menu (APG menu button) ---- */
@@ -474,7 +469,7 @@ function toggleMenu(anchor) {
   const p = selected, menu = el('ul');
   menu.id = 'menu';
   menu.setAttribute('role', 'menu');
-  [['Bonus points…', () => showBonus([p.name])], ['Take some away…', () => showTakeAway(p)], ['Set a result…', () => showResult(p)],
+  [['Bonus points…', () => showBonus([p])], ['Take some away…', () => showTakeAway(p)], ['Set a result…', () => showResult(p)],
    ['Rename…', () => showRename(p)], ['Same person as…', () => showMerge(p)]].forEach(([text, fn]) => {
     const li = el('li');
     li.setAttribute('role', 'none');
@@ -514,9 +509,9 @@ function inline(title, fields, ok, onOk) {
 function field(label, input) { const l = el('label', '', label); l.append(input); return l; }
 function input(name, value = '', type = 'text') { const i = el('input'); i.name = name; i.type = type; i.value = value; i.autocomplete = 'off'; return i; }
 // Helps and stretch tasks count one at a time (+1 help, +1 stretch); only bonus points have an amount.
-function showBonus(names) {
-  inline(`Bonus points for ${names.length > 1 ? names.length + ' people' : names[0]}`, [field('Points', input('amount', '1', 'number'))], 'Add to changes',
-    (box) => award(names, 'bonus', parseInt(box.elements.amount.value, 10)));
+function showBonus(who) {
+  inline(`Bonus points for ${who.length > 1 ? who.length + ' people' : who[0].name}`, [field('Points', input('amount', '1', 'number'))], 'Add to changes',
+    (box) => award(who, 'bonus', parseInt(box.elements.amount.value, 10)));
 }
 function showTakeAway(p) {
   const kind = el('select');
@@ -526,7 +521,7 @@ function showTakeAway(p) {
   const showPoints = () => { points.hidden = kind.value !== 'bonus'; };
   kind.addEventListener('change', showPoints);
   inline(`Take away from ${p.name}`, [field('What', kind), points], 'Add to changes',
-    (box) => award([p.name], kind.value, kind.value === 'bonus' ? -Math.abs(parseInt(box.elements.amount.value, 10)) : -1));
+    (box) => award([p], kind.value, kind.value === 'bonus' ? -Math.abs(parseInt(box.elements.amount.value, 10)) : -1));
   showPoints();
 }
 function showResult(p) {
@@ -535,48 +530,33 @@ function showResult(p) {
   lessons.forEach((l) => { const o = el('option', '', l.label); o.value = l.key; lesson.append(o); });
   ['correct', 'submitted', 'none'].forEach((s) => { const o = el('option', '', RULES.labels[s]); o.value = s; status.append(o); });
   inline(`Set a result for ${p.name}`, [field('Exercise', lesson), field('Result', status),
-    el('p', 'hint', 'A result cannot go below what a pull request earned: GitHub will say so if it does.')], 'Add to changes', (box) => {
-    const l = lessons.find((x) => x.key === box.elements.lesson.value), s = box.elements.status.value;
-    queueRow(['mark', p.name, l.key, s], `Mark ${p.name}'s ${l.label} as ${RULES.labels[s].toLowerCase()}.`);
-  });
+    el('p', 'hint', 'A result cannot go below what a pull request earned: GitHub will say so if it does.')], 'Add to changes',
+    (box) => queue(act().mark(p, box.elements.lesson.value, box.elements.status.value)));
 }
 function showRename(p) {
-  inline(`Rename ${p.name}`, [field('Name to show', input('new_name', p.name))], 'Add to changes', (box) => {
-    const name = box.elements.new_name.value.trim();
-    if (!name || name === p.name) return check('Give a different name.');
-    if (findExact(name)) return check(`${name} is already on the board.`);
-    queueRow(['rename', p.name, name], `Show ${p.name} as ${name}.`);
-  });
+  inline(`Rename ${p.name}`, [field('Name to show', input('new_name', p.name))], 'Add to changes',
+    (box) => queue(act().rename(p, box.elements.new_name.value)));
 }
 function showAdd(name) {
-  inline(`Add ${name}`, [field('Full name', input('name', name)), field('GitHub username (if you know it)', input('github'))], 'Add to changes', (b) => {
-    const n = b.elements.name.value.trim(), gh = b.elements.github.value.trim().replace(/^@/, '');
-    if (!n) return check('Give a name.');
-    if (findExact(n) || (gh && findExact(gh))) return check(`${findExact(n) ? n : '@' + gh} is already on the board.`);
-    queueRow(['add', n, gh], `Add ${n}${gh ? ' (@' + gh + ')' : ''}.`);
-  });
+  inline(`Add ${name}`, [field('Full name', input('name', name)), field('GitHub username (if you know it)', input('github'))], 'Add to changes',
+    (b) => queue(act().add(b.elements.name.value, b.elements.github.value)));
 }
 function showMerge(p) {
   const other = el('select');
   other.name = 'other';
   other.append(el('option', '', 'Choose the duplicate'));
   other.firstChild.value = '';
-  people.filter((q) => q.name !== p.name).forEach((q) => { const o = el('option', '', q.name + (q.logins.length ? ` (@${q.logins.join(', @')})` : '')); o.value = q.name; other.append(o); });
+  people.filter((q) => q !== p).forEach((q) => { const o = el('option', '', q.name + (q.logins.length ? ` (@${q.logins.join(', @')})` : '')); o.value = handleOf(q); other.append(o); });
   const preview = el('div');
-  other.addEventListener('change', () => preview.replaceChildren(other.value ? mergePreview(p, people.find((q) => q.name === other.value)) : ''));
+  other.addEventListener('change', () => preview.replaceChildren(other.value ? previewTable(act().mergePreview(p, byHandle(other.value))) : ''));
   inline(`${p.name} is the same person as…`, [field('Duplicate row (folded into ' + p.name + ')', other), preview], 'Add to changes', (box) => {
-    const d = box.elements.other.value;
+    const d = byHandle(box.elements.other.value);
     if (!d) return check('Choose the duplicate row.');
-    queueRow(['merge', p.name, d], `Fold ${d} into ${p.name}.`);
+    return queue(act().merge(p, d));
   });
 }
-function mergePreview(keep, drop) {
-  // What merge keeps: the higher value of every column (roster.py), the kept row's name, both GitHub usernames.
-  const rank = RULES.points;  // a result worth more points is the higher one, as the grader ranks them
-  const t = el('table', 'preview'), rows = [['Name', keep.name, drop.name, keep.name],
-    ['GitHub', keep.logins.join(' ') || '–', drop.logins.join(' ') || '–', [...new Set([...keep.logins, ...drop.logins])].join(' ') || '–']];
-  lessons.forEach((l) => { const a = keep.tracks[l.key], b = drop.tracks[l.key]; rows.push([l.label, RULES.labels[a], RULES.labels[b], RULES.labels[rank[b] > rank[a] ? b : a]]); });
-  [['Helps', 'helped'], ['Stretch', 'stretch'], ['Bonus', 'bonus']].forEach(([k, f]) => rows.push([k, keep[f], drop[f], Math.max(keep[f], drop[f])]));
+function previewTable(rows) {
+  const t = el('table', 'preview');
   t.append(...[['', 'Keep', 'Duplicate', 'Afterwards'], ...rows].map((r, i) => {
     const tr = el('tr');
     r.forEach((c) => tr.append(el(i ? 'td' : 'th', '', String(c))));
@@ -588,15 +568,14 @@ function mergePreview(keep, drop) {
 function check(text) { showError(text); return false; }
 
 /* ---- the Changes box ---- */
-// false when refused (the box stays open, saying why): every name is checked before any row is added.
-function award(names, kind, amount) {
-  if (!Number.isInteger(amount) || amount === 0) return check('The amount must be a whole number other than 0.');
-  for (const n of names) {
-    const p = people.find((x) => x.name === n);
-    if (amount < 0 && p && (p[kind] || 0) + amount < 0 && kind !== 'bonus') return check(`${n} has ${p[kind] || 0} ${UNITS[kind][1]}; cannot take away ${-amount}.`);
-  }
-  names.forEach((n) => queueRow(['award', n, kind, String(amount)], `${amount < 0 ? 'Take' : 'Give'} ${plural(amount, kind)} ${amount < 0 ? 'from' : 'to'} ${n}.`));
+// What each action asks for (actions.js), for the board as it is now.
+const act = () => facilitatorActions({ people, lessons, allLessons });
+// An action's changes into the Changes box; false when it is refused (a form stays open, saying why).
+function queue(result) {
+  if (result.error) return check(result.error);
+  result.changes.forEach((c) => queueRow(c.args, c.text));
 }
+function award(who, kind, amount) { return queue(act().award(who, kind, amount)); }
 function queueRow(args, text) {
   showError('');
   const refused = box.add(args, text);
@@ -710,7 +689,7 @@ function historyItem(h) {
   li.append(text);
   if (h.id) {
     const sent = box.pending((args) => args[0] === 'undo' && args[1] === h.id);
-    const b = button(sent ? 'Undo waiting' : 'Undo', () => queueRow(['undo', h.id], `Undo: ${h.action}`), 'link');
+    const b = button(sent ? 'Undo waiting' : 'Undo', () => queue(act().undo(h)), 'link');
     b.disabled = sent;  // undone once only
     b.setAttribute('aria-label', (sent ? 'Undo waiting: ' : 'Undo: ') + h.action);
     li.append(b);
@@ -726,8 +705,8 @@ document.addEventListener('keydown', (e) => {
   if (typing || e.altKey || e.ctrlKey || e.metaKey) return;
   if (e.key === '?') { $('keys').showModal(); return; }
   if (!keysOn() || !selected || $('multi').checked || $('people-panel').hidden) return;
-  if (e.key === 'h') award([selected.name], 'helped', 1);
-  if (e.key === 's') award([selected.name], 'stretch', 1);
+  if (e.key === 'h') award([selected], 'helped', 1);
+  if (e.key === 's') award([selected], 'stretch', 1);
 });
 $('find').addEventListener('input', () => { active = -1; renderRoster(); });
 $('find').addEventListener('keydown', (e) => {
@@ -743,9 +722,9 @@ $('find').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && first) {
     e.preventDefault();
     active = -1;
-    if ($('multi').checked) return toggleTick(first.dataset.name);
+    if ($('multi').checked) return toggleTick(first.dataset.handle);
     $('find').value = '';  // the whole list again, ready for the next person
-    pick(first.dataset.name);
+    pick(first.dataset.handle);
     $('person').querySelector('h2')?.focus();  // so h and s act on them straight away
   }
   if (e.key === 'Escape') { $('find').value = ''; renderRoster(); }
@@ -823,8 +802,6 @@ async function followLessons() {
     followingLessons = false;
   }
 }
-const GENERIC = ['none', 'build', 'tests'];
-const CHECKED = { none: 'marked by hand', build: 'correct when it builds', tests: 'correct when its tests pass' };
 function lessonState(l) {
   if (l.status !== 'checking') return { text: 'Live', cls: 'ok' };
   const t = trials[l.key];
@@ -832,9 +809,6 @@ function lessonState(l) {
   if (t.passed === false) return { text: 'Failed its trial: ' + (t.reasons[0] || '').split('\n')[0], cls: 'bad', failed: t };
   if (t.passed === null) return { text: 'Checking: the grader could not finish its trial, and tries again at the next run', cls: '' };
   return { text: 'Checking: being tried again (it changed since its last trial)', cls: '' };
-}
-function addLessonRow(l) {
-  return ['add-lesson', l.key, l.label, l.repo, l.check, l.tests_repo || '', l.tests_dir || ''];
 }
 function renderLessons() {
   $('lessonList').replaceChildren(...(allLessons.length ? allLessons.map((l) => {
@@ -853,11 +827,9 @@ function renderLessons() {
     }
     li.append(text);
     const acts = el('div', 'actions-row');
-    if (st.failed && GENERIC.includes(l.check)) {
-      acts.append(button('Try again', () => { queueRow(['remove-lesson', l.key], `Remove lesson ${l.label}`); queueRow(addLessonRow(l), `Add lesson ${l.label} again`); }, 'link'));
-    }
+    if (st.failed && GENERIC.includes(l.check)) acts.append(button('Try again', () => queue(act().tryLessonAgain(l)), 'link'));
     if (GENERIC.includes(l.check)) {  // a custom check is code: added and removed through a pull request
-      const rm = button('Remove', () => queueRow(['remove-lesson', l.key], `Remove lesson ${l.label}`), 'link');
+      const rm = button('Remove', () => queue(act().removeLesson(l)), 'link');
       rm.setAttribute('aria-label', `Remove lesson ${l.label}`);
       acts.append(rm);
     }
@@ -867,18 +839,10 @@ function renderLessons() {
 }
 
 /* ---- add a lesson: the form, its checks without a token, then a row in the Changes box ---- */
-const keyFrom = (label) => label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^[^a-z]+/, '').slice(0, 40).replace(/_+$/, '');
 let keyEdited = false;
 $('lessonLabel').addEventListener('input', () => { if (!keyEdited) $('lessonKey').value = keyFrom($('lessonLabel').value); });
 $('lessonKey').addEventListener('input', () => { keyEdited = true; });
 $('lessonCheck').addEventListener('change', () => { $('testsFrom').hidden = $('lessonCheck').value !== 'tests'; });
-// "owner/name[/folder]", or a GitHub address (github.com/owner/name[/tree/branch[/folder]], with or without https://):
-// [owner/name, folder], or null. A file's address (/blob/) is not a folder. The default branch is always used.
-function repoAndFolder(text) {
-  const t = text.trim().replace(/^(https?:\/\/)?(www\.)?github\.com\//i, '').replace(/\.git$/, '').replace(/\/+$/, '');
-  const m = t.match(/^([\w.-]+\/[\w.-]+)(?:\/tree\/[^/]+(?:\/(.+))?|\/(?!blob\/|tree\/)(.+))?$/);
-  return m ? [m[1], m[2] || m[3] || ''] : null;
-}
 async function lessonChecks(repo, check, testsRepo, folder) {
   // At most a few reads, without a token: the repository (public?) and its files (one tree read). GitHub checks it
   // all again before anything is saved; these only save a facilitator a wasted Send.
@@ -906,27 +870,17 @@ async function lessonChecks(repo, check, testsRepo, folder) {
 $('addLessonForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const checks = $('lessonChecks'), showProblems = (items) => checks.replaceChildren(...items.map((t) => el('li', 'state bad', t)));
-  const where = repoAndFolder($('lessonRepo').value), label = $('lessonLabel').value.trim(), key = $('lessonKey').value.trim();
-  const check = $('lessonCheck').value, elsewhere = check === 'tests' && $('lessonTests').value.trim() !== '';  // empty: its own src/test/
-  const tests = elsewhere ? repoAndFolder($('lessonTests').value) : null;
-  const problems = [];
-  if (!where) problems.push('Give the exercise repository as owner/name, or its GitHub address.');
-  else if (where[1]) problems.push('The exercise is a whole repository: give owner/name, without a folder.');
-  if (!label) problems.push('Give the name shown on the leaderboard.');
-  if (!key) problems.push('Give a column name: lowercase letters, digits and _ (the name shown has none to make one from).');
-  else if (!/^[a-z][a-z0-9_]*$/.test(key)) problems.push('The column name must be lowercase letters, digits and _, starting with a letter.');
-  else if (allLessons.some((l) => l.key === key) || box.pending((a) => a[0] === 'add-lesson' && a[1] === key)) problems.push(`The column name ${key} is already used.`);
-  if (where && (allLessons.some((l) => l.repo.toLowerCase() === where[0].toLowerCase())
-    || box.pending((a) => a[0] === 'add-lesson' && a[3].toLowerCase() === where[0].toLowerCase()))) problems.push(`${where[0]} is already a lesson's repository.`);
-  if (elsewhere && !tests) problems.push('The tests repository is owner/name/folder, or its GitHub folder address; leave it empty for the exercise\'s own src/test/.');
-  if (problems.length) return showProblems(problems);
+  const asked = act().addLesson({ repo: $('lessonRepo').value, label: $('lessonLabel').value, key: $('lessonKey').value,
+    check: $('lessonCheck').value, tests: $('lessonTests').value }, box.pending);
+  if (asked.problems) return showProblems(asked.problems);
   checks.replaceChildren(el('li', 'muted', 'Checking the repository on GitHub…'));
   const submit = e.submitter || $('addLessonForm').querySelector('[type=submit]');
   submit.disabled = true;  // one check at a time: each costs reads
-  const found = await lessonChecks(where[0], check, tests && tests[0], tests ? tests[1] : '').finally(() => { submit.disabled = false; });
+  const { repo, check, testsRepo, folder } = asked.look;
+  const found = await lessonChecks(repo, check, testsRepo, folder).finally(() => { submit.disabled = false; });
   if (found.length) return showProblems(found);
   checks.replaceChildren();
-  queueRow(['add-lesson', key, label, where[0], check, tests ? tests[0] : '', tests ? tests[1] : ''], `Add lesson ${label} (${where[0]}, ${CHECKED[check]})`);
+  queue(asked);
   $('addLessonForm').reset(); keyEdited = false; $('testsFrom').hidden = false;
   $('addLesson').open = false;
 });

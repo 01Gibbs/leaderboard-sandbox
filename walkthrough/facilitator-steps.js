@@ -96,7 +96,7 @@ export function steps(ctx) {
       chapter: 'Changes',
       title: 'Try it: send them',
       target: 'changes',
-      text: '<p>Press <b>Send</b>. On the real page this opens GitHub with every waiting change filled in, in one tab: press <b>Submit new issue</b> there, once. Here, they are made straight away.</p><p>Each row shows <b>Done</b> and leaves the box, or <b>Not done</b> with the reason, for example a misspelt name.</p>',
+      text: '<p>Press <b>Send</b>. On the real page this opens GitHub with every waiting change filled in, in one tab: press <b>Submit new issue</b> there, once. Here, they are made straight away.</p><p>Each row shows <b>Done</b> and leaves the box, or <b>Not done</b> with the reason, for example taking away more than someone has.</p>',
     },
     {
       chapter: 'Changes',
@@ -126,7 +126,7 @@ export function steps(ctx) {
       title: 'Renaming, and one person twice',
       target: 'person',
       tab: 'people',
-      text: `<p><b>More → Rename…</b> shows a real name instead of a GitHub username. <b>More → Same person as…</b> folds a duplicate row into this one: it shows the row as it will be, keeping the higher value of every column, before you add it.</p>`,
+      text: `<p><b>More → Rename…</b> shows a real name instead of a GitHub username (not a name someone else has). <b>More → Same person as…</b> folds a duplicate row into this one: it shows the row as it will be, keeping the higher value of every column, before you add it.</p>`,
     },
 
     // ---------- 6. Done ----------

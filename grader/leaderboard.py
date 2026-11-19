@@ -93,7 +93,27 @@ def run(argv, root, board=None, parser_class=argparse.ArgumentParser):
     a = parser(parser_class).parse_args(argv)
     board = board or roster.Roster(root)
     if a.cmd == 'batch':
-        return run_batch(board, a.id, a.rows, root)
+        return run_batch(a.id, a.rows, root)
+    if a.cmd in BATCHABLE:
+        return change(a, root, board)[0]
+    if a.cmd == 'history':
+        return board.recent(a.count)
+    if a.cmd == 'pin-tests':
+        import exercise_tests
+        sha, count = exercise_tests.pin(root, a.lesson, a.commit)
+        return f'{a.lesson} is graded with its repository\'s {count} test files as of {sha[:7]}'
+    if a.cmd == 'grade':
+        import grade
+        grade.grade_all(root, no_run=a.no_run, only=a.only)
+        return None
+    changes, warnings = board.apply_results(a.results)
+    print('\n'.join([f'Warning: {w}' for w in warnings] + changes) or 'No changes')
+    return None
+
+
+def change(a, root, board):
+    """Make one facilitator change (parsed arguments `a`): (its summary, the id history gave it, or None when it has
+    none: an undo, or a lesson added or removed)."""
     if a.cmd == 'add':
         return board.add(a.name, a.github)
     if a.cmd == 'award':
@@ -106,24 +126,12 @@ def run(argv, root, board=None, parser_class=argparse.ArgumentParser):
         return board.merge(a.keep, a.duplicates)
     if a.cmd == 'undo':
         return board.undo(a.id)
-    if a.cmd == 'history':
-        return board.recent(a.count)
-    if a.cmd in ('add-lesson', 'remove-lesson'):
-        import lesson_lifecycle
-        if a.cmd == 'remove-lesson':
-            return lesson_lifecycle.remove(root, a.key)
-        return lesson_lifecycle.add(root, a.key, a.label, a.repo, a.check, a.tests_repo, a.tests_dir)
-    if a.cmd == 'pin-tests':
-        import exercise_tests
-        sha, count = exercise_tests.pin(root, a.lesson, a.commit)
-        return f'{a.lesson} is graded with its repository\'s {count} test files as of {sha[:7]}'
-    if a.cmd == 'grade':
-        import grade
-        grade.grade_all(root, no_run=a.no_run, only=a.only)
-        return None
-    changes, warnings = board.apply_results(a.results)
-    print('\n'.join([f'Warning: {w}' for w in warnings] + changes) or 'No changes')
-    return None
+    import lesson_lifecycle
+    if a.cmd == 'remove-lesson':
+        return lesson_lifecycle.remove(root, a.key), None
+    if a.cmd == 'add-lesson':
+        return lesson_lifecycle.add(root, a.key, a.label, a.repo, a.check, a.tests_repo, a.tests_dir), None
+    raise ValueError(f'{a.cmd} is not a facilitator change')  # BATCHABLE and this list name the same commands
 
 
 class RowParser(argparse.ArgumentParser):
@@ -143,10 +151,11 @@ class RowParser(argparse.ArgumentParser):
         pass
 
 
-def run_batch(board, batch_id, text, root):
+def run_batch(batch_id, text, root):
     """Apply each row in order: a refused row does not stop the others. Every change made records its batch and
     row, and grader/batches.json records each row's outcome and change id (for undo), or why the whole batch was
-    refused, so the facilitator page can show it either way."""
+    refused, so the facilitator page can show it either way. A damaged results.json refuses each row, saying so."""
+    board = roster.Roster(root)
     if not BATCH_ID.fullmatch(batch_id):
         raise roster.ActionError(f'"{batch_id}" is not a batch id: 2 to 64 letters, digits and dashes.')
     if batch_id in board.batches():  # never overwrite what the page reads about the first time
@@ -166,14 +175,11 @@ def run_batch(board, batch_id, text, root):
         raise BatchRefused(f'the whole batch {batch_id} was refused.\n❌ {error}')
     outcomes = []
     for n, r in enumerate(rows, 1):
-        board.batch, board.last_change = (batch_id, n), None
         try:
-            message = run(r, root, board, RowParser)
-            outcomes.append({'args': r, 'ok': True, 'message': message, 'change': board.last_change})
-        except roster.ActionError as e:
+            message, made = change(parser(RowParser).parse_args(r), root, roster.Roster(root, batch=(batch_id, n)))
+            outcomes.append({'args': r, 'ok': True, 'message': message, 'change': made})
+        except (roster.ActionError, submissions.ResultsInvalid) as e:
             outcomes.append({'args': r, 'ok': False, 'message': str(e), 'change': None})  # ok says it was refused
-        finally:
-            board.batch = None
     board.record_batch(batch_id, outcomes)
     made = sum(o['ok'] for o in outcomes)
     lines = '\n'.join(('✅ ' if o['ok'] else '❌ ') + o['message'].splitlines()[0]

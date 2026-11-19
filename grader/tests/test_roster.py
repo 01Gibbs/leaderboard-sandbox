@@ -137,6 +137,15 @@ class MarkRenameAddTests(Sandbox):
         self.cli('rename', 'bukkie-create', 'Bukola A')
         self.assertEqual(self.row('bukkie-create')['name'], 'Bukola A')
 
+    def test_rename_refuses_a_name_or_login_already_on_the_board(self):
+        before = self.csv_text()
+        for taken in ('stuart smith', '@StuartJSmith10-dev'):
+            code, _, err = self.cli('rename', 'Bukky Adeyemi', taken)
+            self.assertEqual(code, 1)
+            self.assertIn(f'"{taken}" is already on the leaderboard as Stuart Smith', err)
+        self.assertEqual(self.csv_text(), before)
+        self.assertEqual(self.cli('rename', 'Stuart Smith', 'STUART SMITH')[0], 0, 'their own name, in other capitals')
+
     def test_add_person_and_reject_duplicates(self):
         self.assertEqual(self.cli('add', 'New Person', '@newbie')[0], 0)
         self.assertEqual(self.row('newbie')['name'], 'New Person')
@@ -380,6 +389,16 @@ class BatchTests(Sandbox):
         self.assertIn('Nothing was changed', err)
         self.assertEqual(self.csv_text(), CSV)
         self.assertEqual([r['ok'] for r in self.outcomes('b3')], [False])  # the page still learns why
+
+    def test_damaged_graded_results_refuse_each_row_and_the_page_still_learns_why(self):
+        (self.dir / 'grader' / 'results.json').write_text('{"submissions": {"o/r#1": {"task": "fizzbuzz", "login": "a b", "passed": true}}}')
+        code, _, err = self.batch('dmg1', ('award', 'Stuart Smith', 'helped', '1'), ('rename', 'Stuart Smith', 'Stu'))
+        self.assertEqual(code, 0, 'exit 0, so the workflow saves batches.json')
+        self.assertIn('Nothing was changed', err)
+        self.assertEqual(self.csv_text(), CSV)
+        rows = self.outcomes('dmg1')
+        self.assertEqual([r['ok'] for r in rows], [False, False])
+        self.assertIn('login must be a GitHub login', rows[0]['message'])
 
     def test_one_row_of_a_batch_is_undone_on_its_own(self):
         self.batch('b4', ('award', 'Stuart Smith', 'helped', '1'), ('award', 'Bukky Adeyemi', 'helped', '1'))
@@ -920,8 +939,7 @@ class EdgeTests(Sandbox):
         self.assertEqual(int(self.row('Stuart Smith')['stretch'] or 0), 0)
 
     def test_an_ambiguous_match_without_a_github_account_says_so(self):
-        self.cli('add', 'Bukky Adeyemi Two')
-        self.cli('rename', 'Bukky Adeyemi Two', 'Stuart Smith')
+        (self.dir / 'participants.csv').write_text(CSV + 'Stuart Smith,,,,,,,,\n')  # a hand edit: actions never make one
         code, _, err = self.cli('award', 'Stuart Smith', 'helped')
         self.assertEqual(code, 1)
         self.assertIn('Stuart Smith (@StuartJSmith10-dev), Stuart Smith (@no GitHub)', err)

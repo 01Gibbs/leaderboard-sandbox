@@ -13,6 +13,7 @@ const RULES = /* rules:start */ {
   "counts": ["stretch", "helped", "bonus"],
   "earlyBonus": { "column": "pr_stretch", "firstSubmissions": 3 },
   "labels": { "none": "Not submitted", "submitted": "Submitted", "correct": "Correct" },
+  "statusOrder": ["none", "submitted", "correct"],
   "headerAliases": { "github": "github_username", "githubusername": "github_username", "prstretch": "pr_stretch",
                      "frameworkupgrade": "framework_upgrade", "restapi": "rest_api" },
   "delimiters": [",", ";", "\t"]
@@ -51,7 +52,10 @@ function toInt(v) { const n = parseInt(String(v || '').trim(), 10); return Numbe
 function toCount(v) { return Math.max(0, toInt(v)); }
 function titleCase(k) { const s = k.replace(/_/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1); }
 
-// participants.csv text -> { rows: [{ name, tracks: {key: status}, stretch, prStretch, helped, bonus }], skipped, tracks }.
+// A github_username cell may list several accounts, separated by spaces, commas, ; or | (as grader/roster.py logins).
+function loginsOf(v) { return String(v || '').split(/[\s,;|]+/).map((l) => l.replace(/^@/, '')).filter(Boolean); }
+
+// participants.csv text -> { rows: [{ name, logins, tracks: {key: status}, stretch, prStretch, helped, bonus }], skipped, tracks }.
 // prStretch is the early-PR bonus (RULES.earlyBonus): the grader works it out; it counts as stretch.
 // `tracks` is the exercises as [{ k, label }]; when not given, every column that is not a base or count column is one.
 function readParticipants(text, tracks) {
@@ -65,9 +69,9 @@ function readParticipants(text, tracks) {
   }
   const rows = []; let skipped = 0;
   for (const r of table.slice(1)) {
-    const name = cell(r, 'name').trim().slice(0, 80);
+    const name = cell(r, 'name').trim();
     if (!name) { skipped++; continue; }
-    const p = { name, tracks: {}, stretch: toCount(cell(r, 'stretch')), prStretch: toCount(cell(r, RULES.earlyBonus.column)),
+    const p = { name, logins: loginsOf(cell(r, 'github_username')), tracks: {}, stretch: toCount(cell(r, 'stretch')), prStretch: toCount(cell(r, RULES.earlyBonus.column)),
                 helped: toCount(cell(r, 'helped')), bonus: toInt(cell(r, 'bonus')) };
     tracks.forEach((t) => { p.tracks[t.k] = normStatus(cell(r, t.k)); });
     rows.push(p);

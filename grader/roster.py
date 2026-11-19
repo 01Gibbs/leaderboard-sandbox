@@ -115,6 +115,16 @@ class _Sheet:
         raise NotFound(f'Nobody called "{who}" is on the leaderboard.' + (f' Did you mean {" or ".join(map(repr, close))}?' if close else '')
                        + ' To add someone new, use "add".')
 
+    def refuse_taken(self, who, own=None):
+        """ActionError if `who` already finds a row other than `own`, by name or GitHub login: a person is named by
+        either, so each must find exactly one row."""
+        try:
+            existing = self.find(who)
+        except NotFound:
+            return
+        if existing is not own:
+            raise ActionError(f'"{who}" is already on the leaderboard as {existing["name"]}.')
+
     def by_login(self):
         """{lowercase login: row}, plus warnings for logins that appear on more than one row."""
         found, warnings = {}, []
@@ -140,15 +150,14 @@ class _Sheet:
 class Roster:
     """participants.csv of the leaderboard repository at `root`, with its lessons, history and graded results."""
 
-    batch = None  # (batch id, row number) while a batch is being applied: recorded with each change
-    last_change = None  # the id of the latest change this Roster recorded
-
-    def __init__(self, root):
+    def __init__(self, root, batch=None):
+        """`batch`: (batch id, row number) when this Roster applies one row of a batch, recorded with its change."""
         root = Path(root)
         self.csv_file = root / 'participants.csv'
         self.history_file = root / 'grader' / 'history.json'
         self.batches_file = root / 'grader' / 'batches.json'
         self.root = root
+        self.batch = batch
 
     # ---------- reading ----------
 
@@ -160,6 +169,10 @@ class Roster:
 
     def _sheet(self):
         return _Sheet(self.csv_file, self.lesson_keys())
+
+    def _open(self):
+        """(sheet, graded results): what one action reads, each once. ResultsInvalid when results.json is damaged."""
+        return self._sheet(), Submissions(self.root)
 
     def columns(self):
         return list(self._sheet().head)
@@ -179,7 +192,7 @@ class Roster:
             return 'No facilitator actions yet.'
         return '\n'.join(f'{h["at"]}  {h["by"]}: {h["action"]}' for h in reversed(history))
 
-    # ---------- facilitator actions (each returns a one-line summary) ----------
+    # ---------- facilitator actions (each returns its one-line summary and the id history gave the change) ----------
 
     @staticmethod
     def _new_id(history):
@@ -198,33 +211,28 @@ class Roster:
                 h['id'] = cls._new_id(history)
         return history
 
-    def _record(self, sheet, description):
+    def _record(self, sheet, subs, description):
         """Log which cells the action changed, with a new id (and its batch and row, inside a batch), then save
-        it with graded results brought in."""
+        it with graded results brought in. Returns (description, the change's id)."""
         history = self._with_ids(self.history())
         entry = {'id': self._new_id(history), 'at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'by': actor(),
                  'action': description, 'changes': sheet.changes()}
         if self.batch:
             entry['batch'], entry['row'] = self.batch
         history.append(entry)
-        self.last_change = entry['id']
-        self._save(sheet)  # first: if it fails, no history entry is left for a change that never happened
+        self._save(sheet, subs)  # first: if it fails, no history entry is left for a change that never happened
         self.history_file.write_text(json.dumps(history[-HISTORY_LIMIT:], indent=2) + '\n')  # no mutate: indent is layout
-        return description
+        return description, entry['id']
 
     def add(self, name, github=''):
-        sheet = self._sheet()
+        sheet, subs = self._open()
         name, github = name.strip(), github.strip().lstrip('@')
         if not name:
             raise ActionError('Give the person a name.')
         for who in filter(None, [name, github]):
-            try:
-                existing = sheet.find(who)
-            except NotFound:
-                continue
-            raise ActionError(f'"{who}" is already on the leaderboard as {existing["name"]}.')
+            sheet.refuse_taken(who)
         sheet.new_row(name, github)
-        return self._record(sheet, f'Added {name}' + (f' (@{github})' if github else ''))
+        return self._record(sheet, subs, f'Added {name}' + (f' (@{github})' if github else ''))
 
     def award(self, who, kind, amount=1):  # no mutate: the CLI always passes the amount
         if kind not in COUNTS:
@@ -232,46 +240,47 @@ class Roster:
         amount = to_int(amount)
         if amount == 0:
             raise ActionError('The amount must be a whole number other than 0.')
-        sheet = self._sheet()
+        sheet, subs = self._open()
         row = sheet.find(who)
         before = to_int(row.get(kind))
         if kind != 'bonus' and before + amount < 0:
             raise ActionError(f'{row["name"]} has {before} {kind}; cannot take away {-amount}.')
         row[kind] = str(before + amount)
         unit = {'stretch': 'stretch task', 'helped': 'help', 'bonus': 'bonus point'}[kind]
-        return self._record(sheet, f'{"Gave" if amount > 0 else "Took"} {abs(amount)} {unit}{"" if abs(amount) == 1 else "s"} '
-                                   f'{"to" if amount > 0 else "from"} {row["name"]} ({kind}: {before} -> {row[kind]})')
+        return self._record(sheet, subs, f'{"Gave" if amount > 0 else "Took"} {abs(amount)} {unit}{"" if abs(amount) == 1 else "s"} '
+                                         f'{"to" if amount > 0 else "from"} {row["name"]} ({kind}: {before} -> {row[kind]})')
 
     def mark(self, who, lesson, status):
-        sheet = self._sheet()
+        sheet, subs = self._open()
         if lesson not in sheet.lesson_keys:
             raise ActionError(f'Unknown exercise "{lesson}". Use one of: {", ".join(sheet.lesson_keys)}.')
         if status not in STATUSES:
             raise ActionError(f'Status must be one of: {", ".join(STATUSES)}.')
         row = sheet.find(who)
         before = norm_status(row.get(lesson))
-        earned = self._earned(row, lesson)
+        earned = self._earned(subs, row, lesson)
         if RANK[status] < RANK[earned]:
             raise ActionError(f'{row["name"]}\'s pull request on {lesson} is graded {earned}, so it cannot be marked {status}: '
                               'the grader would put it straight back. If it should not count, close the pull request '
                               'without merging and mark it once it has been graded again.')
         row[lesson] = '' if status == 'none' else status
         note = ' The automatic grader never lowers a status, so a pull request can raise this again.' if RANK[status] < RANK[before] else ''
-        return self._record(sheet, f'Marked {row["name"]} {lesson} as {status} (was {before}).{note}')
+        return self._record(sheet, subs, f'Marked {row["name"]} {lesson} as {status} (was {before}).{note}')
 
     def rename(self, who, new_name):
         new_name = new_name.strip()
         if not new_name:
             raise ActionError('Give the new name.')
-        sheet = self._sheet()
+        sheet, subs = self._open()
         row = sheet.find(who)
+        sheet.refuse_taken(new_name, row)
         old, row['name'] = row['name'], new_name
-        return self._record(sheet, f'Renamed {old} to {new_name}')
+        return self._record(sheet, subs, f'Renamed {old} to {new_name}')
 
     def merge(self, keep_who, drop_whos):
         """Fold other rows into one. Every value keeps the higher of the rows (best status per exercise, larger
         stretch, helped and bonus), so the merged row never has fewer points than any row it replaced."""
-        sheet = self._sheet()
+        sheet, subs = self._open()
         keep, drops = sheet.find(keep_who), []
         for w in drop_whos:
             d = sheet.find(w)
@@ -296,7 +305,7 @@ class Roster:
                     keep[h] = d.get(h, '')
             sheet.rows.remove(d)
         keep[LOGIN] = ' '.join(accounts)
-        return self._record(sheet, f'Merged {", ".join(d["name"] for d in drops)} into {keep["name"]}')
+        return self._record(sheet, subs, f'Merged {", ".join(d["name"] for d in drops)} into {keep["name"]}')
 
     def undo(self, change_id=None):
         """Reverse one change: the latest, or the one with `change_id`, wherever it is in history. Change back
@@ -318,7 +327,7 @@ class Roster:
                 raise ActionError(f'No change {change_id} to undo: it has been undone already, or it is older than '
                                   f'the last {HISTORY_LIMIT} changes.')
             history.remove(last)
-        sheet = self._sheet()
+        sheet, subs = self._open()
         kept = []
         merge = any(c['after'] is None for c in last['changes'])  # it removed rows
         # Handle removals and edits before re-adding rows, so a re-added row is not mistaken for the edited one.
@@ -338,7 +347,7 @@ class Roster:
                 raise ActionError(f'{after["name"]}\'s row has been merged again, or its GitHub usernames changed, since. '
                                   'Undo that first.')
             if before is None:  # the action added this row
-                self._refuse_removing(sheet, current, after)
+                self._refuse_removing(sheet, subs, current, after)
                 sheet.rows.remove(current)
                 continue
             for col, old in before.items():
@@ -350,9 +359,9 @@ class Roster:
                     current[col] = old
                 else:
                     kept.append(f'{current["name"]}\'s {col} was changed again since, so it stays {current.get(col) or "empty"}')
-        self._save(sheet)
+        self._save(sheet, subs)
         self.history_file.write_text(json.dumps(history, indent=2) + '\n')  # no mutate: indent is layout
-        return f'Undid: {last["action"]} (by {last["by"]} at {last["at"]})' + ''.join(f'\nKept: {k}.' for k in kept)
+        return f'Undid: {last["action"]} (by {last["by"]} at {last["at"]})' + ''.join(f'\nKept: {k}.' for k in kept), None
 
     # ---------- batches ----------
 
@@ -380,35 +389,35 @@ class Roster:
         if graded:
             subs.replace_with(graded)
         live = lesson_lifecycle.promote_passed(self.root, subs)
-        changes, warnings = self._save(self._sheet())
+        changes, warnings = self._save(self._sheet(), subs)  # the sheet after promoting: a lesson put live has its column
         return live + changes, warnings
 
-    def _refuse_removing(self, sheet, current, added):
+    def _refuse_removing(self, sheet, subs, current, added):
         """ActionError if taking away a row this person was added with would lose something: a facilitator's change
         since (points, name, GitHub username, a result marked by hand) or graded pull requests (the grader would
         add them straight back)."""
         changed = [col for col in ('name', LOGIN, *COUNTS) if sheet.canon(col, current.get(col, '')) != sheet.canon(col, added.get(col, ''))]
         changed += [lesson for lesson in sheet.lesson_keys  # a result above both what they were added with and what was graded
-                    if RANK[norm_status(current.get(lesson))] > max(RANK[norm_status(added.get(lesson))], RANK[self._earned(current, lesson)])]
+                    if RANK[norm_status(current.get(lesson))] > max(RANK[norm_status(added.get(lesson))], RANK[self._earned(subs, current, lesson)])]
         if changed:
             raise ActionError(f'{added["name"]} has been changed since they were added ({", ".join(changed)}). '
                               'Undo those changes first, or leave them on the board.')
         accounts = {lg.lower() for lg in logins(current)}
-        if any(login.lower() in accounts for login, _, _ in Submissions(self.root).best_statuses(set(sheet.lesson_keys))):
+        if any(login.lower() in accounts for login, _, _ in subs.best_statuses(set(sheet.lesson_keys))):
             raise ActionError(f'{added["name"]} has graded pull requests, so the grader would add them straight back. '
                               'Leave them on the board.')
 
-    def _earned(self, row, lesson):
+    @staticmethod
+    def _earned(subs, row, lesson):
         """The best status the row's pull requests on `lesson` have earned."""
         accounts = {l.lower() for l in logins(row)}
-        return max((s for login, _, s in Submissions(self.root).best_statuses({lesson}) if login.lower() in accounts),
+        return max((s for login, _, s in subs.best_statuses({lesson}) if login.lower() in accounts),
                    key=RANK.get, default='none')
 
-    def _save(self, sheet):
-        """Save the sheet with every graded result brought in: each person's exercise status raised to the best
-        result of their pull requests (never lowered), a row added for anyone new, and everyone's early-PR
+    def _save(self, sheet, subs):
+        """Save the sheet with every graded result in `subs` brought in: each person's exercise status raised to the
+        best result of their pull requests (never lowered), a row added for anyone new, and everyone's early-PR
         bonus set. Returns (changes, warnings) as lines of text."""
-        subs = Submissions(self.root)
         by_login, warnings = sheet.by_login()
         keys = set(sheet.lesson_keys)
 

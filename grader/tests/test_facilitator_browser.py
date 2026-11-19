@@ -204,7 +204,7 @@ class FacilitatorJourneyTests(unittest.TestCase):
         self.pick('Asha Rao')
         self.page.locator('#more').click()
         self.page.get_by_role('menuitem', name='Same person as…').click()
-        self.page.locator('#inline [name=other]').select_option('Dup Person')
+        self.page.locator('#inline [name=other]').select_option(label='Dup Person (@dup-person)')
         preview = self.page.locator('[data-tour="merge-preview"]')
         expect(preview).to_contain_text('asha-rao dup-person')
         self.page.locator('#inline').get_by_role('button', name='Add to changes').click()
@@ -558,7 +558,7 @@ class FacilitatorJourneyTests(unittest.TestCase):
         self.assertEqual(query['template'], 'facilitator-changes.yml')
         self.assertRegex(query['batch'], r'^[A-Za-z0-9][A-Za-z0-9-]{1,63}$', 'an id leaderboard.py batch accepts')
         self.assertEqual([json.loads(line) for line in query['changes'].splitlines()],
-                         [['award', 'Asha Rao', 'helped', '1'], ['award', 'Asha Rao', 'stretch', '1']])
+                         [['award', 'asha-rao', 'helped', '1'], ['award', 'asha-rao', 'stretch', '1']])  # by login: one row
         expect(page.locator('#queue li.waiting')).to_have_count(2)
         page.locator('#find').fill('Ben Okafor')
         page.locator('#find').press('Enter')
